@@ -166,6 +166,7 @@ EMAIL_USE_SSL = True
 EMAIL_HOST_USER = "resend"
 EMAIL_HOST_PASSWORD = os.environ.get("RESEND_API_KEY", "")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@inventorymanager.xyz")
+EMAIL_TIMEOUT = 10
 
 # Currency is locked to USD for v1.
 DEFAULT_CURRENCY = "USD"

@@ -61,19 +61,27 @@ def signup(request):
         )
 
         confirm_url = f"https://{base}/signup/confirm/{pending.token}/"
-        send_mail(
-            subject="Confirm your DERP workspace",
-            message=(
-                f"Hi,\n\n"
-                f"You requested a workspace at {data['subdomain']}.{base}.\n\n"
-                f"Click the link below to confirm and activate it:\n{confirm_url}\n\n"
-                f"This link expires in 24 hours. If you didn't sign up, you can ignore this email.\n\n"
-                f"— The DERP team"
-            ),
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[data["email"]],
-            fail_silently=False,
-        )
+        try:
+            send_mail(
+                subject="Confirm your DERP workspace",
+                message=(
+                    f"Hi,\n\n"
+                    f"You requested a workspace at {data['subdomain']}.{base}.\n\n"
+                    f"Click the link below to confirm and activate it:\n{confirm_url}\n\n"
+                    f"This link expires in 24 hours. If you didn't sign up, you can ignore this email.\n\n"
+                    f"— The DERP team"
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[data["email"]],
+                fail_silently=False,
+            )
+        except Exception:
+            pending.delete()
+            return render(request, "tenants/signup.html", {
+                "form": form,
+                "captcha_error": "Failed to send confirmation email. Please try again later or contact support.",
+                "turnstile_site_key": getattr(settings, "TURNSTILE_SITE_KEY", ""),
+            })
 
         return render(request, "tenants/signup_pending.html", {
             "email": data["email"],

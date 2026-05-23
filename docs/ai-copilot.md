@@ -44,6 +44,7 @@ Unlike drafts (PO/SO/MO), the copilot can post stock movements (receipts, issues
 - `what BOMs use widget?`
 - `what's the stock on PLA filament?`
 - `show recent purchase prices for PLA filament from BambuLab`
+- `find warehouse East` or `list locations`
 
 ### Answer questions about the page you're on
 
@@ -54,6 +55,8 @@ The copilot reads the URL. On a record detail page, references like "them", "thi
 - On `/purchase-orders/12/`: *"what's on this PO?"* → fetches the lines
 - On `/boms/4/`: *"make 100"* → drafts an MO using that BOM directly
 - On `/products/W-001/`: *"draft a PO for 50 from BambuLab"* → product pre-filled, only vendor needed
+- On `/products/locations/5/edit/`: *"tell me about this location"* or *"what is in stock here?"* → fetches warehouse active status, description, and real-time localized product stock levels
+
 
 ### Use defaults when you don't have all the info
 

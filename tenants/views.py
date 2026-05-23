@@ -238,6 +238,13 @@ def confirm(request, token):
 
     base = settings.BASE_DOMAIN
 
+    if request.method != "POST":
+        return render(request, "tenants/confirm_pending.html", {
+            "company_name": pending.company_name,
+            "subdomain": pending.subdomain,
+            "workspace_url": f"{_external_scheme(request)}://{pending.subdomain}.{base}/",
+        })
+
     tenant = TenantCompany(schema_name=pending.subdomain, name=pending.company_name)
     tenant.save()
     Domain.objects.create(domain=f"{pending.subdomain}.{base}", tenant=tenant, is_primary=True)

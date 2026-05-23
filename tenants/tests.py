@@ -4,9 +4,10 @@ from unittest.mock import patch
 from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone
 
-from .models import PendingTenant
+from .models import Domain, PendingTenant, TenantCompany
 from .views import (
     _pending_subdomain_from_hostname,
+    confirm,
     features,
     landing,
     robots_txt,
@@ -171,3 +172,46 @@ class PublicSiteUrlTests(TestCase):
         self.assertIn("https://public.example/signup/confirm/", text_body)
         self.assertIn("You requested a workspace at acme.workspaces.example.", text_body)
         self.assertNotIn("inventorymanager.xyz", text_body)
+
+
+class SignupConfirmTests(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    @override_settings(BASE_DOMAIN="inventorymanager.test", ALLOWED_HOSTS=["inventorymanager.test", ".inventorymanager.test"])
+    def test_confirm_get_shows_activation_form_without_provisioning(self):
+        pending = PendingTenant.create_for(
+            company_name="Acme",
+            subdomain="acme",
+            email="owner@example.com",
+            raw_password="correct horse battery staple 123",
+        )
+
+        request = self.factory.get(f"/signup/confirm/{pending.token}/", HTTP_HOST="inventorymanager.test")
+        response = confirm(request, pending.token)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Activate workspace")
+        self.assertTrue(PendingTenant.objects.filter(pk=pending.pk).exists())
+        self.assertFalse(TenantCompany.objects.filter(schema_name="acme").exists())
+        self.assertFalse(Domain.objects.filter(domain="acme.inventorymanager.test").exists())
+
+    @override_settings(BASE_DOMAIN="inventorymanager.test", ALLOWED_HOSTS=["inventorymanager.test", ".inventorymanager.test"])
+    @patch("django.core.management.call_command")
+    def test_confirm_post_provisions_workspace(self, call_command_mock):
+        pending = PendingTenant.create_for(
+            company_name="Acme",
+            subdomain="acme",
+            email="owner@example.com",
+            raw_password="correct horse battery staple 123",
+        )
+
+        request = self.factory.post(f"/signup/confirm/{pending.token}/", HTTP_HOST="inventorymanager.test")
+        response = confirm(request, pending.token)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Your workspace is ready")
+        self.assertFalse(PendingTenant.objects.filter(pk=pending.pk).exists())
+        self.assertTrue(TenantCompany.objects.filter(schema_name="acme").exists())
+        self.assertTrue(Domain.objects.filter(domain="acme.inventorymanager.test").exists())
+        call_command_mock.assert_called_once_with("seed_chart_of_accounts", verbosity=0)

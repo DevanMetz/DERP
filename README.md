@@ -1,236 +1,310 @@
-# DERP — Open Source ERP Software for Small Business
+# DERP - Open Source ERP Software for Small Business
 
-**DERP** (Devan's Enterprise Resource Planner) is a **free, open source ERP** for small and medium businesses. It bundles **double-entry accounting**, **inventory management with weighted average costing**, **sales orders & invoicing**, **purchase orders & bills**, and **manufacturing with bills of materials (BOMs)** into a single, lightweight Django application. **MIT licensed** — self-host it on your own server, or use the hosted version free.
+**DERP** (Devan's Enterprise Resource Planner) is a free, open source ERP for small and medium businesses. It combines double-entry accounting, inventory management with weighted-average costing, sales orders and invoicing, purchase orders and bills, manufacturing with bills of materials, and tenant-based workspaces in a lightweight Django application.
 
-> **Open source ERP · Free ERP software · Self-hosted ERP · Multi-tenant SaaS · Django ERP**
+DERP is MIT licensed. You can self-host it, modify it, or use it as the foundation for a business system without per-seat fees or open-core restrictions.
 
-🌐 **Hosted version:** **[inventorymanager.xyz](https://inventorymanager.xyz)** — sign up and get a private workspace at `yourcompany.inventorymanager.xyz` in under a minute.
-📂 **Source code:** [github.com/DevanMetz/DERP](https://github.com/DevanMetz/DERP)
-📜 **License:** MIT — use it for anything, including commercial projects.
+- Hosted version: [inventorymanager.xyz](https://inventorymanager.xyz)
+- Source code: [github.com/DevanMetz/DERP](https://github.com/DevanMetz/DERP)
+- License: MIT, see [LICENSE](LICENSE)
 
 ## Why DERP?
 
-Most ERPs are either prohibitively expensive (per-seat SaaS) or sprawling enterprise platforms that take a team of consultants to deploy. DERP is the opposite:
+Most ERP systems are either expensive SaaS products or large enterprise platforms that take significant time to deploy. DERP aims for the middle ground: a practical, understandable ERP that small teams can run and extend.
 
-- **Truly free** — MIT license, no per-seat fees, no contributor agreement, no "open core" upsell
-- **Lightweight** — one Django codebase, no microservices, no plugin marketplace
-- **Self-host or hosted** — run it yourself on a $5 VPS, or use the free hosted version
-- **Your data is yours** — standard PostgreSQL, export to CSV or JSON anytime
-- **Production-ready** — schema-per-tenant isolation, Argon2 password hashing, HTTPS+HSTS, rate limiting, CAPTCHA
+- Free and open source under the MIT license
+- One Django codebase with server-rendered templates
+- Schema-per-tenant isolation with `django-tenants`
+- PostgreSQL-backed business records and standard export paths
+- Accounting, inventory, sales, purchasing, and manufacturing in one system
+- Service-layer workflows for financial and stock integrity
 
----
+## Key Features
 
-## 🌟 Key Features
+### Multi-Tenant SaaS Architecture
 
-### 1. Multi-Tenant SaaS Architecture
-* **Schema-per-tenant isolation**: Each company runs in its own private PostgreSQL schema — zero data bleed between customers.
-* **Self-serve signup**: Enter a company name, subdomain, email, and password. Your workspace is provisioned and Chart of Accounts is seeded automatically.
-* **Subdomain routing**: Every tenant gets a dedicated URL (`acme.inventorymanager.xyz`). The `django-tenants` middleware routes all requests to the correct schema transparently.
+- Schema-per-tenant isolation: each company runs in its own PostgreSQL schema.
+- Self-serve signup: company name, subdomain, email, and password create a workspace.
+- Subdomain routing: `django-tenants` maps each request to the correct tenant schema.
+- Public landing/signup routes are separated from tenant workspace routes.
 
-### 2. Modern Personalized UI & Workspace
-* **Drag-and-Drop Grid Dashboard**: Reorganize app modules on the homepage using native HTML5 drag-and-drop with browser `localStorage` persistent layouts (`130px` square grid).
-* **Global Favorites Star Pinning**: Toggle star shortcuts (`★`) on module cards to pin them instantly as gold-amber shortcut badges at the top of the global navbar.
-* **Smart Contextual Navigation**: The header detects your current path and shows only navigation tabs relevant to your active app workspace, automatically deduplicating pinned shortcuts.
+### Workspace and Navigation
 
-### 3. Automatic Document Generation (P2P & O2C)
-* **Purchase-to-Pay (Receipt ➡️ Bill)**: Generate a draft vendor bill directly from a Goods Receipt with a single click. Pre-populates lines with received quantities, unit costs, and expense accounts, preventing duplicate billing.
-* **Order-to-Cash (Sales Order ➡️ Shipment/Invoice)**: Confirming a Sales Order automatically confirms the order, creates a draft customer Invoice, and posts `ISSUE` type StockMovements for all stock items.
-* **Safe transactional rollbacks**: If raw material quantities are insufficient during confirmation, the transaction is fully rolled back, preserving stock values.
-* **GL Double-Posting Prevention**: Skips duplicate stock issue movements when posting the draft invoice to SENT, while still posting balanced COGS and Inventory GL entries.
-* **Draft Deletion Clean-up**: Deleting a draft invoice automatically reverses the stock issue by posting reversing `RECEIPT` movements to return items to inventory.
+- Tenant home workspace with application module shortcuts.
+- Dashboard views for operational and financial indicators.
+- Contextual navigation for accounting, inventory, sales, purchasing, and manufacturing workflows.
+- Company setup, data import, data export, and global search screens.
 
-### 4. Balanced Double-Entry Financial Ledger
-* **Immutable Journal Entries**: All business transactions are processed through the core posting service (`accounting.services.post_transaction()`), guaranteeing balanced DR/CR totals.
-* **Strict Reversing Voids**: Voiding invoices, bills, or manual journal entries generates gap-free reversing entries (DR/CR swapped), keeping historical ledger records immutable.
-* **Financial Reports**: Trial Balance, Balance Sheet, Profit & Loss statement, and General Ledger with full account drill-downs to individual journal entries.
+### Accounting
 
-### 5. Inventory, Costing & Valuation
-* **Weighted Average Costing (WAC)**: Every stock `RECEIPT` or positive `ADJUSTMENT` movement automatically recalculates the product's average cost base:
-  $$\text{New Cost} = \frac{(\text{Current Qty} \times \text{Current Cost}) + (\text{Received Qty} \times \text{Received Cost})}{\text{Current Qty} + \text{Received Qty}}$$
-* **Automatic COGS Postings**: Invoice postings automatically issue physical stock and write balanced **DR COGS (5100)** / **CR Inventory (1300)** lines into the journal transaction.
-* **Low-Stock Alerting**: High-impact red warning badges in the catalog and a dedicated dashboard widget alert operators of items below their low-stock thresholds.
+- Double-entry journal posting through `accounting.services.post_transaction()`.
+- Balanced debit and credit validation before entries are persisted.
+- Immutable posted journal entries.
+- Reversing entries for voids and corrections.
+- Gap-free document numbering backed by the core numbering service.
+- Financial reports:
+  - Trial Balance
+  - Balance Sheet
+  - Income Statement
+  - General Ledger with drill-down links
 
-### 6. Manufacturing & Recipes (BOMs)
-* **Dynamic Cost Rollups**: Calculate finished goods' standard recipe unit costs dynamically based on component raw material costs and product usage ratios.
-* **Interactive Shortage Visualizer**: The Manufacturing Order detail page matches raw component target requirements against current stock-on-hand, alerting the operator of shortages in red/green badges.
-* **Atomic Completion**: Completing a Manufacturing Order atomically issues all component materials, receives the finished goods, and posts a balanced double-entry GL transaction.
+### Inventory
 
-### 7. Interactive Analytics Dashboard
-* **Real-time Financial Indicators**: Real-time YTD Sales Revenue, Cost base, Net Profit, and outstanding AR/AP positions.
-* **Book Valuation Reconciliation**: A validation engine matching General Ledger inventory accounts against live physical stock values to identify variances immediately.
-* **Beautiful Charting**: Interactive Chart.js charts detailing month-by-month cash flows and doughnut charts dividing warehouse inventory value (with top-5 item isolating and dynamic grouping).
+- Product catalog with stock and service item types.
+- Stock movement ledger for receipts, issues, and adjustments.
+- Weighted-average cost recalculation on stock receipts and positive adjustments.
+- Stock-on-hand tracking with validation against over-issuing.
+- Low-stock thresholds and dashboard alerts.
+- Product image uploads with media storage support.
 
-### 8. PDF Document Downloads
-* **On-Demand PDF Generation**: Single-click downloading of professional vector-based PDF documents for Sales Orders, Invoices, and Purchase Orders generated on-the-fly via ReportLab.
-* **DERP Corporate Styling**: Styled with unified brand typography, corporate navy headers, alternating table row shading, and structured notes/totals bands.
+### Sales
 
-### 9. Custom Product Image Icons & Avatars
-* **Visual Catalog Thumbnails**: Renders `40x40px` rounded image icons for products in the master inventory list.
-* **Responsive Visual Fallbacks**: Generates a stylish, color-coded SKU letter-initial placeholder matching the product type when no image is uploaded.
-* **Premium Detail Avatars**: Displays a high-resolution `96x96px` rounded avatar on the product detail page alongside KPI costings.
-* **Multipart Form Uploads**: Seamless file upload selectors in the product editor (JPG/PNG/GIF/WebP, max 5 MB).
+- Customer records and customer profile dashboards.
+- Sales order creation, confirmation, invoicing, and undo flows.
+- Automatic draft invoice creation when confirming a sales order.
+- Stock issue creation during sales order confirmation.
+- Invoice posting with AR, revenue, tax, COGS, and inventory postings.
+- Invoice voiding through reversing journal entries.
+- PDF downloads for sales orders and invoices.
 
-### 10. System-wide Deep Linking
-* **Every Record Linked**: All document cross-references throughout the UI are interactive — customer/vendor names, product SKUs, invoice numbers, journal entry references, goods receipt numbers, and manufacturing order numbers all link directly to their respective detail pages.
-* **Financial Report Drill-downs**: Account codes and names in Trial Balance, Balance Sheet, and P&L reports link directly to the filtered General Ledger view for that account.
-* **Source Document Linking**: Posted journal entries display and link to the originating source document.
+### Purchasing
 
-### 11. Customer & Vendor Profile Dashboards
-* **Customer Dashboard**: Full profile view showing contact info, billing/shipping addresses, lifetime posted revenue, outstanding AR balance, and a chronological history of all related Sales Orders and Invoices.
-* **Vendor Dashboard**: Full profile view showing contact info, default expense account, business address, internal notes, lifetime purchases, outstanding AP balance, and a chronological history of all related Purchase Orders and Bills.
+- Vendor records and vendor profile dashboards.
+- Purchase order issue and unissue flows.
+- Goods receipts with inventory updates.
+- Draft bill creation from purchase orders or goods receipts.
+- Duplicate bill prevention for goods receipt billing.
+- Bill posting and voiding through accounting journal entries.
+- Goods receipt reversal with stock rollback.
+- PDF downloads for purchase orders.
 
-### 12. Data Export & Import
-* **ZIP Archive of CSVs**: Export any combination of tables to a ZIP file of Excel-ready CSV spreadsheets.
-* **Django JSON Backups**: Full database snapshots in standard Django fixture format, fully restoration-ready via `manage.py loaddata`.
-* **Atomic CSV Bulk Upload**: Map CSV columns to database fields with create-or-update logic and full rollback on any validation error.
-* **JSON Backup Restoration**: Restore full database states from standard Django JSON fixture backups.
+### Manufacturing
 
----
+- Bills of materials for finished goods recipes.
+- BOM component validation to prevent circular finished-good usage.
+- Cost rollups from component product costs.
+- Manufacturing order draft, confirm, complete, and cancel flows.
+- Completion issues raw materials, receives finished goods, updates finished-good cost, and posts balanced GL entries.
+- Shortage validation rolls the whole completion transaction back when materials are insufficient.
 
-## 🛠️ Technology Stack
+### Data Import and Export
+
+- JSON fixture export for backup and restoration workflows.
+- ZIP archive export of CSV files.
+- CSV import with create-or-update behavior.
+- JSON backup restoration with transactional rollback on failure.
+
+### PDF Documents
+
+- ReportLab-based PDF generation for:
+  - Sales Orders
+  - Invoices
+  - Purchase Orders
+
+## Technology Stack
 
 | Layer | Technology |
-|---|---|
-| **Core Backend** | Python 3.13+, Django 5.1 |
-| **Database** | PostgreSQL 15+ |
-| **Multi-tenancy** | django-tenants (schema-per-tenant) |
-| **Authentication** | django-allauth (email + TOTP 2FA) |
-| **Password Hashing** | Argon2 |
-| **Document Generation** | ReportLab (vector PDF) |
-| **Image Handling** | Pillow |
-| **Frontend Charting** | Chart.js |
-| **UI Interactions** | HTML5 Drag & Drop API, Browser `localStorage` |
-| **Audit Logging** | django-simple-history |
-| **Styling** | Custom modern CSS (glassmorphism, responsive grid) |
-| **Hosting** | Railway (PostgreSQL + Gunicorn + Whitenoise) |
+| --- | --- |
+| Backend | Python, Django 5.x |
+| Database | PostgreSQL |
+| Multi-tenancy | django-tenants |
+| Authentication | Django auth, django-allauth |
+| MFA support | django-allauth MFA, fido2 |
+| Audit history | django-simple-history |
+| HTMX support | django-htmx |
+| Password hashing | Argon2 |
+| PDF generation | ReportLab |
+| Image handling | Pillow |
+| Static files | Whitenoise |
+| Production server | Gunicorn |
 
----
+See [requirements.txt](requirements.txt) for exact dependency ranges.
 
-## 📂 Directory Layout
+## Directory Layout
 
+```text
+config/             Django settings, URL routing, WSGI, public URL config
+tenants/            Tenant/domain models, public signup, tenant provisioning
+core/               User model, company profile, dashboard, import/export, numbering
+accounting/         Accounts, journal entries, posting service, reports
+inventory/          Products, stock movements, stock-on-hand, costing logic
+sales/              Customers, sales orders, invoices, customer payments
+purchasing/         Vendors, purchase orders, goods receipts, bills, vendor payments
+manufacturing/      BOMs, BOM components, manufacturing orders
+projects/           Project app placeholder
+templates/          Server-rendered Django templates
+media/              Runtime-uploaded media files
 ```
-config/             Django project settings, urls, routing
-tenants/            Tenant/domain models, self-serve signup, rate limiting
-core/               Company profile, dashboard analytics, data import/export
-accounting/         Accounts, Journal Entries, Payments, posting engine, financial reports
-inventory/          Products, Stock Movements, Stock On Hand, costing calculations
-sales/              Customers, Sales Orders, Customer Invoices
-purchasing/         Vendors, Purchase Orders, Goods Receipts, Bills
-manufacturing/      Bill of Materials (BOM), BOM Components, Manufacturing Orders
-templates/          Server-rendered templates and base layouts
-media/              Uploaded product images (generated at runtime)
-```
 
----
+## Getting Started
 
-## 🚀 Getting Started
+### Option A - Use the hosted version
 
-### Option A — Use the hosted version
+Go to [inventorymanager.xyz](https://inventorymanager.xyz), create a workspace, and use your company subdomain.
 
-Go to **[inventorymanager.xyz](https://inventorymanager.xyz)**, click **Create your workspace**, and you're up in under a minute.
-
-### Option B — Self-host
+### Option B - Run locally
 
 #### Prerequisites
-* Python 3.13+
-* PostgreSQL 15+
-* Virtual environment
+
+- Python 3.11 or newer
+- PostgreSQL
+- A virtual environment
 
 #### Installation
 
 1. Clone and enter the repo:
+
    ```bash
    git clone https://github.com/DevanMetz/DERP.git
    cd DERP
    ```
 
 2. Create and activate a virtual environment:
+
    ```bash
    python -m venv .venv
-   # Windows:
+   ```
+
+   Windows:
+
+   ```powershell
    .venv\Scripts\activate
-   # macOS/Linux:
+   ```
+
+   macOS/Linux:
+
+   ```bash
    source .venv/bin/activate
    ```
 
 3. Install dependencies:
+
    ```bash
    pip install -r requirements.txt
    ```
 
-4. Copy the environment template and configure your database:
+4. Copy the environment template:
+
    ```bash
    cp .env.example .env
-   # Edit .env — set DATABASE_URL and BASE_DOMAIN at minimum
    ```
 
-5. Run shared-schema migrations (tenant routing tables):
+   Configure at least:
+
+   ```text
+   SECRET_KEY=...
+   DEBUG=True
+   DATABASE_URL=postgres://erp:erp@localhost:5432/erp
+   BASE_DOMAIN=localhost
+   ```
+
+5. Run shared-schema migrations:
+
    ```bash
    python manage.py migrate_schemas --shared
    ```
 
-6. Create the public tenant record:
+6. Create the public tenant:
+
    ```bash
    python manage.py create_public_tenant
    ```
 
 7. Start the development server:
+
    ```bash
    python manage.py runserver 8001
    ```
 
-   Then visit [http://localhost:8001](http://localhost:8001) to sign up and create a tenant.
+8. Open [http://localhost:8001](http://localhost:8001) and create a tenant workspace.
 
-#### Running Tests
+## Environment Variables
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `SECRET_KEY` | Django secret key | `dev-only-do-not-use-in-prod` |
+| `DEBUG` | Enables development behavior | `False` |
+| `DATABASE_URL` | PostgreSQL connection string | `postgres://erp:erp@localhost:5432/erp` |
+| `BASE_DOMAIN` | Root domain for tenant subdomains | `localhost` |
+| `ALLOWED_HOSTS` | Comma-separated host allowlist | `localhost,127.0.0.1` |
+| `RAILWAY_PUBLIC_DOMAIN` | Optional Railway host | empty |
+| `TURNSTILE_SITE_KEY` | Cloudflare Turnstile site key | empty |
+| `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret key | empty |
+| `RESEND_API_KEY` | Resend SMTP/API key | empty |
+| `DEFAULT_FROM_EMAIL` | Outbound email sender | `noreply@inventorymanager.xyz` |
+
+## Running Tests
+
+Run the full test suite:
 
 ```bash
 python manage.py test
 ```
 
-> **68 unit tests** across all modules — all green. ✅
+The repository currently contains 72 test methods across the core, accounting, inventory, sales, purchasing, and manufacturing modules. The highest-value tests cover financial posting integrity, stock movement validation, sales order automation, purchasing receipt/bill flows, manufacturing completion, import/export, PDFs, and dashboard/report behavior.
 
----
+For focused runs:
 
-## 🗂️ Module Overview
+```bash
+python manage.py test accounting
+python manage.py test inventory
+python manage.py test sales
+python manage.py test purchasing
+python manage.py test manufacturing
+python manage.py test core
+```
 
-| Module | URL Prefix | Description |
-|---|---|---|
-| Landing / Signup | `/` (public domain) | Marketing page and self-serve tenant signup |
-| Home / Workspace | `/` (tenant subdomain) | Drag-and-drop app grid, low-stock alerts |
-| Analytics Dashboard | `/dashboard/` | KPIs, Chart.js revenue & inventory charts |
-| Products | `/products/` | Inventory catalog, costing, image uploads |
-| Stock Movements | `/stock-movements/` | Receipt, Issue, Adjustment ledger |
-| Customers | `/customers/` | Profile dashboards, AR tracking |
-| Sales Orders | `/sales-orders/` | O2C order management, PDF download |
-| Invoices | `/invoices/` | Customer invoicing, void, PDF download |
-| Vendors | `/vendors/` | Profile dashboards, AP tracking |
-| Purchase Orders | `/purchase-orders/` | P2P order management, PDF download |
-| Goods Receipts | `/goods-receipts/` | Warehouse receiving, auto-bill generation |
-| Bills | `/bills/` | Vendor billing, void |
-| Accounts | `/accounts/` | Chart of Accounts |
-| Journal Entries | `/journals/` | Manual JE creation, void/reverse |
-| Payments | `/payments/` | AR/AP payment application |
-| Reports | `/reports/` | Trial Balance, Balance Sheet, P&L, GL |
-| Bill of Materials | `/boms/` | Recipe management, cost rollups |
-| Manufacturing Orders | `/manufacturing-orders/` | Production runs, shortage checking |
-| Data Export | `/export/` | CSV ZIP & JSON fixture downloads |
-| Data Import | `/import/` | CSV bulk upload & JSON restoration |
+## Module Routes
 
----
+| Area | URL paths |
+| --- | --- |
+| Public landing/signup | `/` on the public domain |
+| Tenant home | `/` on a tenant workspace |
+| Dashboard | `/dashboard/` |
+| Company setup | `/company/` |
+| Data export | `/export/` |
+| Data import | `/import/` |
+| Search | `/search/` |
+| Products | `/products/`, `/products/new/`, `/products/<id>/`, `/products/<id>/edit/` |
+| Inventory ledger | `/products/ledger/` |
+| Customers | `/customers/`, `/customers/new/`, `/customers/<id>/`, `/customers/<id>/edit/` |
+| Sales orders | `/sales-orders/`, `/sales-orders/new/`, `/sales-orders/<id>/` |
+| Sales order actions | `/sales-orders/<id>/confirm/`, `/unconfirm/`, `/invoice/`, `/undo-invoice/`, `/pdf/` |
+| Invoices | `/invoices/`, `/invoices/new/`, `/invoices/<id>/` |
+| Invoice actions | `/invoices/<id>/post/`, `/void/`, `/pdf/` |
+| Customer payments | `/payments/new/` |
+| Vendors | `/vendors/`, `/vendors/new/`, `/vendors/<id>/`, `/vendors/<id>/edit/` |
+| Purchase orders | `/purchase-orders/`, `/purchase-orders/new/`, `/purchase-orders/<id>/` |
+| Purchase order actions | `/purchase-orders/<id>/issue/`, `/unissue/`, `/receive/`, `/bill/`, `/undo-bill/`, `/pdf/` |
+| Goods receipts | `/goods-receipts/<id>/`, `/goods-receipts/<id>/bill/`, `/goods-receipts/<id>/reverse/` |
+| Bills | `/bills/`, `/bills/new/`, `/bills/<id>/` |
+| Bill actions | `/bills/<id>/post/`, `/void/` |
+| Vendor payments | `/vendor-payments/new/` |
+| Journals | `/journal/`, `/journal/new/`, `/journal/<id>/`, `/journal/<id>/reverse/` |
+| Reports | `/reports/trial-balance/`, `/reports/income-statement/`, `/reports/balance-sheet/`, `/reports/general-ledger/` |
+| BOMs | `/boms/`, `/boms/create/`, `/boms/<id>/`, `/boms/<id>/edit/` |
+| Manufacturing orders | `/manufacturing-orders/`, `/manufacturing-orders/create/`, `/manufacturing-orders/<id>/` |
+| Manufacturing actions | `/manufacturing-orders/<id>/confirm/`, `/complete/`, `/cancel/` |
 
-## 🔒 Security
+## Development Notes
 
-* HTTPS enforced in production with HSTS (1 year, including subdomains)
-* Argon2 password hashing
-* Login rate limiting: 5 failed attempts per 5 minutes per account
-* Signup rate limiting: 5 attempts per hour per IP (database-backed)
-* CSRF protection on all state-changing requests
-* `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`
-* File uploads capped at 5 MB with extension whitelist
-* Schema isolation: tenant data is physically separated at the PostgreSQL schema level
+- Business workflows should go through service functions rather than duplicating posting logic in views.
+- Posted journal entries are intentionally immutable; corrections should use reversing entries.
+- Stock issues should be validated through inventory services so stock-on-hand cannot be overdrawn.
+- Multi-step workflows that affect stock and accounting should be atomic.
+- Tenant-aware commands and migrations should use the `django-tenants` workflow.
 
----
+## Security
 
-## 📄 License
+- HTTPS and HSTS are enabled when `DEBUG=False`.
+- Argon2 is the preferred password hasher.
+- Login failures are rate-limited through django-allauth settings.
+- Signup attempts are tracked by tenant signup logic.
+- CSRF protection is enabled for state-changing requests.
+- Security headers include `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: strict-origin-when-cross-origin`.
+- Upload memory limits are capped at 5 MB.
+- Tenant data is separated by PostgreSQL schema.
 
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for the full text.
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.

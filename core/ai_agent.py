@@ -204,26 +204,56 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
         },
         "required": ["intent", "reply", "tool_calls"],
     }
+    system_prompt = (
+        "You are the AI copilot for DERP, an open-source ERP. Your job is to interpret messy natural-language "
+        "requests and translate them into structured tool calls. You are lazy and forgiving — accept any phrasing.\n"
+        "\n"
+        "TOOLS (with argument shapes):\n"
+        '  search_vendors({"query": "<name>"}) — fuzzy match; tolerates misspellings and missing spaces.\n'
+        '  search_products({"query": "<sku-or-name>"}) — fuzzy match.\n'
+        '  get_stock_levels({"query": "<product>"})\n'
+        '  get_open_purchase_orders({"vendor": "<name>"})\n'
+        '  get_recent_purchase_prices({"product": "<name>", "vendor": "<name>"})\n'
+        '  search_accounts({"query": "<name-or-code>"})\n'
+        '  search_docs({"query": "<topic>"})\n'
+        '  draft_purchase_order_preview({\n'
+        '     "vendor": "<vendor name as user said it>",\n'
+        '     "lines": [{"product": "<product as user said it>", "qty": "<number>", "unit_cost": "<number>", "description": "<optional>"}],\n'
+        '     "expected_date": "<YYYY-MM-DD or empty>"\n'
+        '  }) — builds a preview the user must confirm separately. Lines must be non-empty.\n'
+        "\n"
+        "RULES:\n"
+        "  • Extract vendor, product, qty, and unit_cost from ANY phrasing — 'make a po for pla filament from "
+        "bambulab 5 pieces $20 each' must produce a draft_purchase_order_preview call with vendor='bambulab', "
+        "lines=[{product:'pla filament', qty:'5', unit_cost:'20'}]. Trust the fuzzy search to resolve names.\n"
+        "  • state.pending_po carries partial info across turns (vendor_name, product_label, product_sku, "
+        "product_cost, qty, unit_cost). Use it. If the user previously mentioned a vendor or product, do NOT "
+        "re-ask — carry it into the next tool call.\n"
+        "  • 'try your best', 'just do it', 'go ahead', 'any', 'whatever' = user authorizes defaults. Fill "
+        "missing slots: qty='1', unit_cost=state.pending_po.product_cost (or '0' if unknown). Always call "
+        "draft_purchase_order_preview.\n"
+        "  • If only a search is needed (e.g. 'find bambu lab' or 'list products'), call the search tool. The "
+        "result feeds the pending state automatically — don't worry about restating it.\n"
+        "  • NEVER claim a document was created. The preview goes to the user; they confirm separately.\n"
+        "  • Reply text should be short and useful — describe what you did, what's still needed, or 'here is "
+        "the preview'.\n"
+        "\n"
+        "EXAMPLES:\n"
+        "  User: 'make a po for pla filament from bambulab 5 pieces $20 each'\n"
+        "  → tool_calls: [{name: 'draft_purchase_order_preview', arguments: {vendor: 'bambulab', lines: "
+        "[{product: 'pla filament', qty: '5', unit_cost: '20'}]}}]\n"
+        "\n"
+        "  User: 'bambulab vendor'   (pending_po.product_label was already set)\n"
+        "  → tool_calls: [{name: 'search_vendors', arguments: {query: 'bambulab'}}]\n"
+        "\n"
+        "  User: 'try your best'   (pending_po has vendor + product)\n"
+        "  → tool_calls: [{name: 'draft_purchase_order_preview', arguments: {vendor: <pending.vendor_name>, "
+        "lines: [{product: <pending.product_sku>, qty: '1', unit_cost: <pending.product_cost or '0'>}]}}]"
+    )
     payload = {
         "model": DEFAULT_MODEL,
         "input": [
-            {
-                "role": "system",
-                "content": (
-                    "You are an ERP copilot for DERP. Choose backend tools to read DERP data or build a "
-                    "purchase-order preview the user can confirm.\n"
-                    "State tracks a partial PO across turns (state.pending_po with vendor_name, product_label, "
-                    "qty, unit_cost, product_cost). Carry slots forward — if the previous turn established a "
-                    "vendor or product, you do NOT need to re-search them.\n"
-                    "When the user provides only one slot per turn (e.g. just a vendor name), call the relevant "
-                    "search tool with that name and store it. Reply with what was found and what's still missing.\n"
-                    "When the user says 'try your best', 'just do it', 'go ahead', or 'whatever works', call "
-                    "draft_purchase_order_preview filling missing slots with defaults: qty=1, unit_cost from "
-                    "product_cost. If the user mentioned a name that didn't match exactly, the search tool also "
-                    "does fuzzy matching — trust its first result.\n"
-                    "Never claim a document was created — preview only."
-                ),
-            },
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": json.dumps({"context": context, "state": state, "message": message})},
         ],
         "text": {"format": {"type": "json_schema", "name": "derp_copilot_plan", "strict": False, "schema": schema}},
@@ -663,51 +693,8 @@ def _public_pending_po(state: dict) -> dict:
 
 
 def _absorb_message_into_pending(message: str, state: dict) -> None:
-    """Pull product/vendor/qty/cost mentions out of free-form message and stash them."""
-    pending = _pending(state)
-
-    # "for X from Y" or "of X from Y" — captures both product and vendor in one shot.
-    fp = re.search(
-        r"\b(?:for|of)\s+(?P<product>.+?)\s+from\s+(?P<vendor>[A-Za-z0-9 ._'&-]+?)"
-        r"(?=\s+\d|\s+\$|\s+at\b|\s+for\b|\s+each\b|\s+per\b|[,.;]|$)",
-        message,
-        re.IGNORECASE,
-    )
-    if fp:
-        product_hint = fp.group("product").strip()
-        vendor_hint = fp.group("vendor").strip()
-        product = _find_one(Product.objects.filter(is_active=True), product_hint, ["sku", "name", "description"])
-        if product:
-            pending["product_id"] = product.pk
-            pending["product_label"] = f"{product.sku} - {product.name}"
-            pending["product_sku"] = product.sku
-            pending["product_cost"] = str(product.cost)
-            state["last_product_label"] = pending["product_label"]
-        vendor = _find_one(Vendor.objects.filter(is_active=True), vendor_hint, ["name", "email"])
-        if vendor:
-            pending["vendor_id"] = vendor.pk
-            pending["vendor_name"] = vendor.name
-            state["last_vendor_id"] = vendor.pk
-            state["last_vendor_name"] = vendor.name
-
-    # "from VENDOR" alone — picks up vendor when no "for X" prefix.
-    if not pending.get("vendor_name"):
-        vm = re.search(r"\bfrom\s+([A-Za-z0-9 ._'&-]+?)(?=\s+\d|\s+\$|[,.;]|$)", message, re.IGNORECASE)
-        if vm:
-            vendor = _find_one(Vendor.objects.filter(is_active=True), vm.group(1).strip(), ["name", "email"])
-            if vendor:
-                pending["vendor_id"] = vendor.pk
-                pending["vendor_name"] = vendor.name
-                state["last_vendor_id"] = vendor.pk
-                state["last_vendor_name"] = vendor.name
-
-    qty_match = re.search(r"\b(\d+(?:\.\d+)?)\s*(?:units?|pcs?|pieces?|ea|each|x)\b", message, re.IGNORECASE)
-    if qty_match:
-        pending["qty"] = qty_match.group(1)
-
-    cost_match = re.search(r"\$\s*(\d+(?:\.\d+)?)|\b(\d+(?:\.\d+)?)\s*(?:dollars|usd|per unit|/unit)\b", message, re.IGNORECASE)
-    if cost_match:
-        pending["unit_cost"] = next(g for g in cost_match.groups() if g)
+    """Intentionally a no-op. The LLM parses messages; Python only carries state."""
+    return
 
 
 def _absorb_tools_into_pending(tools: list[dict], state: dict) -> None:

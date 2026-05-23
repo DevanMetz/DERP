@@ -1,10 +1,11 @@
+import json
 import urllib.parse
 import urllib.request
-import json
 
 from django.conf import settings
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django_tenants.utils import remove_www
 from django_tenants.utils import schema_context
 
 
@@ -60,6 +61,37 @@ def _send_email_via_resend(to_email, subject, text_body):
 
 from .forms import TenantSignupForm
 from .models import Domain, PendingTenant, SignupAttempt, TenantCompany
+
+
+def _pending_subdomain_from_hostname(hostname):
+    base_domain = settings.BASE_DOMAIN.lower().split(":")[0]
+    hostname = hostname.lower().strip(".")
+    suffix = f".{base_domain}"
+
+    if hostname == base_domain or not hostname.endswith(suffix):
+        return None
+
+    subdomain = hostname[: -len(suffix)]
+    if not subdomain or "." in subdomain:
+        return None
+    return subdomain
+
+
+def tenant_not_found(request):
+    hostname = remove_www(request.get_host().split(":")[0])
+    subdomain = _pending_subdomain_from_hostname(hostname)
+    pending = PendingTenant.objects.filter(subdomain=subdomain).first() if subdomain else None
+
+    if pending:
+        return render(request, "tenants/workspace_pending.html", {
+            "base": settings.BASE_DOMAIN,
+            "is_expired": pending.is_expired(),
+            "subdomain": pending.subdomain,
+        }, status=404)
+
+    return render(request, "tenants/workspace_not_found.html", {
+        "hostname": hostname,
+    }, status=404)
 
 
 def landing(request):

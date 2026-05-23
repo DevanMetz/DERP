@@ -76,6 +76,7 @@ INSTALLED_APPS = list(dict.fromkeys(SHARED_APPS + TENANT_APPS))
 TENANT_MODEL = "tenants.TenantCompany"
 TENANT_DOMAIN_MODEL = "tenants.Domain"
 PUBLIC_SCHEMA_URLCONF = "config.public_urls"
+DEFAULT_NOT_FOUND_TENANT_VIEW = "tenants.views.tenant_not_found"
 
 MIDDLEWARE = [
     "django_tenants.middleware.main.TenantMainMiddleware",

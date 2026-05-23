@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Workspace pending verification - DERP</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --fg: #101828;
+      --muted: #667085;
+      --accent: #2453b3;
+      --accent-dark: #1d438f;
+      --line: #d9dee7;
+      --warning-bg: #fffbeb;
+      --warning: #b45309;
+      --err-bg: #fff1f0;
+      --err: #b42318;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: var(--bg);
+      color: var(--fg);
+      font: 15px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 24px;
+    }
+    .card {
+      width: min(480px, 100%);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(16,24,40,.08);
+      padding: 40px;
+      text-align: center;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 30px;
+      padding: 4px 12px;
+      margin-bottom: 18px;
+      border: 1px solid #fde68a;
+      border-radius: 999px;
+      background: var(--warning-bg);
+      color: var(--warning);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .status.expired {
+      border-color: #fecdca;
+      background: var(--err-bg);
+      color: var(--err);
+    }
+    h1 {
+      font-size: 24px;
+      line-height: 1.2;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+    p {
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+    .workspace {
+      margin: 20px 0;
+      padding: 12px 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--fg);
+      font-size: 14px;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+    .actions {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 24px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      padding: 10px 16px;
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .btn:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+    .btn.secondary {
+      background: var(--surface);
+      border-color: var(--line);
+      color: var(--fg);
+    }
+    .btn.secondary:hover {
+      background: var(--bg);
+      border-color: #c8d0dc;
+    }
+    @media (max-width: 420px) {
+      body { padding: 16px; }
+      .card { padding: 28px 20px; }
+      h1 { font-size: 21px; }
+      .btn { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="card" aria-labelledby="pending-title">
+    {% if is_expired %}
+      <div class="status expired">Verification expired</div>
+      <h1 id="pending-title">This workspace is not active</h1>
+      <p>The verification link for this workspace has expired. Please sign up again to request a fresh confirmation email.</p>
+    {% else %}
+      <div class="status">Email verification pending</div>
+      <h1 id="pending-title">This workspace is not verified yet</h1>
+      <p>A workspace has been requested for this URL, but it will not be available until the confirmation link in the signup email is opened.</p>
+      <p>Please check the inbox used during signup. The confirmation link expires after 24 hours.</p>
+    {% endif %}
+
+    <div class="workspace">{{ subdomain }}.{{ base }}</div>
+
+    <div class="actions">
+      <a class="btn" href="/signup/">Start a new signup</a>
+      <a class="btn secondary" href="/">Back to DERP</a>
+    </div>
+  </main>
+</body>
+</html>

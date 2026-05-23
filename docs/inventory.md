@@ -28,3 +28,11 @@ new cost = ((current qty * current cost) + (received qty * received cost)) / new
 ## Workflow links
 
 Stock movements can reference source documents such as invoices, goods receipts, and manufacturing orders. Those references are rendered as links in inventory views where possible.
+
+## Lot and Serial Number Tracking
+
+The `StockMovement` model includes `lot_id` and `serial_no` fields to support granular tracking of physical goods:
+- **Lot ID**: Used to group stock items produced or received together (e.g., for batch tracking, expiration tracking, or quality controls).
+- **Serial Number**: Used to track unique individual units (e.g., for high-value electronics, warranty management, or customer returns).
+
+*Note: In the current version, `lot_id` and `serial_no` are captured as free-text tracking fields on movement records. Future updates will introduce dedicated master tables for Lot and Serial records to enforce uniqueness, prevent double-assigning serial numbers, and support end-to-end trace history across manufacturing and returns.*

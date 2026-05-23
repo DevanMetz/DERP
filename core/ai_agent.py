@@ -41,10 +41,18 @@ def run_copilot_turn(message: str, *, api_key: str = "", user=None, session=None
     # Update pending PO state from anything the searches just found.
     _absorb_tools_into_pending(tools, state)
 
-    # If the user asked us to "try our best" and we don't already have a real preview,
-    # auto-fill missing slots and try again. (The AI may have tried draft_purchase_order_preview
-    # with empty lines and gotten back a 'need details' reply — we override that.)
-    if _user_wants_best_effort(message):
+    # Decide whether to attempt an autofill. Two triggers:
+    #   1) user explicitly said "try your best" / "just do it" / etc.
+    #   2) user clearly asked for a PO AND we have enough state to fill it
+    pending = state.get("pending_po") or {}
+    has_enough_for_full = bool(
+        pending.get("vendor_name") and pending.get("product_label")
+        and pending.get("qty") and pending.get("unit_cost")
+    )
+    asked_for_po = bool(re.search(r"\b(make|create|draft|build|generate|do)\s+(?:a|the)?\s*po\b", (message or ""), re.IGNORECASE))
+    should_autofill = _user_wants_best_effort(message) or (asked_for_po and has_enough_for_full)
+
+    if should_autofill:
         existing = _tool_result(tools, "draft_purchase_order_preview")
         if not existing or not existing.get("preview"):
             auto = _autofill_preview(state, user=user)
@@ -655,12 +663,49 @@ def _public_pending_po(state: dict) -> dict:
 
 
 def _absorb_message_into_pending(message: str, state: dict) -> None:
-    """Pick up loose qty/cost mentions from the user message and stash them."""
+    """Pull product/vendor/qty/cost mentions out of free-form message and stash them."""
     pending = _pending(state)
+
+    # "for X from Y" or "of X from Y" — captures both product and vendor in one shot.
+    fp = re.search(
+        r"\b(?:for|of)\s+(?P<product>.+?)\s+from\s+(?P<vendor>[A-Za-z0-9 ._'&-]+?)"
+        r"(?=\s+\d|\s+\$|\s+at\b|\s+for\b|\s+each\b|\s+per\b|[,.;]|$)",
+        message,
+        re.IGNORECASE,
+    )
+    if fp:
+        product_hint = fp.group("product").strip()
+        vendor_hint = fp.group("vendor").strip()
+        product = _find_one(Product.objects.filter(is_active=True), product_hint, ["sku", "name", "description"])
+        if product:
+            pending["product_id"] = product.pk
+            pending["product_label"] = f"{product.sku} - {product.name}"
+            pending["product_sku"] = product.sku
+            pending["product_cost"] = str(product.cost)
+            state["last_product_label"] = pending["product_label"]
+        vendor = _find_one(Vendor.objects.filter(is_active=True), vendor_hint, ["name", "email"])
+        if vendor:
+            pending["vendor_id"] = vendor.pk
+            pending["vendor_name"] = vendor.name
+            state["last_vendor_id"] = vendor.pk
+            state["last_vendor_name"] = vendor.name
+
+    # "from VENDOR" alone — picks up vendor when no "for X" prefix.
+    if not pending.get("vendor_name"):
+        vm = re.search(r"\bfrom\s+([A-Za-z0-9 ._'&-]+?)(?=\s+\d|\s+\$|[,.;]|$)", message, re.IGNORECASE)
+        if vm:
+            vendor = _find_one(Vendor.objects.filter(is_active=True), vm.group(1).strip(), ["name", "email"])
+            if vendor:
+                pending["vendor_id"] = vendor.pk
+                pending["vendor_name"] = vendor.name
+                state["last_vendor_id"] = vendor.pk
+                state["last_vendor_name"] = vendor.name
+
     qty_match = re.search(r"\b(\d+(?:\.\d+)?)\s*(?:units?|pcs?|pieces?|ea|each|x)\b", message, re.IGNORECASE)
     if qty_match:
         pending["qty"] = qty_match.group(1)
-    cost_match = re.search(r"\$\s*(\d+(?:\.\d+)?)|\b(\d+(?:\.\d+)?)\s*(?:dollars|usd|each|per unit|/unit)\b", message, re.IGNORECASE)
+
+    cost_match = re.search(r"\$\s*(\d+(?:\.\d+)?)|\b(\d+(?:\.\d+)?)\s*(?:dollars|usd|per unit|/unit)\b", message, re.IGNORECASE)
     if cost_match:
         pending["unit_cost"] = next(g for g in cost_match.groups() if g)
 

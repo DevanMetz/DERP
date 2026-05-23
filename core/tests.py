@@ -653,3 +653,99 @@ class DataImportTests(TestCase):
         c = Customer.objects.get(pk=777)
         self.assertEqual(c.name, "CSV Ingested Co")
         self.assertEqual(c.payment_terms_days, 45)
+
+
+class UserManagementTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.admin_user = User.objects.create_user(
+            username="adminuser",
+            email="admin@example.com",
+            password="password",
+            role=Role.ADMIN,
+        )
+        self.staff_user = User.objects.create_user(
+            username="staffuser",
+            email="staff@example.com",
+            password="password",
+            role=Role.STAFF,
+        )
+        self.company = Company.get()
+
+    def test_user_management_views_require_login(self):
+        response = self.client.get(reverse("user_list"))
+        self.assertEqual(response.status_code, 302)
+
+        response = self.client.get(reverse("user_create"))
+        self.assertEqual(response.status_code, 302)
+
+        response = self.client.get(reverse("user_edit", args=[self.staff_user.pk]))
+        self.assertEqual(response.status_code, 302)
+
+    def test_user_management_views_deny_staff(self):
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get(reverse("user_list"))
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.get(reverse("user_create"))
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.get(reverse("user_edit", args=[self.admin_user.pk]))
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_can_list_users(self):
+        self.client.force_login(self.admin_user)
+        response = self.client.get(reverse("user_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "User Directory")
+        self.assertContains(response, "adminuser")
+        self.assertContains(response, "staffuser")
+
+    def test_admin_can_create_user(self):
+        self.client.force_login(self.admin_user)
+        
+        response = self.client.post(
+            reverse("user_create"),
+            {
+                "username": "newuser",
+                "email": "new@example.com",
+                "role": Role.MANAGER,
+                "is_active": True,
+                "password": "newsecurepassword123",
+            }
+        )
+        self.assertEqual(response.status_code, 302)
+        
+        # Verify user is created with correct properties
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.assertTrue(User.objects.filter(username="newuser").exists())
+        user = User.objects.get(username="newuser")
+        self.assertEqual(user.email, "new@example.com")
+        self.assertEqual(user.role, Role.MANAGER)
+        self.assertTrue(user.is_active)
+        # Verify password is encrypted
+        self.assertTrue(user.check_password("newsecurepassword123"))
+
+    def test_admin_can_edit_user(self):
+        self.client.force_login(self.admin_user)
+        
+        response = self.client.post(
+            reverse("user_edit", args=[self.staff_user.pk]),
+            {
+                "email": "updated@example.com",
+                "role": Role.READONLY,
+                "is_active": False,
+                "new_password": "changedpassword987",
+            }
+        )
+        self.assertEqual(response.status_code, 302)
+        
+        # Verify staff_user was updated
+        self.staff_user.refresh_from_db()
+        self.assertEqual(self.staff_user.email, "updated@example.com")
+        self.assertEqual(self.staff_user.role, Role.READONLY)
+        self.assertFalse(self.staff_user.is_active)
+        self.assertTrue(self.staff_user.check_password("changedpassword987"))

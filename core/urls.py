@@ -12,4 +12,7 @@ urlpatterns = [
     path("export/", views.export_view, name="data_export"),
     path("import/", views.import_view, name="data_import"),
     path("search/", views.search_view, name="search"),
+    path("users/", views.user_list, name="user_list"),
+    path("users/add/", views.user_create, name="user_create"),
+    path("users/<int:pk>/edit/", views.user_edit, name="user_edit"),
 ]

@@ -696,3 +696,94 @@ def search_view(request):
         "results": results,
         "total_count": total_count,
     })
+
+
+from django.contrib.auth import get_user_model
+User = get_user_model()
+
+class UserCreateForm(forms.ModelForm):
+    password = forms.CharField(widget=forms.PasswordInput(), required=True)
+
+    class Meta:
+        model = User
+        fields = ["username", "email", "role", "is_active", "password"]
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data["password"])
+        if commit:
+            user.save()
+        return user
+
+class UserEditForm(forms.ModelForm):
+    new_password = forms.CharField(widget=forms.PasswordInput(), required=False, label="Change Password", help_text="Leave blank to keep existing password.")
+
+    class Meta:
+        model = User
+        fields = ["email", "role", "is_active"]
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        password = self.cleaned_data.get("new_password")
+        if password:
+            user.set_password(password)
+        if commit:
+            user.save()
+        return user
+
+
+@login_required
+def user_list(request):
+    if request.user.role != Role.ADMIN:
+        return HttpResponseForbidden("Only administrators can manage users.")
+
+    users = User.objects.all().order_by("username")
+    return render(request, "core/user_list.html", {
+        "users": users,
+        "company": Company.get(),
+    })
+
+
+@login_required
+def user_create(request):
+    if request.user.role != Role.ADMIN:
+        return HttpResponseForbidden("Only administrators can manage users.")
+
+    if request.method == "POST":
+        form = UserCreateForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "User account created successfully.")
+            return redirect("user_list")
+    else:
+        form = UserCreateForm()
+
+    return render(request, "core/user_form.html", {
+        "form": form,
+        "is_create": True,
+        "company": Company.get(),
+    })
+
+
+@login_required
+def user_edit(request, pk):
+    from django.shortcuts import get_object_or_404
+    if request.user.role != Role.ADMIN:
+        return HttpResponseForbidden("Only administrators can manage users.")
+
+    user = get_object_or_404(User, pk=pk)
+    if request.method == "POST":
+        form = UserEditForm(request.POST, instance=user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"User '{user.username}' updated successfully.")
+            return redirect("user_list")
+    else:
+        form = UserEditForm(instance=user)
+
+    return render(request, "core/user_form.html", {
+        "form": form,
+        "is_create": False,
+        "target_user": user,
+        "company": Company.get(),
+    })

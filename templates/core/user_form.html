@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{% if is_create %}Add New User{% else %}Edit User '{{ target_user.username }}'{% endif %} — DERP{% endblock %}
+{% block content %}
+  <div class="page-header" style="margin-bottom: 24px;">
+    <div>
+      <span class="text-subtle" style="font-weight: bold; text-transform: uppercase; font-size: 11px;">Admin Control Panel</span>
+      <h1 style="margin-top: 4px;">{% if is_create %}Create User Account{% else %}Edit User: {{ target_user.username }}{% endif %}</h1>
+      <p class="text-subtle">
+        {% if is_create %}
+          Provision a new account with customized access roles and permissions.
+        {% else %}
+          Modify contact information, update system access roles, or override passwords.
+        {% endif %}
+      </p>
+    </div>
+    <div class="page-actions">
+      <a class="btn secondary" href="{% url 'user_list' %}">Back to User Directory</a>
+    </div>
+  </div>
+
+  <div class="card" style="max-width: 600px; margin: 0 auto; border-radius: 12px; box-shadow: var(--shadow);">
+    <form method="post" autocomplete="off">
+      {% csrf_token %}
+      
+      {% if form.non_field_errors %}
+        <div class="errorlist">
+          {{ form.non_field_errors }}
+        </div>
+      {% endif %}
+
+      {% for field in form %}
+        <p style="margin-bottom: 18px;">
+          <label for="{{ field.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
+            {{ field.label }}
+            {% if field.field.required %}<span style="color: var(--err);">*</span>{% endif %}
+          </label>
+          {{ field }}
+          {% if field.help_text %}
+            <span class="text-subtle" style="display: block; margin-top: 4px; font-size: 12px; color: var(--muted);">{{ field.help_text }}</span>
+          {% endif %}
+          {% if field.errors %}
+            <span class="errorlist" style="display: block; margin-top: 6px; font-size: 12px; margin-bottom: 0;">{{ field.errors }}</span>
+          {% endif %}
+        </p>
+      {% endfor %}
+
+      <div class="action-row" style="margin-top: 24px; border-top: 1px solid var(--line-soft); padding-top: 16px; display: flex; justify-content: flex-end; gap: 12px;">
+        <a class="btn secondary" href="{% url 'user_list' %}" style="border-radius: 8px;">Cancel</a>
+        <button class="btn" type="submit" style="border-radius: 8px; font-weight: bold; background: var(--accent); border-color: var(--accent);">
+          {% if is_create %}Create Account{% else %}Save Changes{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+{% endblock %}

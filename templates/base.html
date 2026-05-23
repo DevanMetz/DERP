@@ -1126,6 +1126,9 @@
       "data_export": { name: "Data Export", url: "{% url 'data_export' %}", group: "data", icon: ICONS.data },
       "data_import": { name: "Data Import", url: "{% url 'data_import' %}", group: "data", icon: ICONS.data }
     };
+    {% if user.role == 'admin' %}
+    ALL_APPS["user_management"] = { name: "Users", url: "{% url 'user_list' %}", group: "workspace", icon: ICONS.user };
+    {% endif %}
     const SIDEBAR_GROUPS = [
       { id: "workspace", name: "Workspace" },
       { id: "operations", name: "Operations" },

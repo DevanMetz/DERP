@@ -77,8 +77,45 @@ def bom_edit(request, pk):
 
 @login_required
 def mo_list(request):
-    mos = ManufacturingOrder.objects.all().select_related("product", "bom")
-    return render(request, "manufacturing/mo_list.html", {"mos": mos})
+    from core.views import apply_filters
+    from django.db.models import Q
+    qs = ManufacturingOrder.objects.all().select_related("product", "bom")
+
+    status = request.GET.get("status", "")
+    name = request.GET.get("name", "")
+    date_from = request.GET.get("date_from", "")
+    date_to = request.GET.get("date_to", "")
+
+    if status:
+        qs = qs.filter(status=status)
+    if name:
+        qs = qs.filter(Q(product__name__icontains=name) | Q(product__sku__icontains=name))
+    if date_from:
+        qs = qs.filter(date_planned__gte=date_from)
+    if date_to:
+        qs = qs.filter(date_planned__lte=date_to)
+
+    SORT_FIELDS = ["date_planned", "product__name", "status", "number"]
+    qs, sort, direction = apply_filters(qs, request, SORT_FIELDS)
+
+    active_filters = []
+    if status:
+        active_filters.append({"label": f"Status: {dict(ManufacturingOrder.Status.choices).get(status, status)}", "remove": "status"})
+    if name:
+        active_filters.append({"label": f"Product: {name}", "remove": "name"})
+    if date_from:
+        active_filters.append({"label": f"From: {date_from}", "remove": "date_from"})
+    if date_to:
+        active_filters.append({"label": f"To: {date_to}", "remove": "date_to"})
+
+    return render(request, "manufacturing/mo_list.html", {
+        "mos": qs,
+        "status_choices": ManufacturingOrder.Status.choices,
+        "filters": {"status": status, "name": name, "date_from": date_from, "date_to": date_to},
+        "active_filters": active_filters,
+        "sort": sort,
+        "dir": direction,
+    })
 
 
 @login_required

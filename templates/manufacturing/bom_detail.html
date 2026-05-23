@@ -4,7 +4,7 @@
   <div class="page-header">
     <div>
       <span class="text-subtle" style="font-weight: bold; text-transform: uppercase; font-size: 11px;">Bill of Materials Recipe</span>
-      <h1 style="margin-top: 4px;">{{ bom.product.sku }} - {{ bom.product.name }}</h1>
+      <h1 style="margin-top: 4px;"><a href="{% url 'product_detail' bom.product.pk %}">{{ bom.product.sku }}</a> - {{ bom.product.name }}</h1>
       <p class="text-subtle">{{ bom.name|default:"Primary Recipe" }} | Recipe Status: {% if bom.is_active %}<span style="color: var(--success); font-weight: bold;">Active</span>{% else %}<span style="color: var(--muted); font-weight: bold;">Inactive</span>{% endif %}</p>
     </div>
     <div class="page-actions">
@@ -20,11 +20,11 @@
       <table style="min-width: 100%; font-size: 13.5px; border-collapse: collapse; margin-top: 12px;">
         <tr>
           <td class="muted" style="padding: 8px 0; border-bottom: 1px solid var(--line-soft);">SKU / Item</td>
-          <td style="padding: 8px 0; border-bottom: 1px solid var(--line-soft); font-weight: bold;">{{ bom.product.sku }}</td>
+          <td style="padding: 8px 0; border-bottom: 1px solid var(--line-soft); font-weight: bold;"><a href="{% url 'product_detail' bom.product.pk %}">{{ bom.product.sku }}</a></td>
         </tr>
         <tr>
           <td class="muted" style="padding: 8px 0; border-bottom: 1px solid var(--line-soft);">Product Name</td>
-          <td style="padding: 8px 0; border-bottom: 1px solid var(--line-soft);">{{ bom.product.name }}</td>
+          <td style="padding: 8px 0; border-bottom: 1px solid var(--line-soft);"><a href="{% url 'product_detail' bom.product.pk %}">{{ bom.product.name }}</a></td>
         </tr>
         <tr>
           <td class="muted" style="padding: 8px 0; border-bottom: 1px solid var(--line-soft);">Unit of Measure</td>
@@ -75,8 +75,8 @@
       <tbody>
         {% for comp in bom.components.all %}
           <tr>
-            <td><strong style="color: var(--fg);">{{ comp.product.sku }}</strong></td>
-            <td>{{ comp.product.name }}</td>
+            <td><a href="{% url 'product_detail' comp.product.pk %}"><strong style="color: var(--fg);">{{ comp.product.sku }}</strong></a></td>
+            <td><a href="{% url 'product_detail' comp.product.pk %}">{{ comp.product.name }}</a></td>
             <td class="num" style="font-weight: 700; font-variant-numeric: tabular-nums;">{{ comp.qty|floatformat:4 }}</td>
             <td>{{ comp.product.uom }}</td>
             <td class="num" style="font-variant-numeric: tabular-nums;">${{ comp.product.cost|floatformat:2 }}</td>

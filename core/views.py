@@ -5,13 +5,43 @@ from django import forms
 from django.utils import timezone
 from datetime import date
 from decimal import Decimal
-from django.db.models import Sum
+from django.db.models import Sum, Q
 
 from .models import Company
 from accounting.models import Account, AccountType, JournalEntry, JournalLine
 from inventory.models import Product, ProductType
 
 ZERO = Decimal("0.00")
+
+
+# ---------------------------------------------------------------------------
+# Shared filter / sort helper
+# ---------------------------------------------------------------------------
+
+def apply_filters(qs, request, sort_fields=None):
+    """
+    Generic helper used by every list view.
+    Reads GET params and applies:
+      - ?q=<text>  → search across `search_fields` if provided via qs.filter
+      - ?sort=<field>&dir=<asc|desc>  → ordering
+      - ?date_from / ?date_to  → filter on a date field (default: "date")
+      - ?status=<value>         → exact match on "status" field
+      - ?name=<text>            → icontains on a name/reference field (passed as `name_field`)
+    Returns (filtered_qs, sort_field, sort_dir) so the template can render indicators.
+    """
+    sort_fields = sort_fields or []
+    sort = request.GET.get("sort", "")
+    direction = request.GET.get("dir", "desc")
+    if direction not in ("asc", "desc"):
+        direction = "desc"
+
+    if sort and sort in sort_fields:
+        order_by = sort if direction == "asc" else f"-{sort}"
+        qs = qs.order_by(order_by)
+
+    return qs, sort, direction
+
+
 
 
 @login_required
@@ -177,3 +207,392 @@ def company_setup(request):
     else:
         form = CompanyForm(instance=company)
     return render(request, "core/company_setup.html", {"form": form})
+
+
+@login_required
+def export_view(request):
+    from django.apps import apps
+    from django.http import HttpResponse
+    from django.core import serializers
+    import csv
+    import io
+    import zipfile
+
+    # Get all local models to export
+    local_apps = ["core", "accounting", "inventory", "sales", "purchasing", "manufacturing"]
+    
+    # Gather models and their metadata
+    exportable_models = []
+    for model in apps.get_models():
+        if model._meta.app_label in local_apps:
+            # Exclude simple history models
+            if model._meta.model_name.startswith("historical"):
+                continue
+            
+            # Count current rows
+            row_count = model.objects.count()
+            
+            exportable_models.append({
+                "app_label": model._meta.app_label,
+                "model_name": model._meta.model_name,
+                "verbose_name": model._meta.verbose_name.capitalize(),
+                "row_count": row_count,
+                "key": f"{model._meta.app_label}.{model._meta.model_name}",
+            })
+            
+    # Sort models by app label and model name
+    exportable_models.sort(key=lambda x: (x["app_label"], x["model_name"]))
+
+    if request.method == "POST":
+        selected_keys = request.POST.getlist("selected_models")
+        action = request.POST.get("action")
+        
+        # Filter models to export based on user selection
+        models_to_export = []
+        for model in apps.get_models():
+            key = f"{model._meta.app_label}.{model._meta.model_name}"
+            if key in selected_keys:
+                models_to_export.append(model)
+                
+        if not models_to_export:
+            messages.error(request, "No models were selected for export.")
+            return redirect("data_export")
+
+        if action == "export_json":
+            # Package all selected model instances into a single list
+            objects = []
+            for model in models_to_export:
+                objects.extend(model.objects.all())
+                
+            # Serialize the objects to JSON
+            serialized_data = serializers.serialize("json", objects, indent=2)
+            
+            response = HttpResponse(serialized_data, content_type="application/json")
+            response["Content-Disposition"] = f'attachment; filename="derp_backup_{timezone.localdate()}.json"'
+            return response
+            
+        elif action == "export_csv":
+            # Package each selected model as a CSV inside a ZIP archive
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for model in models_to_export:
+                    csv_buffer = io.StringIO()
+                    writer = csv.writer(csv_buffer)
+                    
+                    # Fields header
+                    fields = [field.name for field in model._meta.fields]
+                    writer.writerow(fields)
+                    
+                    # Records data
+                    for obj in model.objects.all():
+                        row = []
+                        for field in fields:
+                            val = getattr(obj, field)
+                            if val is None:
+                                row.append("")
+                            elif hasattr(val, "pk"): # ForeignKey relation
+                                row.append(val.pk)
+                            else:
+                                row.append(str(val))
+                        writer.writerow(row)
+                        
+                    file_name = f"{model._meta.app_label}_{model._meta.model_name}.csv"
+                    zip_file.writestr(file_name, csv_buffer.getvalue())
+                    
+            response = HttpResponse(zip_buffer.getvalue(), content_type="application/zip")
+            response["Content-Disposition"] = f'attachment; filename="derp_csv_export_{timezone.localdate()}.zip"'
+            return response
+
+    return render(request, "core/export.html", {
+        "exportable_models": exportable_models,
+        "company": Company.get(),
+    })
+
+
+@login_required
+def import_view(request):
+    from django.apps import apps
+    from django.db import transaction
+    from django.core.exceptions import ValidationError
+    from django.core import serializers
+    import csv
+    import io
+
+    IMPORTABLE_MODELS = {
+        "accounting.account": "GL Accounts",
+        "inventory.product": "Products",
+        "sales.customer": "Customers",
+        "purchasing.vendor": "Vendors",
+    }
+
+    if request.method == "POST":
+        # 1. Handle JSON Backup Restoration
+        if "json_file" in request.FILES:
+            json_file = request.FILES["json_file"]
+            try:
+                data = json_file.read()
+                # Deserialize to validate structure before applying transaction
+                deserialized_objects = list(serializers.deserialize("json", data))
+                
+                with transaction.atomic():
+                    count = 0
+                    for obj in deserialized_objects:
+                        obj.save()
+                        count += 1
+                        
+                messages.success(request, f"Backup Restoration Succeeded: Restored {count} records.")
+                return redirect("data_import")
+            except Exception as e:
+                messages.error(request, f"Backup Restoration Failed (All changes rolled back): {str(e)}")
+                return redirect("data_import")
+
+        # 2. Handle CSV Data Ingestion
+        elif "csv_file" in request.FILES:
+            csv_file = request.FILES["csv_file"]
+            model_key = request.POST.get("model_key")
+            
+            if model_key not in IMPORTABLE_MODELS:
+                messages.error(request, "Invalid or unsupported target model selected.")
+                return redirect("data_import")
+                
+            try:
+                model = apps.get_model(model_key)
+                
+                # Ingest CSV file with BOM preservation
+                decoded_file = csv_file.read().decode("utf-8-sig")
+                io_string = io.StringIO(decoded_file)
+                reader = csv.reader(io_string)
+                
+                headers = next(reader)
+                headers = [h.strip().lower() for h in headers]
+                
+                model_fields = {field.name.lower(): field for field in model._meta.fields}
+                valid_headers = [h for h in headers if h in model_fields]
+                
+                if not valid_headers:
+                    raise ValidationError("No matching model fields found in CSV headers. Make sure column names match exact database field names.")
+                
+                with transaction.atomic():
+                    created_count = 0
+                    updated_count = 0
+                    for row_idx, row in enumerate(reader):
+                        if not row or not any(row):
+                            continue
+                        
+                        data = {}
+                        for col_idx, col_val in enumerate(row):
+                            if col_idx >= len(headers):
+                                continue
+                            header = headers[col_idx]
+                            if header in model_fields:
+                                field = model_fields[header]
+                                col_val_str = col_val.strip()
+                                
+                                if col_val_str == "":
+                                    if field.null:
+                                        data[field.name] = None
+                                    elif field.blank:
+                                        data[field.name] = ""
+                                    else:
+                                        if field.has_default():
+                                            data[field.name] = field.get_default()
+                                        else:
+                                            raise ValidationError(f"Row {row_idx + 2}: Field '{field.name}' cannot be blank.")
+                                elif field.is_relation:
+                                    target_model = field.related_model
+                                    try:
+                                        data[field.name] = target_model.objects.get(pk=col_val_str)
+                                    except target_model.DoesNotExist:
+                                        raise ValidationError(f"Row {row_idx + 2}: Related '{field.name}' with ID '{col_val_str}' does not exist.")
+                                elif field.get_internal_type() in ["BooleanField", "NullBooleanField"]:
+                                    data[field.name] = col_val_str.lower() in ["true", "1", "yes", "t", "y"]
+                                else:
+                                    data[field.name] = col_val_str
+                                    
+                        # Ingest/Update
+                        pk_field_name = model._meta.pk.name
+                        pk_val = data.get(pk_field_name)
+                        if pk_val:
+                            try:
+                                instance = model.objects.get(pk=pk_val)
+                                for k, v in data.items():
+                                    setattr(instance, k, v)
+                                instance.save()
+                                updated_count += 1
+                            except model.DoesNotExist:
+                                model.objects.create(**data)
+                                created_count += 1
+                        else:
+                            model.objects.create(**data)
+                            created_count += 1
+                            
+                messages.success(request, f"CSV Ingestion Succeeded: Imported {created_count} new records and updated {updated_count} existing records.")
+                return redirect("data_import")
+            except Exception as e:
+                messages.error(request, f"CSV Ingestion Failed (All changes rolled back): {str(e)}")
+                return redirect("data_import")
+
+    # Prepare model selections for dropdown
+    model_choices = [{"key": k, "label": v} for k, v in IMPORTABLE_MODELS.items()]
+    
+    return render(request, "core/import.html", {
+        "model_choices": model_choices,
+        "company": Company.get(),
+    })
+
+
+@login_required
+def search_view(request):
+    """
+    Global search across all major models.
+    GET ?q=<query> — returns grouped results with up to 10 per category.
+    """
+    from sales.models import Customer, SalesOrder, Invoice
+    from purchasing.models import Vendor, PurchaseOrder, Bill
+    from manufacturing.models import ManufacturingOrder
+
+    q = request.GET.get("q", "").strip()
+    results = []
+    total_count = 0
+
+    if q:
+        # Customers
+        customers = Customer.objects.filter(
+            Q(name__icontains=q) | Q(email__icontains=q) | Q(phone__icontains=q)
+        )[:10]
+        if customers:
+            results.append({
+                "category": "Customers",
+                "icon": "👤",
+                "url_name": "customer_detail",
+                "items": [{"pk": c.pk, "label": c.name, "sub": c.email or c.phone} for c in customers],
+            })
+            total_count += len(customers)
+
+        # Vendors
+        vendors = Vendor.objects.filter(
+            Q(name__icontains=q) | Q(email__icontains=q) | Q(phone__icontains=q)
+        )[:10]
+        if vendors:
+            results.append({
+                "category": "Vendors",
+                "icon": "🏢",
+                "url_name": "vendor_detail",
+                "items": [{"pk": v.pk, "label": v.name, "sub": v.email or v.phone} for v in vendors],
+            })
+            total_count += len(vendors)
+
+        # Products
+        products = Product.objects.filter(
+            Q(sku__icontains=q) | Q(name__icontains=q) | Q(description__icontains=q)
+        )[:10]
+        if products:
+            results.append({
+                "category": "Products",
+                "icon": "📦",
+                "url_name": "product_detail",
+                "items": [{"pk": p.pk, "label": f"{p.sku} — {p.name}", "sub": p.get_type_display()} for p in products],
+            })
+            total_count += len(products)
+
+        # Sales Orders
+        sales_orders = SalesOrder.objects.filter(
+            Q(number__icontains=q) | Q(customer__name__icontains=q)
+        ).select_related("customer")[:10]
+        if sales_orders:
+            results.append({
+                "category": "Sales Orders",
+                "icon": "🛒",
+                "url_name": "sales_order_detail",
+                "items": [
+                    {"pk": o.pk, "label": o.number or f"DRAFT-{o.pk}", "sub": o.customer.name}
+                    for o in sales_orders
+                ],
+            })
+            total_count += len(sales_orders)
+
+        # Invoices
+        invoices = Invoice.objects.filter(
+            Q(number__icontains=q) | Q(customer__name__icontains=q)
+        ).select_related("customer")[:10]
+        if invoices:
+            results.append({
+                "category": "Invoices",
+                "icon": "🧾",
+                "url_name": "invoice_detail",
+                "items": [
+                    {"pk": i.pk, "label": i.number or f"DRAFT-{i.pk}", "sub": i.customer.name}
+                    for i in invoices
+                ],
+            })
+            total_count += len(invoices)
+
+        # Purchase Orders
+        purchase_orders = PurchaseOrder.objects.filter(
+            Q(number__icontains=q) | Q(vendor__name__icontains=q)
+        ).select_related("vendor")[:10]
+        if purchase_orders:
+            results.append({
+                "category": "Purchase Orders",
+                "icon": "📋",
+                "url_name": "purchase_order_detail",
+                "items": [
+                    {"pk": o.pk, "label": o.number or f"DRAFT-{o.pk}", "sub": o.vendor.name}
+                    for o in purchase_orders
+                ],
+            })
+            total_count += len(purchase_orders)
+
+        # Bills
+        bills = Bill.objects.filter(
+            Q(number__icontains=q) | Q(vendor__name__icontains=q) | Q(vendor_ref__icontains=q)
+        ).select_related("vendor")[:10]
+        if bills:
+            results.append({
+                "category": "Bills",
+                "icon": "💳",
+                "url_name": "bill_detail",
+                "items": [
+                    {"pk": b.pk, "label": b.number or f"DRAFT-{b.pk}", "sub": b.vendor.name}
+                    for b in bills
+                ],
+            })
+            total_count += len(bills)
+
+        # Manufacturing Orders
+        mos = ManufacturingOrder.objects.filter(
+            Q(number__icontains=q) | Q(product__name__icontains=q) | Q(product__sku__icontains=q)
+        ).select_related("product")[:10]
+        if mos:
+            results.append({
+                "category": "Manufacturing Orders",
+                "icon": "🏭",
+                "url_name": "mo_detail",
+                "items": [
+                    {"pk": m.pk, "label": m.number or f"MO-DRAFT-{m.pk}", "sub": m.product.name}
+                    for m in mos
+                ],
+            })
+            total_count += len(mos)
+
+        # Journal Entries
+        journal_entries = JournalEntry.objects.filter(
+            Q(number__icontains=q) | Q(memo__icontains=q)
+        )[:10]
+        if journal_entries:
+            results.append({
+                "category": "Journal Entries",
+                "icon": "📒",
+                "url_name": "journal_detail",
+                "items": [
+                    {"pk": e.pk, "label": e.number or f"JE-{e.pk}", "sub": e.memo or ""}
+                    for e in journal_entries
+                ],
+            })
+            total_count += len(journal_entries)
+
+    return render(request, "core/search.html", {
+        "q": q,
+        "results": results,
+        "total_count": total_count,
+    })

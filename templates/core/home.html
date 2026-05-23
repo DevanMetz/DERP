@@ -262,6 +262,24 @@
       <h3 class="app-card-title">GL</h3>
     </a>
 
+    <!-- 17. Data Export -->
+    <a href="{% url 'data_export' %}" class="app-card" data-id="data_export" style="--theme-color: #0f766e; --theme-bg-color: #f0fdfa; --theme-shadow-color: rgba(15, 118, 110, 0.16);">
+      <button type="button" class="fav-star-btn" data-app-id="data_export" title="Pin to Navigation Bar">☆</button>
+      <div class="app-icon-wrap">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+      </div>
+      <h3 class="app-card-title">Data Export</h3>
+    </a>
+
+    <!-- 18. Data Import -->
+    <a href="{% url 'data_import' %}" class="app-card" data-id="data_import" style="--theme-color: #475467; --theme-bg-color: #f8f9fc; --theme-shadow-color: rgba(71, 84, 103, 0.16);">
+      <button type="button" class="fav-star-btn" data-app-id="data_import" title="Pin to Navigation Bar">☆</button>
+      <div class="app-icon-wrap">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+      </div>
+      <h3 class="app-card-title">Data Import</h3>
+    </a>
+
   </div>
 
   <!-- Operational Alerts (Keep at bottom) -->
@@ -285,7 +303,7 @@
           <tbody>
             {% for p in low_stock_products %}
               <tr>
-                <td><a href="{% url 'product_edit' p.pk %}" style="font-weight: bold;">{{ p.sku }}</a></td>
+                <td><a href="{% url 'product_detail' p.pk %}" style="font-weight: bold;">{{ p.sku }}</a></td>
                 <td>{{ p.name }}</td>
                 <td class="num">
                   <span class="badge" style="background: var(--err-bg); color: var(--err); padding: 2px 6px; border-radius: 4px; border: 1px solid #fecdca; font-weight: 700; font-size: 12px;">
@@ -293,7 +311,10 @@
                   </span>
                 </td>
                 <td class="num">{{ p.low_stock_threshold }}</td>
-                <td><a href="{% url 'product_edit' p.pk %}">Edit</a></td>
+                <td>
+                  <a href="{% url 'product_detail' p.pk %}">View</a> &bull;
+                  <a href="{% url 'product_edit' p.pk %}">Edit</a>
+                </td>
               </tr>
             {% endfor %}
           </tbody>

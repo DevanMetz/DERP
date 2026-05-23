@@ -223,3 +223,36 @@ class ProductViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.product.image.url)
 
+    def test_stock_movement_list_renders_source_doc_links(self):
+        from django.urls import reverse
+        # Create a stock movement that has ref_doc_type and ref_doc_id
+        move = post_stock_movement(
+            product=self.product,
+            movement_type=StockMovement.MovementType.RECEIPT,
+            qty=Decimal("5.0000"),
+            unit_cost=Decimal("10.00"),
+            ref_doc_type="GoodsReceipt",
+            ref_doc_id=123,
+        )
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("stock_movement_list"))
+        self.assertEqual(response.status_code, 200)
+        # Verify the Ref Doc has a clickable link to Goods Receipt #123
+        self.assertContains(response, '/goods-receipts/123/')
+
+    def test_product_detail_renders_source_doc_links(self):
+        from django.urls import reverse
+        # Create a stock movement that has ref_doc_type and ref_doc_id
+        move = post_stock_movement(
+            product=self.product,
+            movement_type=StockMovement.MovementType.ISSUE,
+            qty=Decimal("1.0000"),
+            ref_doc_type="Invoice",
+            ref_doc_id=456,
+        )
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("product_detail", args=[self.product.pk]))
+        self.assertEqual(response.status_code, 200)
+        # Verify the movement list links to Invoice #456
+        self.assertContains(response, '/invoices/456/')
+

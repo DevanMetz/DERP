@@ -105,6 +105,55 @@
       white-space: nowrap;
     }
     .spacer { flex: 1; }
+    .search-form {
+      display: flex;
+      align-items: center;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .search-input {
+      width: 200px;
+      min-height: 32px;
+      padding: 6px 10px 6px 32px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface-subtle);
+      color: var(--fg);
+      font: inherit;
+      font-size: 13px;
+      outline: none;
+      transition: width 0.2s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .search-input:focus {
+      width: 280px;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(36,83,179,.12);
+      background: var(--surface);
+    }
+    .search-input::placeholder { color: var(--muted); }
+    .search-icon {
+      position: absolute;
+      left: 9px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+    }
+    .search-kbd {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 10px;
+      color: var(--muted);
+      background: var(--line-soft);
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      padding: 1px 4px;
+      pointer-events: none;
+      transition: opacity 0.15s;
+    }
+    .search-input:focus + .search-kbd { opacity: 0; }
     main {
       width: min(1200px, 100%);
       margin: 0 auto;
@@ -367,6 +416,11 @@
   <div class="topbar">
   <a href="{% url 'home' %}" class="brand"><span class="brand-mark">D</span><span>DERP</span></a>
   {% if user.is_authenticated %}
+    <form class="search-form" action="{% url 'search' %}" method="get" role="search" id="global-search-form">
+      <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="global-search-input" class="search-input" type="search" name="q" placeholder="Search…" autocomplete="off" value="{% if request.resolver_match.url_name == 'search' %}{{ request.GET.q|default:'' }}{% endif %}">
+      <span class="search-kbd">Ctrl K</span>
+    </form>
     <nav class="nav" aria-label="Primary navigation">
     <span id="fav-nav-links" style="display: inline-flex; align-items: center; gap: 4px; margin-right: 8px;"></span>
     
@@ -405,6 +459,8 @@
       <!-- General Module (Dashboard/Setup) -->
       <a href="{% url 'dashboard' %}">Dashboard</a>
       <a href="{% url 'company_setup' %}">Company</a>
+      <a href="{% url 'data_export' %}">Data Export</a>
+      <a href="{% url 'data_import' %}">Data Import</a>
     {% endif %}
     </nav>
     <div class="account">
@@ -442,7 +498,9 @@
       "trial_balance": { name: "Trial Balance", url: "{% url 'trial_balance' %}" },
       "income_statement": { name: "P&L", url: "{% url 'income_statement' %}" },
       "balance_sheet": { name: "Balance Sheet", url: "{% url 'balance_sheet' %}" },
-      "general_ledger": { name: "GL", url: "{% url 'general_ledger' %}" }
+      "general_ledger": { name: "GL", url: "{% url 'general_ledger' %}" },
+      "data_export": { name: "Data Export", url: "{% url 'data_export' %}" },
+      "data_import": { name: "Data Import", url: "{% url 'data_import' %}" }
     };
 
     window.updateFavNavbar = function() {
@@ -503,7 +561,17 @@
       }
     };
 
+
     window.updateFavNavbar();
+
+    // Ctrl+K / Cmd+K → focus global search
+    document.addEventListener("keydown", function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        const inp = document.getElementById("global-search-input");
+        if (inp) { inp.focus(); inp.select(); }
+      }
+    });
   });
 </script>
 </body>

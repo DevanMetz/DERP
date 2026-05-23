@@ -1,6 +1,7 @@
 from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import ProductForm
@@ -9,8 +10,44 @@ from .models import Product, StockMovement
 
 @login_required
 def product_list(request):
-    products = Product.objects.select_related("stock_on_hand").all()
-    return render(request, "inventory/product_list.html", {"products": products})
+    from core.views import apply_filters
+    qs = Product.objects.select_related("stock_on_hand").all()
+
+    product_type = request.GET.get("type", "")
+    is_active = request.GET.get("is_active", "")
+    name = request.GET.get("name", "")
+
+    if product_type:
+        qs = qs.filter(type=product_type)
+    if is_active != "":
+        if is_active == "1":
+            qs = qs.filter(is_active=True)
+        elif is_active == "0":
+            qs = qs.filter(is_active=False)
+    if name:
+        qs = qs.filter(Q(sku__icontains=name) | Q(name__icontains=name))
+
+    SORT_FIELDS = ["sku", "name", "type", "cost", "price"]
+    qs, sort, direction = apply_filters(qs, request, SORT_FIELDS)
+
+    active_filters = []
+    if product_type:
+        type_display = dict(Product._meta.get_field("type").choices).get(product_type, product_type)
+        active_filters.append({"label": f"Type: {type_display}", "remove": "type"})
+    if is_active == "1":
+        active_filters.append({"label": "Active only", "remove": "is_active"})
+    elif is_active == "0":
+        active_filters.append({"label": "Inactive only", "remove": "is_active"})
+    if name:
+        active_filters.append({"label": f"Search: {name}", "remove": "name"})
+
+    return render(request, "inventory/product_list.html", {
+        "products": qs,
+        "filters": {"type": product_type, "is_active": is_active, "name": name},
+        "active_filters": active_filters,
+        "sort": sort,
+        "dir": direction,
+    })
 
 
 @login_required

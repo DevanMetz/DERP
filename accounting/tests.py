@@ -281,3 +281,78 @@ class FinancialReportTests(TestCase):
         self.assertEqual(report.total_liabilities, D("30.00"))
         self.assertEqual(report.total_equity, D("120.00"))
         self.assertEqual(report.total_assets, report.total_liabilities_and_equity)
+
+
+class GLDrillDownTests(TestCase):
+    def setUp(self):
+        from core.models import User, Role
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username="acct_user",
+            email="acct@example.com",
+            password="password",
+            role=Role.ADMIN,
+        )
+        self.cash, self.revenue, self.expense = make_accounts()
+        self.entry = post_transaction(
+            date=date(2026, 1, 15),
+            memo="Test entry",
+            lines=[
+                LineSpec(account_code="1110", debit=Decimal("100.00")),
+                LineSpec(account_code="4100", credit=Decimal("100.00")),
+            ],
+        )
+
+    def test_gl_autofill_dates_on_drilldown(self):
+        from django.urls import reverse
+        self.client.force_login(self.user)
+        # Query GL with ONLY account pk
+        response = self.client.get(reverse("general_ledger"), data={"account": self.cash.pk})
+        self.assertEqual(response.status_code, 200)
+        # Check that dates were pre-populated and ledger rendered lines
+        self.assertContains(response, "Opening balance")
+        self.assertContains(response, "JE-2026-000001")
+        self.assertContains(response, "Test entry")
+
+    def test_trial_balance_renders_ledger_links(self):
+        from django.urls import reverse
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("trial_balance"), data={"as_of": "2026-12-31"})
+        self.assertEqual(response.status_code, 200)
+        # Verify account code has a link to general ledger
+        expected_link = f'/reports/general-ledger/?account={self.cash.pk}'
+        self.assertContains(response, expected_link)
+
+    def test_income_statement_renders_ledger_links(self):
+        from django.urls import reverse
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("income_statement"), data={"start": "2026-01-01", "end": "2026-12-31"})
+        self.assertEqual(response.status_code, 200)
+        # Verify revenue account has a link to general ledger
+        expected_link = f'/reports/general-ledger/?account={self.revenue.pk}'
+        self.assertContains(response, expected_link)
+
+    def test_balance_sheet_renders_ledger_links(self):
+        from django.urls import reverse
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("balance_sheet"), data={"as_of": "2026-12-31"})
+        self.assertEqual(response.status_code, 200)
+        # Verify asset account has a link to general ledger
+        expected_link = f'/reports/general-ledger/?account={self.cash.pk}'
+        self.assertContains(response, expected_link)
+
+    def test_journal_detail_renders_source_doc_link(self):
+        from django.urls import reverse
+        self.client.force_login(self.user)
+        
+        # Link source doc to self.entry by using update to bypass the save-method immutability check
+        JournalEntry.objects.filter(pk=self.entry.pk).update(
+            source_doc_type="Invoice",
+            source_doc_id=99
+        )
+        
+        response = self.client.get(reverse("journal_detail", args=[self.entry.pk]))
+        self.assertEqual(response.status_code, 200)
+        # Verify link to Invoice #99 exists
+        self.assertContains(response, '/invoices/99/')

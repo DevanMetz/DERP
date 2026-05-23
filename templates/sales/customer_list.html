@@ -11,13 +11,22 @@
     <tbody>
       {% for c in customers %}
         <tr>
-          <td><a href="{% url 'customer_edit' c.pk %}">{{ c.name }}</a></td>
+          <td><a href="{% url 'customer_detail' c.pk %}" style="font-weight: bold; color: var(--text);">{{ c.name }}</a></td>
           <td>{{ c.email }}</td>
           <td>{{ c.phone }}</td>
           <td>Net {{ c.payment_terms_days }}</td>
           <td class="num">{{ c.tax_rate }}</td>
-          <td>{{ c.is_active|yesno:"yes,no" }}</td>
-          <td><a href="{% url 'customer_edit' c.pk %}">Edit</a></td>
+          <td>
+            {% if c.is_active %}
+              <span class="badge success" style="padding: 2px 6px; font-size: 11px;">Active</span>
+            {% else %}
+              <span class="badge secondary" style="padding: 2px 6px; font-size: 11px;">Inactive</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'customer_detail' c.pk %}">View</a> &bull;
+            <a href="{% url 'customer_edit' c.pk %}">Edit</a>
+          </td>
         </tr>
       {% empty %}
         <tr><td colspan="7" class="empty-state">No customers yet.</td></tr>

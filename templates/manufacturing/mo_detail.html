@@ -60,7 +60,7 @@
         <tr>
           <td class="muted" style="padding: 8px 0; border-bottom: 1px solid var(--line-soft);">Assembly Product</td>
           <td style="padding: 8px 0; border-bottom: 1px solid var(--line-soft); font-weight: bold;">
-            <a href="{% url 'product_edit' mo.product.pk %}">{{ mo.product.sku }}</a> - {{ mo.product.name }}
+            <a href="{% url 'product_detail' mo.product.pk %}">{{ mo.product.sku }}</a> - {{ mo.product.name }}
           </td>
         </tr>
         <tr>
@@ -148,8 +148,8 @@
       <tbody>
         {% for info in components_info %}
           <tr>
-            <td><strong style="color: var(--fg);">{{ info.product.sku }}</strong></td>
-            <td>{{ info.product.name }}</td>
+            <td><a href="{% url 'product_detail' info.product.pk %}"><strong style="color: var(--fg);">{{ info.product.sku }}</strong></a></td>
+            <td><a href="{% url 'product_detail' info.product.pk %}">{{ info.product.name }}</a></td>
             <td class="num" style="font-variant-numeric: tabular-nums;">
               {% for item in mo.bom.components.all %}
                 {% if item.product == info.product %}{{ item.qty|floatformat:4 }}{% endif %}

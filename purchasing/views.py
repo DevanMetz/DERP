@@ -46,12 +46,72 @@ def vendor_edit(request, pk=None):
     return render(request, "purchasing/vendor_form.html", {"form": form, "vendor": vendor})
 
 
+@login_required
+def vendor_detail(request, pk):
+    vendor = get_object_or_404(Vendor, pk=pk)
+    orders = PurchaseOrder.objects.filter(vendor=vendor).select_related("vendor").order_by("-date", "-id")
+    bills = Bill.objects.filter(vendor=vendor).select_related("vendor").order_by("-date", "-id")
+    
+    # Calculate lifetime values
+    total_purchases = sum((bill.total() for bill in bills if bill.status != Bill.Status.VOID), Decimal("0.00"))
+    total_due = sum((bill.amount_due() for bill in bills if bill.status in [Bill.Status.ENTERED, Bill.Status.PAID]), Decimal("0.00"))
+    
+    return render(
+        request,
+        "purchasing/vendor_detail.html",
+        {
+            "vendor": vendor,
+            "orders": orders,
+            "bills": bills,
+            "total_purchases": total_purchases,
+            "total_due": total_due,
+        },
+    )
+
+
 # ------------------------- Purchase orders ---------------------------
 
 @login_required
 def purchase_order_list(request):
-    orders = PurchaseOrder.objects.select_related("vendor").all()
-    return render(request, "purchasing/purchase_order_list.html", {"orders": orders})
+    from core.views import apply_filters
+    qs = PurchaseOrder.objects.select_related("vendor").all()
+
+    status = request.GET.get("status", "")
+    name = request.GET.get("name", "")
+    date_from = request.GET.get("date_from", "")
+    date_to = request.GET.get("date_to", "")
+
+    if status:
+        qs = qs.filter(status=status)
+    if name:
+        qs = qs.filter(vendor__name__icontains=name)
+    if date_from:
+        qs = qs.filter(date__gte=date_from)
+    if date_to:
+        qs = qs.filter(date__lte=date_to)
+
+    SORT_FIELDS = ["date", "vendor__name", "status", "number"]
+    qs, sort, direction = apply_filters(qs, request, SORT_FIELDS)
+
+    active_filters = []
+    if status:
+        active_filters.append({"label": f"Status: {dict(PurchaseOrder.Status.choices).get(status, status)}", "remove": "status"})
+    if name:
+        active_filters.append({"label": f"Vendor: {name}", "remove": "name"})
+    if date_from:
+        active_filters.append({"label": f"From: {date_from}", "remove": "date_from"})
+    if date_to:
+        active_filters.append({"label": f"To: {date_to}", "remove": "date_to"})
+
+    return render(request, "purchasing/purchase_order_list.html", {
+        "orders": qs,
+        "status_choices": PurchaseOrder.Status.choices,
+        "filters": {"status": status, "name": name, "date_from": date_from, "date_to": date_to},
+        "active_filters": active_filters,
+        "sort": sort,
+        "dir": direction,
+    })
+
 
 
 @login_required
@@ -240,8 +300,56 @@ def bill_create_from_receipt(request, pk):
 
 @login_required
 def bill_list(request):
-    bills = Bill.objects.select_related("vendor").all()
-    return render(request, "purchasing/bill_list.html", {"bills": bills})
+    from core.views import apply_filters
+    qs = Bill.objects.select_related("vendor").all()
+
+    status = request.GET.get("status", "")
+    name = request.GET.get("name", "")
+    date_from = request.GET.get("date_from", "")
+    date_to = request.GET.get("date_to", "")
+    due_from = request.GET.get("due_from", "")
+    due_to = request.GET.get("due_to", "")
+
+    if status:
+        qs = qs.filter(status=status)
+    if name:
+        qs = qs.filter(vendor__name__icontains=name)
+    if date_from:
+        qs = qs.filter(date__gte=date_from)
+    if date_to:
+        qs = qs.filter(date__lte=date_to)
+    if due_from:
+        qs = qs.filter(due_date__gte=due_from)
+    if due_to:
+        qs = qs.filter(due_date__lte=due_to)
+
+    SORT_FIELDS = ["date", "due_date", "vendor__name", "status", "number"]
+    qs, sort, direction = apply_filters(qs, request, SORT_FIELDS)
+
+    active_filters = []
+    if status:
+        active_filters.append({"label": f"Status: {dict(Bill.Status.choices).get(status, status)}", "remove": "status"})
+    if name:
+        active_filters.append({"label": f"Vendor: {name}", "remove": "name"})
+    if date_from:
+        active_filters.append({"label": f"From: {date_from}", "remove": "date_from"})
+    if date_to:
+        active_filters.append({"label": f"To: {date_to}", "remove": "date_to"})
+    if due_from:
+        active_filters.append({"label": f"Due from: {due_from}", "remove": "due_from"})
+    if due_to:
+        active_filters.append({"label": f"Due to: {due_to}", "remove": "due_to"})
+
+    return render(request, "purchasing/bill_list.html", {
+        "bills": qs,
+        "status_choices": Bill.Status.choices,
+        "filters": {"status": status, "name": name, "date_from": date_from, "date_to": date_to,
+                    "due_from": due_from, "due_to": due_to},
+        "active_filters": active_filters,
+        "sort": sort,
+        "dir": direction,
+    })
+
 
 
 @login_required

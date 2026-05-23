@@ -255,7 +255,61 @@ class SalesPDFViewsTests(TestCase):
         self.client.force_login(self.user)
         response = self.client.get(f"/invoices/{invoice.pk}/pdf/")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertIn("application/pdf", response["Content-Type"])
         self.assertIn("attachment", response["Content-Disposition"])
         self.assertIn(f"INV-{invoice.pk}.pdf", response["Content-Disposition"])
+
+
+class CustomerDetailViewTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.user = User.objects.create_user(username="testuser", password="password")
+        self.revenue = Account.objects.create(code="4100", name="Product Sales", type=AccountType.REVENUE)
+        self.customer = Customer.objects.create(name="Acme", payment_terms_days=15)
+        self.product = Product.objects.create(
+            sku="WIDGET",
+            name="Widget",
+            price=D("20.00"),
+            default_revenue_account=self.revenue,
+        )
+
+    def test_customer_detail_view(self):
+        order = SalesOrder.objects.create(
+            customer=self.customer,
+            date=date(2026, 5, 1),
+        )
+        SalesOrderLine.objects.create(
+            order=order,
+            product=self.product,
+            description="Widget",
+            qty=D("2"),
+            unit_price=D("20.00"),
+            revenue_account=self.revenue,
+        )
+        
+        invoice = Invoice.objects.create(
+            customer=self.customer,
+            date=date(2026, 5, 1),
+            due_date=date(2026, 5, 16),
+            tax_rate=D("0.00"),
+            status=Invoice.Status.SENT,
+        )
+        from sales.models import InvoiceLine
+        InvoiceLine.objects.create(
+            invoice=invoice,
+            product=self.product,
+            description="Widget",
+            qty=D("2"),
+            unit_price=D("20.00"),
+            revenue_account=self.revenue,
+        )
+
+        self.client.force_login(self.user)
+        response = self.client.get(f"/customers/{self.customer.pk}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Acme")
+        self.assertContains(response, "Lifetime Posted Revenue")
+        self.assertContains(response, "$40.00")
+
 

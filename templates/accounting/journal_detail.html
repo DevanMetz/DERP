@@ -3,7 +3,24 @@
 {% block content %}
   <h1>{{ entry.number|default:"Draft entry" }}</h1>
   <div class="card">
-    <p><strong>Date:</strong> {{ entry.date|date:"Y-m-d" }} &nbsp; <strong>Status:</strong> {{ entry.get_status_display }}</p>
+    <p>
+      <strong>Date:</strong> {{ entry.date|date:"Y-m-d" }} &nbsp; 
+      <strong>Status:</strong> {{ entry.get_status_display }} &nbsp;
+      {% if entry.source_doc_type %}
+        <strong>Source Document:</strong>
+        {% if entry.source_doc_type == "Invoice" %}
+          <a href="{% url 'invoice_detail' entry.source_doc_id %}">Invoice #{{ entry.source_doc_id }}</a>
+        {% elif entry.source_doc_type == "Bill" %}
+          <a href="{% url 'bill_detail' entry.source_doc_id %}">Bill #{{ entry.source_doc_id }}</a>
+        {% elif entry.source_doc_type == "GoodsReceipt" %}
+          <a href="{% url 'goods_receipt_detail' entry.source_doc_id %}">Goods Receipt #{{ entry.source_doc_id }}</a>
+        {% elif entry.source_doc_type == "ManufacturingOrder" %}
+          <a href="{% url 'mo_detail' entry.source_doc_id %}">Manufacturing Order #{{ entry.source_doc_id }}</a>
+        {% else %}
+          {{ entry.source_doc_type }} #{{ entry.source_doc_id }}
+        {% endif %}
+      {% endif %}
+    </p>
     {% if entry.memo %}<p><strong>Memo:</strong> {{ entry.memo }}</p>{% endif %}
     {% if entry.posted_by %}<p class="muted">Posted by {{ entry.posted_by.email|default:entry.posted_by.username }} at {{ entry.posted_at|date:"Y-m-d H:i" }}</p>{% endif %}
     <div class="table-wrap">

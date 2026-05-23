@@ -137,3 +137,183 @@ class DashboardViewTests(TestCase):
         # Doughnut values
         self.assertIn("PART-X - Valued Part", response.context["doughnut_labels_json"])
         self.assertIn(155.0, response.context["doughnut_data_json"])
+
+
+class DataExportTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username="testuser",
+            email="test@example.com",
+            password="password",
+            role=Role.ADMIN,
+        )
+        self.company = Company.get()
+
+    def test_export_view_requires_login(self):
+        response = self.client.get(reverse("data_export"))
+        self.assertEqual(response.status_code, 302)
+
+    def test_export_view_renders_correctly(self):
+        self.client.login(username="testuser", password="password")
+        response = self.client.get(reverse("data_export"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Data Export Manager")
+        self.assertContains(response, "Company")
+        self.assertIn("exportable_models", response.context)
+
+    def test_export_view_json_download(self):
+        self.client.login(username="testuser", password="password")
+        response = self.client.post(
+            reverse("data_export"),
+            {
+                "selected_models": ["core.company"],
+                "action": "export_json",
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/json")
+        self.assertIn("attachment", response["Content-Disposition"])
+        self.assertIn("derp_backup_", response["Content-Disposition"])
+        
+        # Verify JSON content has serialized Company instance
+        data = response.json()
+        self.assertIsInstance(data, list)
+        self.assertEqual(data[0]["model"], "core.company")
+
+    def test_export_view_csv_zip_download(self):
+        self.client.login(username="testuser", password="password")
+        response = self.client.post(
+            reverse("data_export"),
+            {
+                "selected_models": ["core.company"],
+                "action": "export_csv",
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/zip")
+        self.assertIn("attachment", response["Content-Disposition"])
+        self.assertIn("derp_csv_export_", response["Content-Disposition"])
+        
+        # Verify ZIP contains core_company.csv
+        import zipfile
+        import io
+        zip_file = zipfile.ZipFile(io.BytesIO(response.content))
+        file_names = zip_file.namelist()
+        self.assertIn("core_company.csv", file_names)
+        
+        # Verify CSV content contains header and fields
+        csv_content = zip_file.read("core_company.csv").decode("utf-8")
+        self.assertIn("name", csv_content)
+
+
+class DataImportTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username="testuser",
+            email="test@example.com",
+            password="password",
+            role=Role.ADMIN,
+        )
+        self.company = Company.get()
+
+    def test_import_view_requires_login(self):
+        response = self.client.get(reverse("data_import"))
+        self.assertEqual(response.status_code, 302)
+
+    def test_import_view_renders_correctly(self):
+        self.client.login(username="testuser", password="password")
+        response = self.client.get(reverse("data_import"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Data Import &amp; Restore")
+        self.assertContains(response, "CSV / Excel Table Ingestion")
+        self.assertContains(response, "JSON Backup Restoration")
+        self.assertIn("model_choices", response.context)
+
+    def test_json_backup_import_success(self):
+        self.client.login(username="testuser", password="password")
+        
+        # Create a serialized JSON fixture for a new customer
+        customer_data = [
+            {
+                "model": "sales.customer",
+                "pk": 999,
+                "fields": {
+                    "name": "Imported Customer Inc",
+                    "email": "imported@customer.com",
+                    "phone": "555-9876",
+                    "billing_address": "123 Import Way",
+                    "shipping_address": "123 Import Way",
+                    "payment_terms_days": 30,
+                    "tax_rate": "0.00",
+                    "is_active": True,
+                    "created_at": "2026-05-23T00:00:00Z"
+                }
+            }
+        ]
+        import json
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        json_file = SimpleUploadedFile("backup.json", json.dumps(customer_data).encode("utf-8"), content_type="application/json")
+        
+        # Assert customer doesn't exist yet
+        from sales.models import Customer
+        self.assertFalse(Customer.objects.filter(pk=999).exists())
+        
+        # Upload file
+        response = self.client.post(reverse("data_import"), {"json_file": json_file})
+        self.assertEqual(response.status_code, 302)
+        
+        # Assert customer exists now!
+        self.assertTrue(Customer.objects.filter(pk=999).exists())
+        c = Customer.objects.get(pk=999)
+        self.assertEqual(c.name, "Imported Customer Inc")
+        self.assertEqual(c.email, "imported@customer.com")
+
+    def test_json_backup_import_rollback_on_failure(self):
+        self.client.login(username="testuser", password="password")
+        
+        # Upload invalid customer JSON (name cannot be null)
+        invalid_data = [{"model": "sales.customer", "pk": 888, "fields": {"name": None}}]
+        
+        import json
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        json_file = SimpleUploadedFile("backup.json", json.dumps(invalid_data).encode("utf-8"), content_type="application/json")
+        
+        from sales.models import Customer
+        # Upload file
+        response = self.client.post(reverse("data_import"), {"json_file": json_file})
+        self.assertEqual(response.status_code, 302)
+        
+        # Assert customer was NOT created due to database rollback!
+        self.assertFalse(Customer.objects.filter(pk=888).exists())
+
+    def test_csv_import_success(self):
+        self.client.login(username="testuser", password="password")
+        
+        # Create CSV content for Customers
+        csv_data = "id,name,email,payment_terms_days\n777,CSV Ingested Co,csv@ingest.com,45\n"
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        csv_file = SimpleUploadedFile("customers.csv", csv_data.encode("utf-8"), content_type="text/csv")
+        
+        from sales.models import Customer
+        self.assertFalse(Customer.objects.filter(pk=777).exists())
+        
+        response = self.client.post(
+            reverse("data_import"),
+            {
+                "model_key": "sales.customer",
+                "csv_file": csv_file,
+            }
+        )
+        self.assertEqual(response.status_code, 302)
+        
+        # Assert customer exists and terms were set!
+        self.assertTrue(Customer.objects.filter(pk=777).exists())
+        c = Customer.objects.get(pk=777)
+        self.assertEqual(c.name, "CSV Ingested Co")
+        self.assertEqual(c.payment_terms_days, 45)
+
+

@@ -4,7 +4,7 @@
   <h1>{{ invoice.number|default:"Draft invoice" }}</h1>
   <div class="card">
     <p>
-      <strong>Customer:</strong> {{ invoice.customer.name }} &nbsp;
+      <strong>Customer:</strong> <a href="{% url 'customer_detail' invoice.customer.pk %}">{{ invoice.customer.name }}</a> &nbsp;
       <strong>Date:</strong> {{ invoice.date|date:"Y-m-d" }} &nbsp;
       <strong>Due:</strong> {{ invoice.due_date|date:"Y-m-d" }} &nbsp;
       <strong>Status:</strong> {{ invoice.get_status_display }}
@@ -22,7 +22,13 @@
       <tbody>
         {% for l in invoice.lines.all %}
           <tr>
-            <td>{{ l.description }}</td>
+            <td>
+              {% if l.product %}
+                <a href="{% url 'product_detail' l.product.pk %}">{{ l.description }}</a>
+              {% else %}
+                {{ l.description }}
+              {% endif %}
+            </td>
             <td class="num">{{ l.qty }}</td>
             <td class="num">{{ l.unit_price }}</td>
             <td>{{ l.revenue_account.code }} {{ l.revenue_account.name }}</td>

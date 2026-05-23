@@ -4,7 +4,7 @@
   <h1>{{ bill.number|default:"Draft bill" }}</h1>
   <div class="card">
     <p>
-      <strong>Vendor:</strong> {{ bill.vendor.name }} &nbsp;
+      <strong>Vendor:</strong> <a href="{% url 'vendor_detail' bill.vendor.pk %}">{{ bill.vendor.name }}</a> &nbsp;
       {% if bill.vendor_ref %}<strong>Vendor ref:</strong> {{ bill.vendor_ref }} &nbsp;{% endif %}
       <strong>Date:</strong> {{ bill.date|date:"Y-m-d" }} &nbsp;
       <strong>Due:</strong> {{ bill.due_date|date:"Y-m-d" }} &nbsp;
@@ -23,7 +23,13 @@
       <tbody>
         {% for l in bill.lines.all %}
           <tr>
-            <td>{{ l.description }}</td>
+            <td>
+              {% if l.product %}
+                <a href="{% url 'product_detail' l.product.pk %}">{{ l.description }}</a>
+              {% else %}
+                {{ l.description }}
+              {% endif %}
+            </td>
             <td class="num">{{ l.qty }}</td>
             <td class="num">{{ l.unit_cost }}</td>
             <td>{{ l.expense_account.code }} {{ l.expense_account.name }}</td>

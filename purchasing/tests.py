@@ -289,3 +289,57 @@ class PurchasingPDFViewsTests(TestCase):
         self.assertIn(f"PO-{order.pk}.pdf", response["Content-Disposition"])
 
 
+class VendorDetailViewTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.user = User.objects.create_user(username="testuser", password="password")
+        self.expense = Account.objects.create(code="6900", name="Miscellaneous", type=AccountType.EXPENSE)
+        self.vendor = Vendor.objects.create(name="Supply Co", payment_terms_days=20)
+        self.product = Product.objects.create(
+            sku="PART",
+            name="Part",
+            cost=D("5.00"),
+            default_expense_account=self.expense,
+        )
+
+    def test_vendor_detail_view(self):
+        order = PurchaseOrder.objects.create(
+            vendor=self.vendor,
+            date=date(2026, 5, 1),
+        )
+        PurchaseOrderLine.objects.create(
+            order=order,
+            product=self.product,
+            description="Part",
+            qty=D("3.0000"),
+            unit_cost=D("5.00"),
+            expense_account=self.expense,
+        )
+        
+        bill = Bill.objects.create(
+            vendor=self.vendor,
+            date=date(2026, 5, 1),
+            due_date=date(2026, 5, 21),
+            status=Bill.Status.ENTERED,
+        )
+        from purchasing.models import BillLine
+        BillLine.objects.create(
+            bill=bill,
+            product=self.product,
+            description="Part",
+            qty=D("3.0000"),
+            unit_cost=D("5.00"),
+            expense_account=self.expense,
+        )
+
+        self.client.force_login(self.user)
+        response = self.client.get(f"/vendors/{self.vendor.pk}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Supply Co")
+        self.assertContains(response, "Lifetime Posted Purchases")
+        self.assertContains(response, "$15.00")
+        self.assertContains(response, "$15.00")
+
+
+

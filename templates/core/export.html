@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Data Export — DERP{% endblock %}
+{% block content %}
+  <div class="page-header" style="margin-bottom: 24px;">
+    <div>
+      <span class="text-subtle" style="font-weight: bold; text-transform: uppercase; font-size: 11px;">System Tools</span>
+      <h1 style="margin-top: 4px;">Data Export Manager</h1>
+      <p class="text-subtle">Securely export your relational database records into Excel-compatible CSV formats or complete JSON backup files.</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn secondary" href="{% url 'home' %}">Back to Workspace</a>
+    </div>
+  </div>
+
+  <div class="card" style="border-color: #b2ddff; background: #f0f9ff; border-radius: 12px; margin-bottom: 24px; display: flex; align-items: flex-start; gap: 12px; padding: 16px;">
+    <span style="font-size: 20px; line-height: 1;">ℹ️</span>
+    <div>
+      <h4 style="margin: 0 0 4px; color: #175cd3; font-weight: 700; font-size: 14px;">Relational Integrity and Fixtures</h4>
+      <p style="margin: 0; font-size: 13px; color: #1e40af; line-height: 1.4;">
+        CSV exports write Foreign Key associations as raw primary key IDs, which is ideal for relational queries and direct data importing in spreadsheets.
+        JSON backups are formatted as native Django fixtures, making them ideal for direct database restorations via the command-line utility: <code>python manage.py loaddata [backup-file.json]</code>.
+      </p>
+    </div>
+  </div>
+
+  <form method="post" id="export-form">
+    {% csrf_token %}
+    
+    <div class="db-grid" style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px; align-items: start;">
+      
+      <!-- Left Panel: Table Selection -->
+      <div class="card" style="padding: 0; overflow: hidden;">
+        <div style="padding: 20px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; background: var(--surface-subtle);">
+          <h3 style="margin: 0; font-size: 15px; font-weight: 750; color: var(--fg);">Select Database Tables</h3>
+          <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: bold; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="select-all" checked style="width: 16px; height: 16px;">
+            Select / Deselect All
+          </label>
+        </div>
+        
+        <div class="table-wrap" style="margin: 0; box-shadow: none;">
+          <table style="min-width: 100%;">
+            <thead>
+              <tr>
+                <th style="width: 40px; text-align: center;"></th>
+                <th>App Module</th>
+                <th>Database Table / Model Name</th>
+                <th class="num">Current Record Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for m in exportable_models %}
+                <tr style="cursor: pointer;" onclick="toggleRow(this, event)">
+                  <td style="text-align: center;" onclick="event.stopPropagation()">
+                    <input type="checkbox" name="selected_models" value="{{ m.key }}" class="model-checkbox" checked style="width: 16px; height: 16px; cursor: pointer;">
+                  </td>
+                  <td>
+                    <span class="badge" style="
+                      {% if m.app_label == 'accounting' %}background: #fdf2f8; color: #c026d3; border: 1px solid #fbcfe8;
+                      {% elif m.app_label == 'inventory' %}background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe;
+                      {% elif m.app_label == 'sales' %}background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0;
+                      {% elif m.app_label == 'purchasing' %}background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3;
+                      {% elif m.app_label == 'manufacturing' %}background: #fff7ed; color: #ea580c; border: 1px solid #ffedd5;
+                      {% else %}background: #f8f9fc; color: #475467; border: 1px solid #eaecf0;
+                      {% endif %}
+                      font-weight: 700; font-size: 11px; text-transform: uppercase; padding: 2px 6px; border-radius: 4px;
+                    ">
+                      {{ m.app_label }}
+                    </span>
+                  </td>
+                  <td style="font-weight: bold; color: var(--fg);">
+                    {{ m.verbose_name }}
+                    <span style="font-weight: normal; color: var(--muted); font-size: 12px; font-family: monospace; margin-left: 6px;">({{ m.model_name }})</span>
+                  </td>
+                  <td class="num font-mono" style="font-weight: bold;">
+                    {% if m.row_count > 0 %}
+                      <span style="color: var(--fg);">{{ m.row_count }}</span>
+                    {% else %}
+                      <span class="muted">0</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="4" class="empty-state">No exportable models found.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Right Panel: Export Options -->
+      <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
+        
+        <!-- Excel CSV Zip Export Action -->
+        <div class="card" style="border-top: 4px solid #0f766e;">
+          <h3 style="margin-top: 0; font-size: 15px; font-weight: 750; color: #0f766e;">CSV / Excel Archive</h3>
+          <p class="muted" style="font-size: 13px; line-height: 1.4; margin: 8px 0 16px;">
+            Generates an Excel-compatible CSV file for each selected table, zipped into a single archive. Perfect for analytics, graphing, or third-party CRM imports.
+          </p>
+          <button class="btn" type="submit" name="action" value="export_csv" style="width: 100%; border-radius: 8px; justify-content: center; background: #0f766e; border-color: #0f766e; font-weight: bold;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Download ZIP of CSVs
+          </button>
+        </div>
+
+        <!-- Django JSON Fixture Export Action -->
+        <div class="card" style="border-top: 4px solid #475467;">
+          <h3 style="margin-top: 0; font-size: 15px; font-weight: 750; color: #475467;">JSON Backup File</h3>
+          <p class="muted" style="font-size: 13px; line-height: 1.4; margin: 8px 0 16px;">
+            Creates a single, highly structured JSON backup in Django standard fixture syntax. Best for developers executing migrations, restorations, or full backups.
+          </p>
+          <button class="btn" type="submit" name="action" value="export_json" style="width: 100%; border-radius: 8px; justify-content: center; background: #475467; border-color: #475467; font-weight: bold;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Download JSON Backup
+          </button>
+        </div>
+        
+      </div>
+      
+    </div>
+  </form>
+
+  <script>
+    // Global checkbox select all / deselect all
+    document.getElementById('select-all').addEventListener('change', function(e) {
+      document.querySelectorAll('.model-checkbox').forEach(cb => {
+        cb.checked = e.target.checked;
+      });
+    });
+
+    // Toggle row checkboxes on row clicks
+    function toggleRow(row, event) {
+      const checkbox = row.querySelector('.model-checkbox');
+      if (event.target !== checkbox) {
+        checkbox.checked = !checkbox.checked;
+      }
+    }
+  </script>
+{% endblock %}

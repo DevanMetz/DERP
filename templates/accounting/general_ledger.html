@@ -17,7 +17,13 @@
         {% for l in lines %}
           <tr>
             <td>{{ l.date|date:"Y-m-d" }}</td>
-            <td>{{ l.entry_number }}</td>
+            <td>
+              {% if l.entry_pk %}
+                <a href="{% url 'journal_detail' l.entry_pk %}" style="font-weight: bold;">{{ l.entry_number }}</a>
+              {% else %}
+                {{ l.entry_number }}
+              {% endif %}
+            </td>
             <td>{{ l.memo }}</td>
             <td class="num">{% if l.debit %}{{ l.debit }}{% endif %}</td>
             <td class="num">{% if l.credit %}{{ l.credit }}{% endif %}</td>

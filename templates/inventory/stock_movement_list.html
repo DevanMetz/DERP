@@ -27,7 +27,7 @@
           <tr>
             <td style="white-space: nowrap;">{{ m.posted_at|date:"Y-m-d H:i:s" }}</td>
             <td>
-              <a href="{% url 'product_edit' m.product.pk %}" style="font-weight: bold;">
+              <a href="{% url 'product_detail' m.product.pk %}" style="font-weight: bold;">
                 {{ m.product.sku }}
               </a>
               <span class="muted" style="display: block; font-size: 12px;">{{ m.product.name }}</span>
@@ -62,7 +62,15 @@
             <td>
               {% if m.ref_doc_type %}
                 <span style="font-size: 12px; font-weight: 500; color: var(--muted);">
-                  {{ m.ref_doc_type }} #{{ m.ref_doc_id }}
+                  {% if m.ref_doc_type == "Invoice" or m.ref_doc_type == "InvoiceUndo" or m.ref_doc_type == "InvoiceVoid" %}
+                    <a href="{% url 'invoice_detail' m.ref_doc_id %}">{{ m.ref_doc_type }} #{{ m.ref_doc_id }}</a>
+                  {% elif m.ref_doc_type == "GoodsReceipt" or m.ref_doc_type == "GoodsReceiptReversal" %}
+                    <a href="{% url 'goods_receipt_detail' m.ref_doc_id %}">{{ m.ref_doc_type }} #{{ m.ref_doc_id }}</a>
+                  {% elif m.ref_doc_type == "ManufacturingOrder" %}
+                    <a href="{% url 'mo_detail' m.ref_doc_id %}">{{ m.ref_doc_type }} #{{ m.ref_doc_id }}</a>
+                  {% else %}
+                    {{ m.ref_doc_type }} #{{ m.ref_doc_id }}
+                  {% endif %}
                 </span>
               {% else %}
                 <span class="muted">—</span>

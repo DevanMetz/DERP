@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Data Import — DERP{% endblock %}
+{% block content %}
+  <div class="page-header" style="margin-bottom: 24px;">
+    <div>
+      <span class="text-subtle" style="font-weight: bold; text-transform: uppercase; font-size: 11px;">System Tools</span>
+      <h1 style="margin-top: 4px;">Data Import &amp; Restore</h1>
+      <p class="text-subtle">Rehydrate your database records from JSON fixture backups or upload CSV spreadsheets to bulk create and update catalog entities.</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn secondary" href="{% url 'home' %}">Back to Workspace</a>
+    </div>
+  </div>
+
+  <div class="card" style="border-color: #fde68a; background: #fffbeb; border-radius: 12px; margin-bottom: 24px; display: flex; align-items: flex-start; gap: 12px; padding: 16px;">
+    <span style="font-size: 20px; line-height: 1;">⚠️</span>
+    <div>
+      <h4 style="margin: 0 0 4px; color: #b45309; font-weight: 700; font-size: 14px;">Transactional Rollback Safeguards</h4>
+      <p style="margin: 0; font-size: 13px; color: #b45309; line-height: 1.4;">
+        Both CSV and JSON imports are executed inside strict atomic database transactions. If a single validation mismatch, bad cell, or missing foreign key is encountered, the entire import rolls back instantly to keep your data 100% clean.
+      </p>
+    </div>
+  </div>
+
+  <div class="db-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; align-items: start;">
+    
+    <!-- Left Panel: CSV Bulk Ingestion -->
+    <div class="card" style="border-top: 4px solid #0f766e; display: flex; flex-direction: column; gap: 18px;">
+      <div>
+        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 750; color: #0f766e;">CSV / Excel Table Ingestion</h3>
+        <p class="muted" style="font-size: 12.5px; line-height: 1.4; margin: 0;">
+          Select a master data table and upload a CSV file. If the file contains an <code>id</code> column with matching IDs, those records will be updated; otherwise, new records are created.
+        </p>
+      </div>
+
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.02em;">Target Model Entity</label>
+            <select name="model_key" required style="width: 100%; height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); font-size: 13px; outline: none; background: var(--surface);">
+              <option value="" disabled selected>— Choose a database table —</option>
+              {% for choice in model_choices %}
+                <option value="{{ choice.key }}">{{ choice.label }} ({{ choice.key }})</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.02em;">Select CSV File</label>
+            <input type="file" name="csv_file" accept=".csv" required style="width: 100%; border: 1px dashed var(--line); padding: 12px; border-radius: 8px; background: var(--surface-subtle); outline: none; cursor: pointer;">
+          </div>
+
+          <div style="margin-top: 8px;">
+            <button class="btn" type="submit" style="width: 100%; justify-content: center; background: #0f766e; border-color: #0f766e; border-radius: 8px; font-weight: bold; height: 38px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              Upload &amp; Ingest CSV
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <div style="background: var(--surface-subtle); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font-size: 12px; line-height: 1.4;">
+        <h4 style="margin: 0 0 6px; font-weight: bold; color: var(--fg);">CSV Formatting Guidelines:</h4>
+        <ul style="margin: 0; padding-left: 16px; color: var(--muted); display: flex; flex-direction: column; gap: 4px;">
+          <li>Column headers must match the database field names exactly (case-insensitive).</li>
+          <li>For relational fields (e.g. <code>default_expense_account</code> or <code>default_revenue_account</code>), enter the parent record's ID (e.g., Account Code like <code>4100</code>).</li>
+          <li>To find out the correct column headers, export the table using our Export tool first!</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Right Panel: JSON Backup Restoration -->
+    <div class="card" style="border-top: 4px solid #475467; display: flex; flex-direction: column; gap: 18px;">
+      <div>
+        <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 750; color: #475467;">JSON Backup Restoration</h3>
+        <p class="muted" style="font-size: 12.5px; line-height: 1.4; margin: 0;">
+          Restore the state of your database using a JSON fixture backup file generated by the Export Tool.
+        </p>
+      </div>
+
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.02em;">Select JSON Backup File</label>
+            <input type="file" name="json_file" accept=".json" required style="width: 100%; border: 1px dashed var(--line); padding: 12px; border-radius: 8px; background: var(--surface-subtle); outline: none; cursor: pointer;">
+          </div>
+
+          <div style="margin-top: 8px;">
+            <button class="btn" type="submit" style="width: 100%; justify-content: center; background: #475467; border-color: #475467; border-radius: 8px; font-weight: bold; height: 38px;" onsubmit="return confirm('WARNING: This will overwrite existing database records that share matching IDs. Are you sure you want to proceed?');">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              Restore from Backup
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <div style="background: var(--surface-subtle); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font-size: 12px; line-height: 1.4;">
+        <h4 style="margin: 0 0 6px; font-weight: bold; color: var(--fg);">JSON Restoration Guidelines:</h4>
+        <ul style="margin: 0; padding-left: 16px; color: var(--muted); display: flex; flex-direction: column; gap: 4px;">
+          <li>Accepts standard JSON backup files containing serialized model lists.</li>
+          <li>Database primary key and Foreign Key references are fully preserved on restoration.</li>
+          <li>Existing records with matching primary keys are fully updated.</li>
+        </ul>
+      </div>
+    </div>
+    
+  </div>
+{% endblock %}

@@ -45,12 +45,73 @@ def customer_edit(request, pk=None):
     return render(request, "sales/customer_form.html", {"form": form, "customer": customer})
 
 
+@login_required
+def customer_detail(request, pk):
+    customer = get_object_or_404(Customer, pk=pk)
+    orders = SalesOrder.objects.filter(customer=customer).select_related("customer").order_by("-date", "-id")
+    invoices = Invoice.objects.filter(customer=customer).select_related("customer").order_by("-date", "-id")
+    
+    # Calculate lifetime values
+    total_sales = sum((inv.total() for inv in invoices if inv.status != Invoice.Status.VOID), Decimal("0.00"))
+    total_due = sum((inv.amount_due() for inv in invoices if inv.status in [Invoice.Status.SENT, Invoice.Status.PAID]), Decimal("0.00"))
+    
+    return render(
+        request,
+        "sales/customer_detail.html",
+        {
+            "customer": customer,
+            "orders": orders,
+            "invoices": invoices,
+            "total_sales": total_sales,
+            "total_due": total_due,
+        },
+    )
+
+
 # --------------------------- Sales orders ----------------------------
 
 @login_required
 def sales_order_list(request):
-    orders = SalesOrder.objects.select_related("customer").all()
-    return render(request, "sales/sales_order_list.html", {"orders": orders})
+    from core.views import apply_filters
+    qs = SalesOrder.objects.select_related("customer").all()
+
+    # Filters
+    status = request.GET.get("status", "")
+    name = request.GET.get("name", "")
+    date_from = request.GET.get("date_from", "")
+    date_to = request.GET.get("date_to", "")
+
+    if status:
+        qs = qs.filter(status=status)
+    if name:
+        qs = qs.filter(customer__name__icontains=name)
+    if date_from:
+        qs = qs.filter(date__gte=date_from)
+    if date_to:
+        qs = qs.filter(date__lte=date_to)
+
+    SORT_FIELDS = ["date", "customer__name", "status", "number"]
+    qs, sort, direction = apply_filters(qs, request, SORT_FIELDS)
+
+    # Active filters for chip display
+    active_filters = []
+    if status:
+        active_filters.append({"label": f"Status: {dict(SalesOrder.Status.choices).get(status, status)}", "remove": "status"})
+    if name:
+        active_filters.append({"label": f"Customer: {name}", "remove": "name"})
+    if date_from:
+        active_filters.append({"label": f"From: {date_from}", "remove": "date_from"})
+    if date_to:
+        active_filters.append({"label": f"To: {date_to}", "remove": "date_to"})
+
+    return render(request, "sales/sales_order_list.html", {
+        "orders": qs,
+        "status_choices": SalesOrder.Status.choices,
+        "filters": {"status": status, "name": name, "date_from": date_from, "date_to": date_to},
+        "active_filters": active_filters,
+        "sort": sort,
+        "dir": direction,
+    })
 
 
 @login_required
@@ -151,8 +212,56 @@ def sales_order_undo_invoice(request, pk):
 
 @login_required
 def invoice_list(request):
-    invoices = Invoice.objects.select_related("customer").all()
-    return render(request, "sales/invoice_list.html", {"invoices": invoices})
+    from core.views import apply_filters
+    qs = Invoice.objects.select_related("customer").all()
+
+    # Filters
+    status = request.GET.get("status", "")
+    name = request.GET.get("name", "")
+    date_from = request.GET.get("date_from", "")
+    date_to = request.GET.get("date_to", "")
+    due_from = request.GET.get("due_from", "")
+    due_to = request.GET.get("due_to", "")
+
+    if status:
+        qs = qs.filter(status=status)
+    if name:
+        qs = qs.filter(customer__name__icontains=name)
+    if date_from:
+        qs = qs.filter(date__gte=date_from)
+    if date_to:
+        qs = qs.filter(date__lte=date_to)
+    if due_from:
+        qs = qs.filter(due_date__gte=due_from)
+    if due_to:
+        qs = qs.filter(due_date__lte=due_to)
+
+    SORT_FIELDS = ["date", "due_date", "customer__name", "status", "number"]
+    qs, sort, direction = apply_filters(qs, request, SORT_FIELDS)
+
+    active_filters = []
+    if status:
+        active_filters.append({"label": f"Status: {dict(Invoice.Status.choices).get(status, status)}", "remove": "status"})
+    if name:
+        active_filters.append({"label": f"Customer: {name}", "remove": "name"})
+    if date_from:
+        active_filters.append({"label": f"From: {date_from}", "remove": "date_from"})
+    if date_to:
+        active_filters.append({"label": f"To: {date_to}", "remove": "date_to"})
+    if due_from:
+        active_filters.append({"label": f"Due from: {due_from}", "remove": "due_from"})
+    if due_to:
+        active_filters.append({"label": f"Due to: {due_to}", "remove": "due_to"})
+
+    return render(request, "sales/invoice_list.html", {
+        "invoices": qs,
+        "status_choices": Invoice.Status.choices,
+        "filters": {"status": status, "name": name, "date_from": date_from, "date_to": date_to,
+                    "due_from": due_from, "due_to": due_to},
+        "active_filters": active_filters,
+        "sort": sort,
+        "dir": direction,
+    })
 
 
 @login_required

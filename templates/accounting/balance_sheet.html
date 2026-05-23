@@ -17,7 +17,7 @@
         <tr><th colspan="2">Assets</th></tr>
         {% for row in report.assets %}
           <tr>
-            <td>{% if row.account %}{{ row.account.code }} {% endif %}{{ row.label }}</td>
+            <td>{% if row.account %}<a href="{% url 'general_ledger' %}?account={{ row.account.pk }}">{{ row.account.code }} {{ row.label }}</a>{% else %}{{ row.label }}{% endif %}</td>
             <td class="num">{{ row.amount }}</td>
           </tr>
         {% empty %}
@@ -28,7 +28,7 @@
         <tr><th colspan="2">Liabilities</th></tr>
         {% for row in report.liabilities %}
           <tr>
-            <td>{% if row.account %}{{ row.account.code }} {% endif %}{{ row.label }}</td>
+            <td>{% if row.account %}<a href="{% url 'general_ledger' %}?account={{ row.account.pk }}">{{ row.account.code }} {{ row.label }}</a>{% else %}{{ row.label }}{% endif %}</td>
             <td class="num">{{ row.amount }}</td>
           </tr>
         {% empty %}
@@ -39,7 +39,7 @@
         <tr><th colspan="2">Equity</th></tr>
         {% for row in report.equity %}
           <tr>
-            <td>{% if row.account %}{{ row.account.code }} {% endif %}{{ row.label }}</td>
+            <td>{% if row.account %}<a href="{% url 'general_ledger' %}?account={{ row.account.pk }}">{{ row.account.code }} {{ row.label }}</a>{% else %}{{ row.label }}{% endif %}</td>
             <td class="num">{{ row.amount }}</td>
           </tr>
         {% empty %}

@@ -17,7 +17,7 @@
         <tr><th colspan="2">Revenue</th></tr>
         {% for row in report.revenue %}
           <tr>
-            <td>{{ row.account.code }} {{ row.account.name }}</td>
+            <td><a href="{% url 'general_ledger' %}?account={{ row.account.pk }}">{{ row.account.code }} {{ row.account.name }}</a></td>
             <td class="num">{{ row.amount }}</td>
           </tr>
         {% empty %}
@@ -28,7 +28,7 @@
         <tr><th colspan="2">Expenses</th></tr>
         {% for row in report.expenses %}
           <tr>
-            <td>{{ row.account.code }} {{ row.account.name }}</td>
+            <td><a href="{% url 'general_ledger' %}?account={{ row.account.pk }}">{{ row.account.code }} {{ row.account.name }}</a></td>
             <td class="num">{{ row.amount }}</td>
           </tr>
         {% empty %}

@@ -267,6 +267,7 @@ class GLLine:
     debit: Decimal
     credit: Decimal
     running_balance: Decimal  # signed; positive = debit-side balance
+    entry_pk: int | None = None
 
 
 def general_ledger(
@@ -313,6 +314,7 @@ def general_ledger(
         debit=ZERO,
         credit=ZERO,
         running_balance=running,
+        entry_pk=None,
     )]
     for line in lines:
         running += line.debit - line.credit
@@ -323,5 +325,6 @@ def general_ledger(
             debit=line.debit,
             credit=line.credit,
             running_balance=running,
+            entry_pk=line.entry.pk,
         ))
     return out

@@ -1,65 +1,131 @@
 {% extends "base.html" %}
 {% block title %}Products — DERP{% endblock %}
 {% block content %}
-  <div class="page-header">
-    <h1>Products</h1>
-    <div class="page-actions"><a class="btn" href="{% url 'product_create' %}">New product</a></div>
+{% include "partials/list_controls.html" %}
+
+<div class="page-header">
+  <h1>Products</h1>
+  <div class="page-actions"><a class="btn" href="{% url 'product_create' %}">New product</a></div>
+</div>
+
+<div class="filter-bar">
+  <div class="filter-bar-toggle" onclick="toggleFilter('prod-filter-body')">
+    <span class="filter-bar-title">
+      🔽 Filters
+      {% if active_filters %}<span class="filter-bar-active-count">{{ active_filters|length }}</span>{% endif %}
+    </span>
+    <span class="filter-caret" id="prod-filter-body-caret">▼</span>
   </div>
-  <div class="table-wrap">
-  <table>
-    <thead><tr><th>Icon</th><th>SKU</th><th>Name</th><th>Type</th><th>UOM</th><th class="num">On hand</th><th class="num">Low stock</th><th class="num">Cost</th><th class="num">Price</th><th>Active</th><th></th></tr></thead>
-    <tbody>
-      {% for p in products %}
-        <tr>
-          <td style="width: 50px; padding: 6px 10px; vertical-align: middle;">
-            {% if p.image %}
-              <img src="{{ p.image.url }}" alt="{{ p.name }}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border);" />
-            {% else %}
-              <div style="width: 40px; height: 40px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; background: {% if p.type == 'stock' %}#dbeafe; color: #1e40af; border: 1px solid #bfdbfe;{% else %}#f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff;{% endif %}" title="{{ p.name }}">
-                {{ p.sku|slice:":2"|upper }}
-              </div>
-            {% endif %}
-          </td>
-          <td><a href="{% url 'product_detail' p.pk %}" style="font-weight: 700; color: var(--text);">{{ p.sku }}</a></td>
-          <td>{{ p.name }}</td>
-          <td>
-            {% if p.type == "stock" %}
-              <span class="badge info">Stock</span>
-            {% else %}
-              <span class="badge warning" style="background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff;">Service</span>
-            {% endif %}
-          </td>
-          <td>{{ p.uom }}</td>
-          <td class="num">
-            {% if p.type == "stock" %}
-              {% if p.is_low_stock %}
-                <span class="badge danger" style="padding: 2px 6px; font-weight: 700; font-size: 12px;" title="Low stock alert! (At or below threshold {{ p.low_stock_threshold }})">{{ p.stock_on_hand.qty|default:"0.0000" }}</span>
-              {% else %}
-                {{ p.stock_on_hand.qty|default:"0.0000" }}
-              {% endif %}
-            {% else %}
-              <span style="color: var(--text-mut); font-style: italic; font-size: 12px;">N/A</span>
-            {% endif %}
-          </td>
-          <td class="num">{% if p.type == "stock" %}{{ p.low_stock_threshold }}{% else %}-{% endif %}</td>
-          <td class="num font-mono">${{ p.cost }}</td>
-          <td class="num font-mono">${{ p.price }}</td>
-          <td>
-            {% if p.is_active %}
-              <span class="badge success">Active</span>
-            {% else %}
-              <span class="badge secondary">Inactive</span>
-            {% endif %}
-          </td>
-          <td>
-            <a href="{% url 'product_detail' p.pk %}">View</a> &bull;
-            <a href="{% url 'product_edit' p.pk %}">Edit</a>
-          </td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="11" class="empty-state">No products yet.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="filter-body" id="prod-filter-body">
+    <form method="get" action="{% url 'product_list' %}">
+      <div class="filter-grid">
+        <div class="filter-field">
+          <label>SKU / Name</label>
+          <input type="text" name="name" value="{{ filters.name }}" placeholder="Search SKU or name…">
+        </div>
+        <div class="filter-field">
+          <label>Type</label>
+          <select name="type">
+            <option value="">All types</option>
+            <option value="stock" {% if filters.type == 'stock' %}selected{% endif %}>Stock item</option>
+            <option value="service" {% if filters.type == 'service' %}selected{% endif %}>Service</option>
+          </select>
+        </div>
+        <div class="filter-field">
+          <label>Active</label>
+          <select name="is_active">
+            <option value="">All</option>
+            <option value="1" {% if filters.is_active == '1' %}selected{% endif %}>Active only</option>
+            <option value="0" {% if filters.is_active == '0' %}selected{% endif %}>Inactive only</option>
+          </select>
+        </div>
+        <div class="filter-actions">
+          <button class="btn" type="submit">Apply</button>
+          <a class="btn secondary" href="{% url 'product_list' %}">Clear</a>
+        </div>
+      </div>
+    </form>
   </div>
+</div>
+
+{% if active_filters %}
+<div class="chips-row">
+  {% for chip in active_filters %}
+    <span class="chip">
+      {{ chip.label }}
+      <a class="chip-x" href="?{% for k, v in request.GET.items %}{% if k != chip.remove %}{{ k }}={{ v }}&{% endif %}{% endfor %}" title="Remove filter">✕</a>
+    </span>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="table-wrap">
+<table>
+  <thead><tr>
+    <th>Icon</th>
+    <th class="sortable"><a href="?{% for k,v in request.GET.items %}{% if k != 'sort' and k != 'dir' %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=sku&dir={% if sort == 'sku' and dir == 'asc' %}desc{% else %}asc{% endif %}">SKU <span class="sort-indicator {% if sort == 'sku' %}active{% endif %}">{% if sort == 'sku' %}{% if dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></a></th>
+    <th class="sortable"><a href="?{% for k,v in request.GET.items %}{% if k != 'sort' and k != 'dir' %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=name&dir={% if sort == 'name' and dir == 'asc' %}desc{% else %}asc{% endif %}">Name <span class="sort-indicator {% if sort == 'name' %}active{% endif %}">{% if sort == 'name' %}{% if dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></a></th>
+    <th class="sortable"><a href="?{% for k,v in request.GET.items %}{% if k != 'sort' and k != 'dir' %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=type&dir={% if sort == 'type' and dir == 'asc' %}desc{% else %}asc{% endif %}">Type <span class="sort-indicator {% if sort == 'type' %}active{% endif %}">{% if sort == 'type' %}{% if dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></a></th>
+    <th>UOM</th>
+    <th class="num">On hand</th>
+    <th class="num">Low stock</th>
+    <th class="num sortable"><a href="?{% for k,v in request.GET.items %}{% if k != 'sort' and k != 'dir' %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=cost&dir={% if sort == 'cost' and dir == 'asc' %}desc{% else %}asc{% endif %}" style="justify-content: flex-end;">Cost <span class="sort-indicator {% if sort == 'cost' %}active{% endif %}">{% if sort == 'cost' %}{% if dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></a></th>
+    <th class="num sortable"><a href="?{% for k,v in request.GET.items %}{% if k != 'sort' and k != 'dir' %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=price&dir={% if sort == 'price' and dir == 'asc' %}desc{% else %}asc{% endif %}" style="justify-content: flex-end;">Price <span class="sort-indicator {% if sort == 'price' %}active{% endif %}">{% if sort == 'price' %}{% if dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></a></th>
+    <th>Active</th>
+    <th></th>
+  </tr></thead>
+  <tbody>
+    {% for p in products %}
+      <tr>
+        <td style="width: 50px; padding: 6px 10px; vertical-align: middle;">
+          {% if p.image %}
+            <img src="{{ p.image.url }}" alt="{{ p.name }}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border);" />
+          {% else %}
+            <div style="width: 40px; height: 40px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; background: {% if p.type == 'stock' %}#dbeafe; color: #1e40af; border: 1px solid #bfdbfe;{% else %}#f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff;{% endif %}" title="{{ p.name }}">
+              {{ p.sku|slice:":2"|upper }}
+            </div>
+          {% endif %}
+        </td>
+        <td><a href="{% url 'product_detail' p.pk %}" style="font-weight: 700; color: var(--text);">{{ p.sku }}</a></td>
+        <td>{{ p.name }}</td>
+        <td>
+          {% if p.type == "stock" %}
+            <span class="badge info">Stock</span>
+          {% else %}
+            <span class="badge warning" style="background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff;">Service</span>
+          {% endif %}
+        </td>
+        <td>{{ p.uom }}</td>
+        <td class="num">
+          {% if p.type == "stock" %}
+            {% if p.is_low_stock %}
+              <span class="badge danger" style="padding: 2px 6px; font-weight: 700; font-size: 12px;" title="Low stock alert! (At or below threshold {{ p.low_stock_threshold }})">{{ p.stock_on_hand.qty|default:"0.0000" }}</span>
+            {% else %}
+              {{ p.stock_on_hand.qty|default:"0.0000" }}
+            {% endif %}
+          {% else %}
+            <span style="color: var(--text-mut); font-style: italic; font-size: 12px;">N/A</span>
+          {% endif %}
+        </td>
+        <td class="num">{% if p.type == "stock" %}{{ p.low_stock_threshold }}{% else %}-{% endif %}</td>
+        <td class="num font-mono">${{ p.cost }}</td>
+        <td class="num font-mono">${{ p.price }}</td>
+        <td>
+          {% if p.is_active %}
+            <span class="badge success">Active</span>
+          {% else %}
+            <span class="badge secondary">Inactive</span>
+          {% endif %}
+        </td>
+        <td>
+          <a href="{% url 'product_detail' p.pk %}">View</a> &bull;
+          <a href="{% url 'product_edit' p.pk %}">Edit</a>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="11" class="empty-state">No products found.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
 {% endblock %}

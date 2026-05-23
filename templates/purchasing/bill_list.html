@@ -1,32 +1,104 @@
 {% extends "base.html" %}
 {% block title %}Bills — DERP{% endblock %}
 {% block content %}
-  <div class="page-header">
-    <h1>Bills</h1>
-    <div class="page-actions">
-      <a class="btn" href="{% url 'bill_create' %}">New bill</a>
-      <a class="btn secondary" href="{% url 'vendor_payment_create' %}">Pay vendor</a>
-    </div>
+{% include "partials/list_controls.html" %}
+
+<div class="page-header">
+  <h1>Bills</h1>
+  <div class="page-actions">
+    <a class="btn" href="{% url 'bill_create' %}">New bill</a>
+    <a class="btn secondary" href="{% url 'vendor_payment_create' %}">Pay vendor</a>
   </div>
-  <div class="table-wrap">
-  <table>
-    <thead><tr><th>Number</th><th>Vendor ref</th><th>Date</th><th>Vendor</th><th>Status</th><th>Due</th><th class="num">Total</th><th class="num">Due</th></tr></thead>
-    <tbody>
-      {% for b in bills %}
-        <tr>
-          <td><a href="{% url 'bill_detail' b.pk %}">{{ b.number|default:"DRAFT" }}</a></td>
-          <td>{{ b.vendor_ref }}</td>
-          <td>{{ b.date|date:"Y-m-d" }}</td>
-          <td>{{ b.vendor.name }}</td>
-          <td>{{ b.get_status_display }}</td>
-          <td>{{ b.due_date|date:"Y-m-d" }}</td>
-          <td class="num">{{ b.total }}</td>
-          <td class="num">{{ b.amount_due }}</td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="8" class="empty-state">No bills yet.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+</div>
+
+<div class="filter-bar">
+  <div class="filter-bar-toggle" onclick="toggleFilter('bill-filter-body')">
+    <span class="filter-bar-title">
+      🔽 Filters
+      {% if active_filters %}<span class="filter-bar-active-count">{{ active_filters|length }}</span>{% endif %}
+    </span>
+    <span class="filter-caret" id="bill-filter-body-caret">▼</span>
   </div>
+  <div class="filter-body" id="bill-filter-body">
+    <form method="get" action="{% url 'bill_list' %}">
+      <div class="filter-grid">
+        <div class="filter-field">
+          <label>Vendor</label>
+          <input type="text" name="name" value="{{ filters.name }}" placeholder="Vendor name…">
+        </div>
+        <div class="filter-field">
+          <label>Status</label>
+          <select name="status">
+            <option value="">All statuses</option>
+            {% for val, label in status_choices %}
+              <option value="{{ val }}" {% if filters.status == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="filter-field">
+          <label>Date from</label>
+          <input type="date" name="date_from" value="{{ filters.date_from }}">
+        </div>
+        <div class="filter-field">
+          <label>Date to</label>
+          <input type="date" name="date_to" value="{{ filters.date_to }}">
+        </div>
+        <div class="filter-field">
+          <label>Due from</label>
+          <input type="date" name="due_from" value="{{ filters.due_from }}">
+        </div>
+        <div class="filter-field">
+          <label>Due to</label>
+          <input type="date" name="due_to" value="{{ filters.due_to }}">
+        </div>
+        <div class="filter-actions">
+          <button class="btn" type="submit">Apply</button>
+          <a class="btn secondary" href="{% url 'bill_list' %}">Clear</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if active_filters %}
+<div class="chips-row">
+  {% for chip in active_filters %}
+    <span class="chip">
+      {{ chip.label }}
+      <a class="chip-x" href="?{% for k, v in request.GET.items %}{% if k != chip.remove %}{{ k }}={{ v }}&{% endif %}{% endfor %}" title="Remove filter">✕</a>
+    </span>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="table-wrap">
+<table>
+  <thead><tr>
+    <th class="sortable"><a href="?{% for k,v in request.GET.items %}{% if k != 'sort' and k != 'dir' %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=number&dir={% if sort == 'number' and dir == 'asc' %}desc{% else %}asc{% endif %}">Number <span class="sort-indicator {% if sort == 'number' %}active{% endif %}">{% if sort == 'number' %}{% if dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></a></th>
+    <th>Vendor ref</th>
+    <th class="sortable"><a href="?{% for k,v in request.GET.items %}{% if k != 'sort' and k != 'dir' %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=date&dir={% if sort == 'date' and dir == 'asc' %}desc{% else %}asc{% endif %}">Date <span class="sort-indicator {% if sort == 'date' %}active{% endif %}">{% if sort == 'date' %}{% if dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></a></th>
+    <th class="sortable"><a href="?{% for k,v in request.GET.items %}{% if k != 'sort' and k != 'dir' %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=vendor__name&dir={% if sort == 'vendor__name' and dir == 'asc' %}desc{% else %}asc{% endif %}">Vendor <span class="sort-indicator {% if sort == 'vendor__name' %}active{% endif %}">{% if sort == 'vendor__name' %}{% if dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></a></th>
+    <th class="sortable"><a href="?{% for k,v in request.GET.items %}{% if k != 'sort' and k != 'dir' %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=status&dir={% if sort == 'status' and dir == 'asc' %}desc{% else %}asc{% endif %}">Status <span class="sort-indicator {% if sort == 'status' %}active{% endif %}">{% if sort == 'status' %}{% if dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></a></th>
+    <th class="sortable"><a href="?{% for k,v in request.GET.items %}{% if k != 'sort' and k != 'dir' %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=due_date&dir={% if sort == 'due_date' and dir == 'asc' %}desc{% else %}asc{% endif %}">Due date <span class="sort-indicator {% if sort == 'due_date' %}active{% endif %}">{% if sort == 'due_date' %}{% if dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span></a></th>
+    <th class="num">Total</th>
+    <th class="num">Amount due</th>
+  </tr></thead>
+  <tbody>
+    {% for b in bills %}
+      <tr>
+        <td><a href="{% url 'bill_detail' b.pk %}">{{ b.number|default:"DRAFT" }}</a></td>
+        <td>{{ b.vendor_ref }}</td>
+        <td>{{ b.date|date:"Y-m-d" }}</td>
+        <td><a href="{% url 'vendor_detail' b.vendor.pk %}">{{ b.vendor.name }}</a></td>
+        <td>{{ b.get_status_display }}</td>
+        <td>{{ b.due_date|date:"Y-m-d" }}</td>
+        <td class="num">{{ b.total }}</td>
+        <td class="num">{{ b.amount_due }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="8" class="empty-state">No bills found.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
 {% endblock %}

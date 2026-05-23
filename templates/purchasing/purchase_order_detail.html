@@ -4,7 +4,7 @@
   <h1>{{ order.number|default:"Draft purchase order" }}</h1>
   <div class="card">
     <p>
-      <strong>Vendor:</strong> {{ order.vendor.name }} &nbsp;
+      <strong>Vendor:</strong> <a href="{% url 'vendor_detail' order.vendor.pk %}">{{ order.vendor.name }}</a> &nbsp;
       <strong>Date:</strong> {{ order.date|date:"Y-m-d" }} &nbsp;
       {% if order.expected_date %}<strong>Expected:</strong> {{ order.expected_date|date:"Y-m-d" }} &nbsp;{% endif %}
       <strong>Status:</strong> {{ order.get_status_display }}
@@ -30,7 +30,13 @@
       <tbody>
         {% for line in order.lines.all %}
           <tr>
-            <td>{{ line.description }}</td>
+            <td>
+              {% if line.product %}
+                <a href="{% url 'product_detail' line.product.pk %}">{{ line.description }}</a>
+              {% else %}
+                {{ line.description }}
+              {% endif %}
+            </td>
             <td class="num">{{ line.qty }}</td>
             <td class="num">{{ line.received_qty }}</td>
             <td class="num">{{ line.open_qty }}</td>

@@ -4,7 +4,7 @@
   <h1>{{ order.number|default:"Draft sales order" }}</h1>
   <div class="card">
     <p>
-      <strong>Customer:</strong> {{ order.customer.name }} &nbsp;
+      <strong>Customer:</strong> <a href="{% url 'customer_detail' order.customer.pk %}">{{ order.customer.name }}</a> &nbsp;
       <strong>Date:</strong> {{ order.date|date:"Y-m-d" }} &nbsp;
       {% if order.requested_date %}<strong>Requested:</strong> {{ order.requested_date|date:"Y-m-d" }} &nbsp;{% endif %}
       <strong>Status:</strong> {{ order.get_status_display }}
@@ -23,7 +23,13 @@
       <tbody>
         {% for line in order.lines.all %}
           <tr>
-            <td>{{ line.description }}</td>
+            <td>
+              {% if line.product %}
+                <a href="{% url 'product_detail' line.product.pk %}">{{ line.description }}</a>
+              {% else %}
+                {{ line.description }}
+              {% endif %}
+            </td>
             <td class="num">{{ line.qty }}</td>
             <td class="num">{{ line.unit_price }}</td>
             <td>{{ line.revenue_account.code }} {{ line.revenue_account.name }}</td>

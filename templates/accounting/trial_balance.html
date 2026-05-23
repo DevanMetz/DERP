@@ -14,8 +14,8 @@
     <tbody>
       {% for r in rows %}
         <tr>
-          <td>{{ r.account.code }}</td>
-          <td>{{ r.account.name }}</td>
+          <td><a href="{% url 'general_ledger' %}?account={{ r.account.pk }}">{{ r.account.code }}</a></td>
+          <td><a href="{% url 'general_ledger' %}?account={{ r.account.pk }}">{{ r.account.name }}</a></td>
           <td class="num">{{ r.debit_total }}</td>
           <td class="num">{{ r.credit_total }}</td>
           <td class="num">{% if r.balance_debit %}{{ r.balance_debit }}{% endif %}</td>

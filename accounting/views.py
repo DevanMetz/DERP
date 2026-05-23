@@ -16,8 +16,48 @@ from .services import LineSpec, post_transaction
 
 @login_required
 def journal_list(request):
-    entries = JournalEntry.objects.order_by("-date", "-id")[:100]
-    return render(request, "accounting/journal_list.html", {"entries": entries})
+    from core.views import apply_filters
+    from django.db.models import Q
+    qs = JournalEntry.objects.all()
+
+    status = request.GET.get("status", "")
+    memo = request.GET.get("memo", "")
+    date_from = request.GET.get("date_from", "")
+    date_to = request.GET.get("date_to", "")
+
+    if status:
+        qs = qs.filter(status=status)
+    if memo:
+        qs = qs.filter(Q(memo__icontains=memo) | Q(number__icontains=memo))
+    if date_from:
+        qs = qs.filter(date__gte=date_from)
+    if date_to:
+        qs = qs.filter(date__lte=date_to)
+
+    SORT_FIELDS = ["date", "number", "status"]
+    qs, sort, direction = apply_filters(qs, request, SORT_FIELDS)
+    # Default limit if no sort applied
+    if not sort:
+        qs = qs.order_by("-date", "-id")[:200]
+
+    active_filters = []
+    if status:
+        active_filters.append({"label": f"Status: {dict(JournalEntry.Status.choices).get(status, status)}", "remove": "status"})
+    if memo:
+        active_filters.append({"label": f"Search: {memo}", "remove": "memo"})
+    if date_from:
+        active_filters.append({"label": f"From: {date_from}", "remove": "date_from"})
+    if date_to:
+        active_filters.append({"label": f"To: {date_to}", "remove": "date_to"})
+
+    return render(request, "accounting/journal_list.html", {
+        "entries": qs,
+        "status_choices": JournalEntry.Status.choices,
+        "filters": {"status": status, "memo": memo, "date_from": date_from, "date_to": date_to},
+        "active_filters": active_filters,
+        "sort": sort,
+        "dir": direction,
+    })
 
 
 @login_required
@@ -145,7 +185,17 @@ def balance_sheet_view(request):
 
 @login_required
 def general_ledger_view(request):
-    form = GLFilterForm(request.GET or None)
+    data = request.GET.copy() if request.GET else None
+    if data and "account" in data:
+        if "start" not in data or not data["start"]:
+            from django.utils import timezone
+            import datetime
+            data["start"] = datetime.date(timezone.now().year, 1, 1).strftime("%Y-%m-%d")
+        if "end" not in data or not data["end"]:
+            from django.utils import timezone
+            data["end"] = timezone.now().date().strftime("%Y-%m-%d")
+
+    form = GLFilterForm(data or None)
     lines = []
     account = None
     if form.is_valid():

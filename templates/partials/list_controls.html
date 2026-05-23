@@ -1,0 +1,157 @@
+{% comment %}
+Shared include: filter/sort shared CSS and JS for all list views.
+Usage: {% include "partials/list_controls.html" %}
+{% endcomment %}
+<style>
+  .filter-bar {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .filter-bar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    cursor: pointer;
+    user-select: none;
+    gap: 8px;
+  }
+  .filter-bar-toggle:hover { background: var(--surface-subtle); }
+  .filter-bar-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #475467;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .filter-bar-active-count {
+    background: var(--accent);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 9px;
+    padding: 1px 6px;
+  }
+  .filter-caret { transition: transform 0.2s; color: var(--muted); font-size: 11px; }
+  .filter-caret.open { transform: rotate(180deg); }
+  .filter-body {
+    padding: 14px 16px 16px;
+    border-top: 1px solid var(--line-soft);
+    display: none;
+  }
+  .filter-body.open { display: block; }
+  .filter-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: flex-end;
+  }
+  .filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 140px;
+  }
+  .filter-field label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #475467;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin: 0;
+  }
+  .filter-field input, .filter-field select {
+    min-height: 32px;
+    padding: 5px 8px;
+    font-size: 13px;
+    border: 1px solid #cfd6e3;
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--fg);
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+    width: 100%;
+  }
+  .filter-field input:focus, .filter-field select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(36,83,179,.1);
+  }
+  .filter-actions { display: flex; gap: 8px; align-items: flex-end; }
+  .filter-actions .btn { min-height: 32px; padding: 5px 12px; font-size: 12px; }
+  .chips-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1d4ed8;
+    border-radius: 16px;
+    padding: 3px 10px 3px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .chip-x {
+    color: #60a5fa;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 1;
+    margin-left: 2px;
+  }
+  .chip-x:hover { color: #1d4ed8; text-decoration: none; }
+  th.sortable {
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+  }
+  th.sortable:hover { background: #f0f4ff; }
+  th.sortable a {
+    color: inherit;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    text-decoration: none;
+  }
+  th.sortable a:hover { text-decoration: none; color: var(--accent); }
+  .sort-indicator {
+    font-size: 10px;
+    opacity: .6;
+  }
+  .sort-indicator.active {
+    color: var(--accent);
+    opacity: 1;
+  }
+</style>
+<script>
+  function toggleFilter(id) {
+    const body = document.getElementById(id);
+    const caret = document.getElementById(id + '-caret');
+    body.classList.toggle('open');
+    if (caret) caret.classList.toggle('open');
+  }
+  // Auto-open filter bar if any filter is active
+  document.addEventListener('DOMContentLoaded', function() {
+    const filterBody = document.querySelector('.filter-body');
+    const chips = document.querySelectorAll('.chip');
+    if (chips.length > 0 && filterBody) {
+      filterBody.classList.add('open');
+      const caret = document.querySelector('.filter-caret');
+      if (caret) caret.classList.add('open');
+    }
+  });
+</script>

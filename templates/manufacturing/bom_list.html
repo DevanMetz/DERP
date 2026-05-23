@@ -31,9 +31,9 @@
         <tbody>
           {% for bom in boms %}
             <tr>
-              <td><a href="{% url 'bom_detail' bom.pk %}" style="font-weight: bold;">{{ bom.product.sku }}</a></td>
-              <td>{{ bom.product.name }}</td>
-              <td>{{ bom.name|default:"Primary Recipe" }}</td>
+              <td><a href="{% url 'product_detail' bom.product.pk %}" style="font-weight: bold;">{{ bom.product.sku }}</a></td>
+              <td><a href="{% url 'product_detail' bom.product.pk %}">{{ bom.product.name }}</a></td>
+              <td><a href="{% url 'bom_detail' bom.pk %}">{{ bom.name|default:"Primary Recipe" }}</a></td>
               <td class="num">{{ bom.components.count }}</td>
               <td class="num" style="font-weight: 700; color: var(--accent);">${{ bom.total_cost_rollup|floatformat:2 }}</td>
               <td>

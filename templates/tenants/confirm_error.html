@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Link invalid — DERP</title>
+  <style>
+    :root { --bg:#f6f7f9; --fg:#101828; --muted:#667085; --accent:#2453b3; --accent-dark:#1d438f; --line:#d9dee7; --err-bg:#fff1f0; --err:#b42318; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:var(--bg); color:var(--fg); font:15px/1.6 Inter,ui-sans-serif,system-ui,sans-serif; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:48px 40px; max-width:420px; width:100%; text-align:center; box-shadow:0 1px 3px rgba(16,24,40,.08); }
+    .icon { font-size:48px; margin-bottom:20px; }
+    h1 { font-size:22px; font-weight:800; margin-bottom:10px; }
+    .reason { margin:16px 0; padding:12px 16px; background:var(--err-bg); color:var(--err); border-radius:8px; font-size:14px; }
+    .btn { display:inline-block; margin-top:20px; padding:13px 32px; background:var(--accent); color:#fff; border-radius:8px; font-weight:700; font-size:15px; text-decoration:none; transition:background .15s; }
+    .btn:hover { background:var(--accent-dark); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">❌</div>
+    <h1>This link is no longer valid</h1>
+    <div class="reason">{{ reason }}</div>
+    <a class="btn" href="/signup/">Back to sign up</a>
+  </div>
+</body>
+</html>

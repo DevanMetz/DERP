@@ -1,10 +1,11 @@
 from django.conf import settings
+from django.core.mail import send_mail
 from django.http import HttpResponseForbidden
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django_tenants.utils import schema_context
 
 from .forms import TenantSignupForm
-from .models import Domain, SignupAttempt, TenantCompany
+from .models import Domain, PendingTenant, SignupAttempt, TenantCompany
 
 
 def landing(request):
@@ -21,30 +22,75 @@ def signup(request):
     if request.method == "POST" and form.is_valid():
         SignupAttempt.record(ip)
         data = form.cleaned_data
-        slug = data["subdomain"]
         base = settings.BASE_DOMAIN
 
-        # 1. Create the tenant (auto-creates the PG schema + migrates it)
-        tenant = TenantCompany(schema_name=slug, name=data["company_name"])
-        tenant.save()
+        pending = PendingTenant.create_for(
+            company_name=data["company_name"],
+            subdomain=data["subdomain"],
+            email=data["email"],
+            raw_password=data["password1"],
+        )
 
-        # 2. Bind the subdomain
-        Domain.objects.create(domain=f"{slug}.{base}", tenant=tenant, is_primary=True)
+        confirm_url = f"https://{base}/signup/confirm/{pending.token}/"
+        send_mail(
+            subject="Confirm your DERP workspace",
+            message=(
+                f"Hi,\n\n"
+                f"You requested a workspace at {data['subdomain']}.{base}.\n\n"
+                f"Click the link below to confirm and activate it:\n{confirm_url}\n\n"
+                f"This link expires in 24 hours. If you didn't sign up, you can ignore this email.\n\n"
+                f"— The DERP team"
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[data["email"]],
+            fail_silently=False,
+        )
 
-        # 3. Inside the new schema: seed COA + create the admin user
-        with schema_context(slug):
-            from django.contrib.auth import get_user_model
-            from django.core.management import call_command
-
-            User = get_user_model()
-            User.objects.create_superuser(
-                username=data["email"],
-                email=data["email"],
-                password=data["password1"],
-            )
-            call_command("seed_chart_of_accounts", verbosity=0)
-
-        protocol = "https" if not settings.DEBUG else "http"
-        return redirect(f"{protocol}://{slug}.{base}/accounts/login/")
+        return render(request, "tenants/signup_pending.html", {
+            "email": data["email"],
+            "subdomain": data["subdomain"],
+            "base": base,
+        })
 
     return render(request, "tenants/signup.html", {"form": form})
+
+
+def confirm(request, token):
+    pending = get_object_or_404(PendingTenant, token=token)
+
+    if pending.is_expired():
+        pending.delete()
+        return render(request, "tenants/confirm_error.html", {
+            "reason": "This confirmation link has expired. Please sign up again.",
+        })
+
+    # Subdomain might have been claimed while pending
+    if TenantCompany.objects.filter(schema_name=pending.subdomain).exists():
+        pending.delete()
+        return render(request, "tenants/confirm_error.html", {
+            "reason": "That subdomain was claimed by someone else while your confirmation was pending. Please sign up again with a different subdomain.",
+        })
+
+    base = settings.BASE_DOMAIN
+
+    tenant = TenantCompany(schema_name=pending.subdomain, name=pending.company_name)
+    tenant.save()
+    Domain.objects.create(domain=f"{pending.subdomain}.{base}", tenant=tenant, is_primary=True)
+
+    with schema_context(pending.subdomain):
+        from django.contrib.auth import get_user_model
+        from django.core.management import call_command
+
+        User = get_user_model()
+        user = User(username=pending.email, email=pending.email, is_staff=True, is_superuser=True)
+        user.password = pending.password_hash
+        user.save()
+        call_command("seed_chart_of_accounts", verbosity=0)
+
+    pending.delete()
+
+    protocol = "https" if not settings.DEBUG else "http"
+    return render(request, "tenants/confirm_success.html", {
+        "subdomain": tenant.schema_name,
+        "login_url": f"{protocol}://{tenant.schema_name}.{base}/accounts/login/",
+    })

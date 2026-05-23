@@ -112,7 +112,7 @@ def ai_confirm(request):
         return JsonResponse({"error": "POST required."}, status=405)
     try:
         payload = json.loads(request.body.decode("utf-8"))
-        result = confirm_purchase_order_action(payload.get("action_token") or "", request.user)
+        result = confirm_purchase_order_action(payload.get("action_token") or "", request.user, session=request.session)
     except (json.JSONDecodeError, ValidationError, Vendor.DoesNotExist, Customer.DoesNotExist) as exc:
         message = exc.messages[0] if hasattr(exc, "messages") else str(exc)
         return JsonResponse({"error": message}, status=400)

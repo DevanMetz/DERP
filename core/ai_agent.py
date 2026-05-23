@@ -110,8 +110,9 @@ def run_copilot_turn(message: str, *, api_key: str = "", user=None, session=None
     return response
 
 
-def confirm_action_token(action_token: str, user) -> dict:
-    """Dispatch a signed action token to the right creator (PO or SO)."""
+def confirm_action_token(action_token: str, user, session=None) -> dict:
+    """Dispatch a signed action token to the right creator. Clears matching
+    pending_* state in session after a successful create."""
     try:
         payload = signing.loads(action_token, salt=ACTION_SALT, max_age=60 * 30)
     except signing.BadSignature as exc:
@@ -119,17 +120,33 @@ def confirm_action_token(action_token: str, user) -> dict:
 
     action = payload.get("action")
     if action == "create_purchase_order_draft":
-        return _confirm_create_purchase_order(payload, user)
+        result = _confirm_create_purchase_order(payload, user)
+        _clear_pending(session, "pending_po")
+        return result
     if action == "create_sales_order_draft":
-        return _confirm_create_sales_order(payload, user)
+        result = _confirm_create_sales_order(payload, user)
+        _clear_pending(session, "pending_so")
+        return result
     if action == "create_manufacturing_order_draft":
-        return _confirm_create_manufacturing_order(payload, user)
+        result = _confirm_create_manufacturing_order(payload, user)
+        _clear_pending(session, "pending_mo")
+        return result
     raise ValidationError("Unsupported AI action.")
 
 
+def _clear_pending(session, slot: str) -> None:
+    if session is None:
+        return
+    state = session.get(STATE_KEY) or {}
+    if slot in state:
+        state[slot] = {}
+        session[STATE_KEY] = state
+        session.modified = True
+
+
 # Backwards-compatible alias — older imports / callers still work.
-def confirm_purchase_order_action(action_token: str, user) -> dict:
-    return confirm_action_token(action_token, user)
+def confirm_purchase_order_action(action_token: str, user, session=None) -> dict:
+    return confirm_action_token(action_token, user, session=session)
 
 
 @transaction.atomic
@@ -388,7 +405,19 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
         "[{product: 'pla filament', qty: '3', unit_price: '30'}]}}]\n"
         "\n"
         "  User: 'build 50 widgets'\n"
-        "  → tool_calls: [{name: 'draft_manufacturing_order_preview', arguments: {bom: 'widgets', qty: '50'}}]"
+        "  → tool_calls: [{name: 'draft_manufacturing_order_preview', arguments: {bom: 'widgets', qty: '50'}}]\n"
+        "\n"
+        "  User: 'do any BOMs use pla filament?' or 'what BOMs use pla filament?'\n"
+        "  → tool_calls: [{name: 'search_boms', arguments: {query: 'pla filament'}}]\n"
+        "\n"
+        "  User: 'what can we do with pla filament?'\n"
+        "  → Exploratory. Call multiple searches to give a useful answer: search_boms (does it appear in any\n"
+        "    recipe?), get_stock_levels (how much do we have?), get_recent_purchase_prices (what do we pay?).\n"
+        "  → tool_calls: [\n"
+        "       {name: 'search_boms', arguments: {query: 'pla filament'}},\n"
+        "       {name: 'get_stock_levels', arguments: {query: 'pla filament'}},\n"
+        "       {name: 'get_recent_purchase_prices', arguments: {product: 'pla filament', vendor: ''}}\n"
+        "     ]"
     )
     payload = {
         "model": DEFAULT_MODEL,
@@ -473,6 +502,7 @@ def _build_reply(message: str, plan: dict, tools: list[dict], state: dict, *, us
     vendors = _tool_result(tools, "search_vendors")
     customers = _tool_result(tools, "search_customers")
     products = _tool_result(tools, "search_products")
+    boms = _tool_result(tools, "search_boms")
     stock = _tool_result(tools, "get_stock_levels")
     recent = _tool_result(tools, "get_recent_purchase_prices")
     open_pos = _tool_result(tools, "get_open_purchase_orders")
@@ -484,6 +514,14 @@ def _build_reply(message: str, plan: dict, tools: list[dict], state: dict, *, us
         lines.append(_format_matches("customers", customers.get("matches", []), "name"))
     if products is not None:
         lines.append(_format_matches("products", products.get("matches", []), "label"))
+    if boms is not None:
+        if boms.get("matches"):
+            lines.append("BOMs: " + "; ".join(
+                f"{item['name']} → {item['product_label']} (rollup ${item['rollup_cost']})"
+                for item in boms["matches"]
+            ))
+        else:
+            lines.append("I found no matching BOMs.")
     if stock is not None and stock.get("matches"):
         lines.append("Stock: " + "; ".join(f"{item['label']} has {item['qty']} on hand" for item in stock["matches"]))
     if recent is not None and recent.get("matches"):
@@ -492,7 +530,9 @@ def _build_reply(message: str, plan: dict, tools: list[dict], state: dict, *, us
         lines.append("Open POs: " + "; ".join(f"{item['number']} with {item['vendor']} ({item['status']})" for item in open_pos["matches"]))
     reply = " ".join(line for line in lines if line)
 
-    # Append a 'pending so far' summary for whichever doc is being built.
+    # Only surface the pending-so-far summary when the user is clearly continuing
+    # a doc draft. Exploratory questions ("what can we do with X", "list boms")
+    # should not be hijacked by a stale PO summary.
     intent = _detect_doc_intent(message, state)
     if intent == "so":
         reply += _format_pending_so(state)
@@ -500,8 +540,6 @@ def _build_reply(message: str, plan: dict, tools: list[dict], state: dict, *, us
         reply += _format_pending_mo(state)
     elif intent == "po":
         reply += _format_pending_po(state)
-    else:
-        reply += _format_pending_po(state) or _format_pending_so(state) or _format_pending_mo(state)
 
     return {
         "reply": reply.strip() or plan.get("reply") or "I checked the available tools, but need a little more detail.",
@@ -807,6 +845,13 @@ def _tool_draft_purchase_order_preview(args: dict, state: dict, *, user=None) ->
     state["last_po_lines"] = resolved_lines
     state["last_product_label"] = resolved_lines[0]["product"] or resolved_lines[0]["description"]
     state["last_expected_date"] = payload["expected_date"]
+    # Sync pending_po with the values actually used in this draft so the summary,
+    # if shown later, matches reality.
+    state.setdefault("pending_po", {})
+    state["pending_po"]["vendor_id"] = vendor.pk
+    state["pending_po"]["vendor_name"] = vendor.name
+    state["pending_po"]["qty"] = resolved_lines[0]["qty"]
+    state["pending_po"]["unit_cost"] = resolved_lines[0]["unit_cost"]
 
     preview = {
         "title": "Create draft purchase order",
@@ -876,6 +921,8 @@ def _tool_draft_sales_order_preview(args: dict, state: dict, *, user=None) -> di
     state["pending_so"]["customer_name"] = customer.name
     state["pending_so"]["lines"] = resolved_lines
     state["pending_so"]["product_label"] = resolved_lines[0]["product"] or resolved_lines[0]["description"]
+    state["pending_so"]["qty"] = resolved_lines[0]["qty"]
+    state["pending_so"]["unit_price"] = resolved_lines[0]["unit_price"]
     state["pending_so"]["requested_date"] = payload["requested_date"]
 
     preview = {

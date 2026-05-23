@@ -278,12 +278,24 @@ def company_setup(request):
 
 @login_required
 def export_view(request):
+    if request.user.role not in {Role.ADMIN, Role.MANAGER}:
+        return HttpResponseForbidden("Only administrators and managers can export data.")
+
     from django.apps import apps
     from django.http import HttpResponse
     from django.core import serializers
     import csv
     import io
     import zipfile
+
+    # Check if sensitive models are intentionally requested
+    include_sensitive = request.GET.get("include_sensitive") == "true" or request.POST.get("include_sensitive") == "true"
+
+    sensitive_models = {
+        "core.user",
+        "core.writeattempt",
+        "core.copilotauditevent",
+    }
 
     # Get all local models to export
     local_apps = ["core", "accounting", "inventory", "sales", "purchasing", "manufacturing"]
@@ -296,6 +308,11 @@ def export_view(request):
             if model._meta.model_name.startswith("historical"):
                 continue
             
+            key = f"{model._meta.app_label}.{model._meta.model_name}"
+            # Filter out sensitive models if not intentionally requested
+            if key in sensitive_models and not include_sensitive:
+                continue
+
             # Count current rows
             row_count = model.objects.count()
             
@@ -304,7 +321,7 @@ def export_view(request):
                 "model_name": model._meta.model_name,
                 "verbose_name": model._meta.verbose_name.capitalize(),
                 "row_count": row_count,
-                "key": f"{model._meta.app_label}.{model._meta.model_name}",
+                "key": key,
             })
             
     # Sort models by app label and model name
@@ -319,6 +336,8 @@ def export_view(request):
         for model in apps.get_models():
             key = f"{model._meta.app_label}.{model._meta.model_name}"
             if key in selected_keys:
+                if key in sensitive_models and not include_sensitive:
+                    continue
                 models_to_export.append(model)
                 
         if not models_to_export:
@@ -373,6 +392,7 @@ def export_view(request):
     return render(request, "core/export.html", {
         "exportable_models": exportable_models,
         "company": Company.get(),
+        "include_sensitive": include_sensitive,
     })
 
 

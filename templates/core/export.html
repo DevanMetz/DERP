@@ -30,12 +30,18 @@
       
       <!-- Left Panel: Table Selection -->
       <div class="card" style="padding: 0; overflow: hidden;">
-        <div style="padding: 20px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; background: var(--surface-subtle);">
+        <div style="padding: 20px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; background: var(--surface-subtle); gap: 16px; flex-wrap: wrap;">
           <h3 style="margin: 0; font-size: 15px; font-weight: 750; color: var(--fg);">Select Database Tables</h3>
-          <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: bold; cursor: pointer; user-select: none;">
-            <input type="checkbox" id="select-all" checked style="width: 16px; height: 16px;">
-            Select / Deselect All
-          </label>
+          <div style="display: flex; align-items: center; gap: 20px;">
+            <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: bold; cursor: pointer; user-select: none;">
+              <input type="checkbox" name="include_sensitive" value="true" {% if include_sensitive %}checked{% endif %} onchange="toggleSensitive(this)" style="width: 16px; height: 16px;">
+              Include Sensitive Tables
+            </label>
+            <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: bold; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="select-all" checked style="width: 16px; height: 16px;">
+              Select / Deselect All
+            </label>
+          </div>
         </div>
         
         <div class="table-wrap" style="margin: 0; box-shadow: none;">
@@ -136,6 +142,17 @@
       if (event.target !== checkbox) {
         checkbox.checked = !checkbox.checked;
       }
+    }
+
+    // Toggle showing sensitive models by reloading the page
+    function toggleSensitive(checkbox) {
+      const url = new URL(window.location.href);
+      if (checkbox.checked) {
+        url.searchParams.set('include_sensitive', 'true');
+      } else {
+        url.searchParams.delete('include_sensitive');
+      }
+      window.location.href = url.toString();
     }
   </script>
 {% endblock %}

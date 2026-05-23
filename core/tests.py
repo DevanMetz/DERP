@@ -421,6 +421,80 @@ class DataExportTests(TestCase):
         csv_content = zip_file.read("core_company.csv").decode("utf-8")
         self.assertIn("name", csv_content)
 
+    def test_export_view_denies_staff_and_readonly(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        staff_user = User.objects.create_user(
+            username="staffuser",
+            email="staff@example.com",
+            password="password",
+            role=Role.STAFF,
+        )
+        self.client.force_login(staff_user)
+        response = self.client.get(reverse("data_export"))
+        self.assertEqual(response.status_code, 403)
+
+        readonly_user = User.objects.create_user(
+            username="readonlyuser",
+            email="readonly@example.com",
+            password="password",
+            role=Role.READONLY,
+        )
+        self.client.force_login(readonly_user)
+        response = self.client.get(reverse("data_export"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_export_view_excludes_sensitive_models_by_default(self):
+        self.client.login(username="testuser", password="password")
+        response = self.client.get(reverse("data_export"))
+        self.assertEqual(response.status_code, 200)
+        exportable_keys = [m["key"] for m in response.context["exportable_models"]]
+        self.assertNotIn("core.user", exportable_keys)
+        self.assertNotIn("core.writeattempt", exportable_keys)
+        self.assertNotIn("core.copilotauditevent", exportable_keys)
+
+    def test_export_view_includes_sensitive_models_when_requested(self):
+        self.client.login(username="testuser", password="password")
+        response = self.client.get(reverse("data_export") + "?include_sensitive=true")
+        self.assertEqual(response.status_code, 200)
+        exportable_keys = [m["key"] for m in response.context["exportable_models"]]
+        self.assertIn("core.user", exportable_keys)
+        self.assertIn("core.writeattempt", exportable_keys)
+        self.assertIn("core.copilotauditevent", exportable_keys)
+
+    def test_export_view_ignores_sensitive_models_on_post_without_include_sensitive(self):
+        self.client.login(username="testuser", password="password")
+        # Try to post sensitive model without include_sensitive flag
+        response = self.client.post(
+            reverse("data_export"),
+            {
+                "selected_models": ["core.user", "core.company"],
+                "action": "export_json",
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        # Should only export Company, not User
+        data = response.json()
+        model_names = {item["model"] for item in data}
+        self.assertNotIn("core.user", model_names)
+        self.assertIn("core.company", model_names)
+
+    def test_export_view_includes_sensitive_models_on_post_with_include_sensitive(self):
+        self.client.login(username="testuser", password="password")
+        response = self.client.post(
+            reverse("data_export"),
+            {
+                "selected_models": ["core.user", "core.company"],
+                "action": "export_json",
+                "include_sensitive": "true",
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        model_names = {item["model"] for item in data}
+        self.assertIn("core.user", model_names)
+        self.assertIn("core.company", model_names)
+
 
 class DataImportTests(TestCase):
     def setUp(self):

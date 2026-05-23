@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}{% if is_create %}New Bill of Materials{% else %}Edit BOM: {{ bom.product.sku }}{% endif %} — DERP{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <div>
+      <h1>{% if is_create %}New Bill of Materials{% else %}Edit BOM: {{ bom.product.sku }}{% endif %}</h1>
+      <p class="text-subtle">Define the raw material recipe for a finished assembly.</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn secondary" href="{% if is_create %}{% url 'bom_list' %}{% else %}{% url 'bom_detail' bom.pk %}{% endif %}">Cancel</a>
+    </div>
+  </div>
+
+  <form method="post" id="bom-form">
+    {% csrf_token %}
+    
+    <div class="card" style="margin-bottom: 24px;">
+      <h3 class="section-title" style="margin-top: 0;">BOM Header Details</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+        <p>
+          <label for="{{ form.product.id_for_label }}">Finished Product *</label>
+          {{ form.product }}
+          {% if form.product.errors %}<span style="color: var(--err); font-size: 12px;">{{ form.product.errors.as_text }}</span>{% endif %}
+        </p>
+        <p>
+          <label for="{{ form.name.id_for_label }}">Recipe Version Name / Note</label>
+          {{ form.name }}
+          {% if form.name.errors %}<span style="color: var(--err); font-size: 12px;">{{ form.name.errors.as_text }}</span>{% endif %}
+        </p>
+        <p style="display: flex; align-items: center; padding-top: 24px;">
+          <label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+            {{ form.is_active }}
+            <span>Is Active (Available for production)</span>
+          </label>
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="section-title" style="margin-top: 0; display: flex; justify-content: space-between; align-items: center;">
+        <span>Recipe Component Ingredients</span>
+        <button type="button" class="btn secondary" id="add-row-btn" style="min-height: 30px; font-size: 12px; padding: 4px 10px;">+ Add Raw Material</button>
+      </h3>
+      <p class="muted" style="font-size: 12.5px; margin-bottom: 16px;">Select component products and enter quantities required to build exactly **1 unit** of the finished product.</p>
+
+      {{ formset.management_form }}
+      {% if formset.non_form_errors %}
+        <div class="errorlist" style="margin-bottom: 16px;">
+          {{ formset.non_form_errors }}
+        </div>
+      {% endif %}
+
+      <div class="table-wrap" style="margin: 0; box-shadow: none; border-color: var(--line-soft);">
+        <table style="min-width: 100%;" id="components-table">
+          <thead>
+            <tr>
+              <th>Raw Component *</th>
+              <th class="num" style="width: 150px; text-align: left;">Quantity *</th>
+              <th style="width: 100px; text-align: center;">Delete?</th>
+            </tr>
+          </thead>
+          <tbody id="formset-tbody">
+            {% for f in formset %}
+              <tr class="formset-row">
+                <!-- Keep track of PK id -->
+                {% for hidden in f.hidden_fields %}
+                  {{ hidden }}
+                {% endfor %}
+                <td>
+                  {{ f.product }}
+                  {% if f.product.errors %}<div style="color: var(--err); font-size: 11px;">{{ f.product.errors.as_text }}</div>{% endif %}
+                </td>
+                <td>
+                  {{ f.qty }}
+                  {% if f.qty.errors %}<div style="color: var(--err); font-size: 11px;">{{ f.qty.errors.as_text }}</div>{% endif %}
+                </td>
+                <td style="text-align: center; vertical-align: middle; padding-top: 16px;">
+                  {% if formset.can_delete %}
+                    {{ f.DELETE }}
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Hidden empty form template for Javascript cloning -->
+    <table style="display: none;">
+      <tbody id="empty-row-template">
+        <tr class="formset-row">
+          <td>
+            {{ formset.empty_form.product }}
+          </td>
+          <td>
+            {{ formset.empty_form.qty }}
+          </td>
+          <td style="text-align: center; vertical-align: middle; padding-top: 16px;">
+            <input type="checkbox" name="components-__prefix__-DELETE" id="id_components-__prefix__-DELETE" />
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="action-row" style="margin-top: 24px;">
+      <button class="btn" type="submit">Save Bill of Materials</button>
+      <a class="btn secondary" href="{% if is_create %}{% url 'bom_list' %}{% else %}{% url 'bom_detail' bom.pk %}{% endif %}">Cancel</a>
+    </div>
+  </form>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const addRowBtn = document.getElementById("add-row-btn");
+      const tbody = document.getElementById("formset-tbody");
+      const totalFormsInput = document.getElementById("id_components-TOTAL_FORMS");
+      const emptyRowTemplate = document.getElementById("empty-row-template").innerHTML;
+
+      addRowBtn.addEventListener("click", function() {
+        const formCount = parseInt(totalFormsInput.value);
+        // Replace prefix placeholder with current form count
+        const newRowHtml = emptyRowTemplate.replace(/__prefix__/g, formCount);
+        
+        // Append new row
+        const tempRow = document.createElement("tr");
+        tempRow.className = "formset-row";
+        tempRow.innerHTML = newRowHtml;
+        
+        // Append fields to tbody
+        tbody.appendChild(tempRow);
+        
+        // Increment total forms count
+        totalFormsInput.value = formCount + 1;
+      });
+    });
+  </script>
+{% endblock %}

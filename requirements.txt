@@ -4,3 +4,4 @@ python-dotenv>=1.0
 django-allauth>=0.61
 django-simple-history>=3.5
 django-htmx>=1.17
+reportlab>=4.1.0

@@ -1,16 +1,26 @@
 from datetime import date as date_cls
 from decimal import Decimal
+import io
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
+from django.http import FileResponse
 
-from accounting.models import Account
+from core.models import Company
+from core.pdf_service import generate_document_pdf
 
-from .forms import CustomerForm, InvoiceHeaderForm, InvoiceLineFormSet, ReceivePaymentForm
-from .models import Customer, Invoice, InvoiceLine
-from .services import default_due_date, post_invoice, receive_payment
+from .forms import (
+    CustomerForm, InvoiceHeaderForm, InvoiceLineFormSet, ReceivePaymentForm,
+    SalesOrderHeaderForm, SalesOrderLineFormSet,
+)
+from .models import Customer, Invoice, SalesOrder
+from .services import (
+    confirm_sales_order, create_invoice_from_sales_order, create_invoice_lines,
+    create_sales_order_lines, post_invoice, receive_payment,
+    undo_confirm_sales_order, undo_invoice_from_sales_order,
+)
 
 
 # ----------------------------- Customers -----------------------------
@@ -33,6 +43,108 @@ def customer_edit(request, pk=None):
     else:
         form = CustomerForm(instance=customer)
     return render(request, "sales/customer_form.html", {"form": form, "customer": customer})
+
+
+# --------------------------- Sales orders ----------------------------
+
+@login_required
+def sales_order_list(request):
+    orders = SalesOrder.objects.select_related("customer").all()
+    return render(request, "sales/sales_order_list.html", {"orders": orders})
+
+
+@login_required
+def sales_order_create(request):
+    if request.method == "POST":
+        header = SalesOrderHeaderForm(request.POST)
+        formset = SalesOrderLineFormSet(request.POST)
+        if header.is_valid() and formset.is_valid():
+            order = header.save(commit=False)
+            order.created_by = request.user
+            order.save()
+            create_sales_order_lines(order, formset.cleaned_data)
+
+            if "confirm_now" in request.POST:
+                try:
+                    confirm_sales_order(order, user=request.user)
+                except ValidationError as e:
+                    messages.error(request, "; ".join(e.messages))
+                    return redirect("sales_order_detail", pk=order.pk)
+                messages.success(request, f"Confirmed {order.number}.")
+            else:
+                messages.success(request, "Draft sales order saved.")
+            return redirect("sales_order_detail", pk=order.pk)
+    else:
+        header = SalesOrderHeaderForm(initial={"date": date_cls.today()})
+        formset = SalesOrderLineFormSet()
+    return render(request, "sales/sales_order_form.html", {"header": header, "formset": formset})
+
+
+@login_required
+def sales_order_detail(request, pk):
+    order = get_object_or_404(
+        SalesOrder.objects.select_related("customer").prefetch_related(
+            "lines__product", "lines__revenue_account", "invoices",
+        ),
+        pk=pk,
+    )
+    return render(request, "sales/sales_order_detail.html", {"order": order})
+
+
+@login_required
+def sales_order_confirm(request, pk):
+    order = get_object_or_404(SalesOrder, pk=pk)
+    if request.method != "POST":
+        return redirect("sales_order_detail", pk=pk)
+    try:
+        confirm_sales_order(order, user=request.user)
+    except ValidationError as e:
+        messages.error(request, "; ".join(e.messages))
+    else:
+        messages.success(request, f"Confirmed {order.number}.")
+    return redirect("sales_order_detail", pk=pk)
+
+
+@login_required
+def sales_order_unconfirm(request, pk):
+    order = get_object_or_404(SalesOrder, pk=pk)
+    if request.method != "POST":
+        return redirect("sales_order_detail", pk=pk)
+    try:
+        undo_confirm_sales_order(order)
+    except ValidationError as e:
+        messages.error(request, "; ".join(e.messages))
+    else:
+        messages.success(request, "Sales order moved back to draft.")
+    return redirect("sales_order_detail", pk=pk)
+
+
+@login_required
+def sales_order_invoice(request, pk):
+    order = get_object_or_404(SalesOrder, pk=pk)
+    if request.method != "POST":
+        return redirect("sales_order_detail", pk=pk)
+    try:
+        invoice = create_invoice_from_sales_order(order, user=request.user)
+    except ValidationError as e:
+        messages.error(request, "; ".join(e.messages))
+        return redirect("sales_order_detail", pk=pk)
+    messages.success(request, f"Created draft invoice from {order.number}.")
+    return redirect("invoice_detail", pk=invoice.pk)
+
+
+@login_required
+def sales_order_undo_invoice(request, pk):
+    order = get_object_or_404(SalesOrder, pk=pk)
+    if request.method != "POST":
+        return redirect("sales_order_detail", pk=pk)
+    try:
+        undo_invoice_from_sales_order(order)
+    except ValidationError as e:
+        messages.error(request, "; ".join(e.messages))
+    else:
+        messages.success(request, "Draft invoice removed and sales order reopened.")
+    return redirect("sales_order_detail", pk=pk)
 
 
 # ----------------------------- Invoices ------------------------------
@@ -59,28 +171,7 @@ def invoice_create(request):
             invoice.tax_rate = invoice.customer.tax_rate
             invoice.save()
 
-            # Build lines. Fall back: product's revenue account, then customer's,
-            # then code 4100. The form already validated qty/price.
-            fallback_revenue = Account.objects.filter(code="4100").first()
-            for line in formset.cleaned_data:
-                product = line.get("product")
-                desc = (line.get("description") or "").strip()
-                qty = line.get("qty")
-                price = line.get("unit_price")
-                if not (product or desc) or not qty:
-                    continue
-                if not desc:
-                    desc = f"{product.sku} {product.name}"
-                revenue_account = (
-                    line.get("revenue_account")
-                    or (product.default_revenue_account if product else None)
-                    or invoice.customer.default_revenue_account
-                    or fallback_revenue
-                )
-                InvoiceLine.objects.create(
-                    invoice=invoice, product=product, description=desc,
-                    qty=qty, unit_price=price, revenue_account=revenue_account,
-                )
+            create_invoice_lines(invoice, formset.cleaned_data)
 
             if "post_now" in request.POST:
                 try:
@@ -104,7 +195,7 @@ def invoice_create(request):
 @login_required
 def invoice_detail(request, pk):
     invoice = get_object_or_404(
-        Invoice.objects.select_related("customer", "journal_entry").prefetch_related("lines__product", "lines__revenue_account"),
+        Invoice.objects.select_related("customer", "journal_entry", "sales_order").prefetch_related("lines__product", "lines__revenue_account"),
         pk=pk,
     )
     return render(request, "sales/invoice_detail.html", {"invoice": invoice})
@@ -190,3 +281,149 @@ def invoice_post(request, pk):
     else:
         messages.success(request, f"Posted {invoice.number}.")
     return redirect("invoice_detail", pk=pk)
+
+
+@login_required
+def invoice_void(request, pk):
+    invoice = get_object_or_404(Invoice, pk=pk)
+    if request.method != "POST":
+        return redirect("invoice_detail", pk=pk)
+    if not request.user.can_void:
+        messages.error(request, "Only Administrators can void invoices.")
+        return redirect("invoice_detail", pk=pk)
+    from .services import void_invoice
+    try:
+        void_invoice(invoice, user=request.user)
+    except ValidationError as e:
+        messages.error(request, "; ".join(e.messages))
+    else:
+        messages.success(request, f"Successfully voided invoice {invoice.number}.")
+    return redirect("invoice_detail", pk=pk)
+
+
+@login_required
+def sales_order_pdf(request, pk):
+    order = get_object_or_404(
+        SalesOrder.objects.select_related("customer").prefetch_related("lines__product"),
+        pk=pk,
+    )
+    company = Company.get()
+    
+    extra_meta = []
+    if order.requested_date:
+        extra_meta.append(("Requested Date", order.requested_date.strftime("%Y-%m-%d")))
+    extra_meta.append(("Status", order.get_status_display()))
+
+    company_data = {
+        "name": company.name,
+        "legal_name": company.legal_name,
+        "email": company.email,
+        "phone": company.phone,
+        "address": company.address,
+        "tax_id": company.tax_id,
+    }
+
+    partner_data = {
+        "name": order.customer.name,
+        "email": order.customer.email,
+        "phone": order.customer.phone,
+        "address": order.customer.billing_address,
+    }
+
+    lines_data = []
+    for line in order.lines.all():
+        lines_data.append({
+            "description": line.description,
+            "qty": line.qty,
+            "unit_price": f"${line.unit_price:.2f}",
+            "total": f"${line.line_total():.2f}",
+        })
+
+    totals_data = [
+        ("Total", f"${order.subtotal():.2f}"),
+    ]
+
+    pdf_bytes = generate_document_pdf(
+        filename_prefix="so",
+        title="Sales Order",
+        doc_number=order.number or f"DRAFT-{order.pk}",
+        doc_date=order.date.strftime("%Y-%m-%d"),
+        extra_meta=extra_meta,
+        company=company_data,
+        partner=partner_data,
+        lines=lines_data,
+        totals=totals_data,
+        notes=order.notes,
+    )
+
+    response = FileResponse(io.BytesIO(pdf_bytes), content_type="application/pdf")
+    filename = f"SO-{order.number or order.pk}.pdf"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
+def invoice_pdf(request, pk):
+    invoice = get_object_or_404(
+        Invoice.objects.select_related("customer", "sales_order").prefetch_related("lines__product"),
+        pk=pk,
+    )
+    company = Company.get()
+    
+    extra_meta = [
+        ("Due Date", invoice.due_date.strftime("%Y-%m-%d")),
+        ("Status", invoice.get_status_display()),
+    ]
+    if invoice.sales_order:
+        extra_meta.append(("Sales Order", invoice.sales_order.number or str(invoice.sales_order.pk)))
+
+    company_data = {
+        "name": company.name,
+        "legal_name": company.legal_name,
+        "email": company.email,
+        "phone": company.phone,
+        "address": company.address,
+        "tax_id": company.tax_id,
+    }
+
+    partner_data = {
+        "name": invoice.customer.name,
+        "email": invoice.customer.email,
+        "phone": invoice.customer.phone,
+        "address": invoice.customer.billing_address,
+    }
+
+    lines_data = []
+    for line in invoice.lines.all():
+        lines_data.append({
+            "description": line.description,
+            "qty": line.qty,
+            "unit_price": f"${line.unit_price:.2f}",
+            "total": f"${line.line_total():.2f}",
+        })
+
+    totals_data = [
+        ("Subtotal", f"${invoice.subtotal():.2f}"),
+        (f"Sales Tax ({invoice.tax_rate}%)", f"${invoice.tax_total():.2f}"),
+        ("Total", f"${invoice.total():.2f}"),
+        ("Amount Paid", f"${invoice.amount_paid():.2f}"),
+        ("Amount Due", f"${invoice.amount_due():.2f}"),
+    ]
+
+    pdf_bytes = generate_document_pdf(
+        filename_prefix="inv",
+        title="Invoice",
+        doc_number=invoice.number or f"DRAFT-{invoice.pk}",
+        doc_date=invoice.date.strftime("%Y-%m-%d"),
+        extra_meta=extra_meta,
+        company=company_data,
+        partner=partner_data,
+        lines=lines_data,
+        totals=totals_data,
+        notes=invoice.notes,
+    )
+
+    response = FileResponse(io.BytesIO(pdf_bytes), content_type="application/pdf")
+    filename = f"INV-{invoice.number or invoice.pk}.pdf"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response

@@ -6,6 +6,7 @@
     <p><strong>Date:</strong> {{ entry.date|date:"Y-m-d" }} &nbsp; <strong>Status:</strong> {{ entry.get_status_display }}</p>
     {% if entry.memo %}<p><strong>Memo:</strong> {{ entry.memo }}</p>{% endif %}
     {% if entry.posted_by %}<p class="muted">Posted by {{ entry.posted_by.email|default:entry.posted_by.username }} at {{ entry.posted_at|date:"Y-m-d H:i" }}</p>{% endif %}
+    <div class="table-wrap">
     <table>
       <thead><tr><th>Account</th><th class="num">Debit</th><th class="num">Credit</th><th>Memo</th></tr></thead>
       <tbody>
@@ -20,6 +21,15 @@
         <tr><th>Total</th><th class="num">{{ entry.total_debit }}</th><th class="num">{{ entry.total_credit }}</th><th></th></tr>
       </tbody>
     </table>
+    </div>
   </div>
-  <p style="margin-top:16px"><a class="btn secondary" href="{% url 'journal_list' %}">Back</a></p>
+  <div class="action-row">
+    <a class="btn secondary" href="{% url 'journal_list' %}">Back</a>
+    {% if can_be_reversed and request.user.can_void %}
+      <form action="{% url 'journal_reverse' entry.pk %}" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to void/reverse this journal entry?');">
+        {% csrf_token %}
+        <button type="submit" class="btn danger">Void / Reverse</button>
+      </form>
+    {% endif %}
+  </div>
 {% endblock %}

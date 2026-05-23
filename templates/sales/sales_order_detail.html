@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ order.number|default:"Draft" }} - DERP{% endblock %}
+{% block content %}
+  <h1>{{ order.number|default:"Draft sales order" }}</h1>
+  <div class="card">
+    <p>
+      <strong>Customer:</strong> {{ order.customer.name }} &nbsp;
+      <strong>Date:</strong> {{ order.date|date:"Y-m-d" }} &nbsp;
+      {% if order.requested_date %}<strong>Requested:</strong> {{ order.requested_date|date:"Y-m-d" }} &nbsp;{% endif %}
+      <strong>Status:</strong> {{ order.get_status_display }}
+    </p>
+    {% if order.notes %}<p><strong>Notes:</strong> {{ order.notes }}</p>{% endif %}
+    {% if order.invoices.all %}
+      <p><strong>Invoice:</strong>
+        {% for invoice in order.invoices.all %}
+          <a href="{% url 'invoice_detail' invoice.pk %}">{{ invoice.number|default:"Draft invoice" }}</a>{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+      </p>
+    {% endif %}
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th>Revenue account</th><th class="num">Line total</th></tr></thead>
+      <tbody>
+        {% for line in order.lines.all %}
+          <tr>
+            <td>{{ line.description }}</td>
+            <td class="num">{{ line.qty }}</td>
+            <td class="num">{{ line.unit_price }}</td>
+            <td>{{ line.revenue_account.code }} {{ line.revenue_account.name }}</td>
+            <td class="num">{{ line.line_total }}</td>
+          </tr>
+        {% endfor %}
+        <tr><th colspan="4" class="num">Total</th><th class="num">{{ order.subtotal }}</th></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+  <div class="action-row">
+    {% if order.status == "draft" %}
+      <form method="post" action="{% url 'sales_order_confirm' order.pk %}" class="inline-form">{% csrf_token %}
+        <button class="btn" type="submit">Confirm order</button>
+      </form>
+    {% endif %}
+    {% if order.status == "confirmed" %}
+      <form method="post" action="{% url 'sales_order_unconfirm' order.pk %}" class="inline-form">{% csrf_token %}
+        <button class="btn secondary" type="submit">Undo confirm</button>
+      </form>
+      <form method="post" action="{% url 'sales_order_invoice' order.pk %}" class="inline-form">{% csrf_token %}
+        <button class="btn" type="submit">Create invoice</button>
+      </form>
+    {% endif %}
+    {% if order.status == "invoiced" %}
+      <form method="post" action="{% url 'sales_order_undo_invoice' order.pk %}" class="inline-form">{% csrf_token %}
+        <button class="btn secondary" type="submit">Undo draft invoice</button>
+      </form>
+    {% endif %}
+    <a class="btn" href="{% url 'sales_order_pdf' order.pk %}">Download PDF</a>
+    <a class="btn secondary" href="{% url 'sales_order_list' %}">Back</a>
+  </div>
+{% endblock %}

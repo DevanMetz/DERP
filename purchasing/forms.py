@@ -4,7 +4,7 @@ from django import forms
 from accounting.models import Account
 from inventory.models import Product
 
-from .models import Bill, Vendor
+from .models import Bill, PurchaseOrder, Vendor
 
 
 class VendorForm(forms.ModelForm):
@@ -24,6 +24,18 @@ class BillHeaderForm(forms.ModelForm):
         widgets = {
             "date": forms.DateInput(attrs={"type": "date"}),
             "due_date": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 3}),
+        }
+
+
+class PurchaseOrderHeaderForm(forms.ModelForm):
+    class Meta:
+        model = PurchaseOrder
+        fields = ["vendor", "date", "expected_date", "notes"]
+        widgets = {
+            "date": forms.DateInput(attrs={"type": "date"}),
+            "expected_date": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 3}),
         }
 
 
@@ -60,6 +72,12 @@ class BillLineForm(forms.Form):
 
 
 BillLineFormSet = forms.formset_factory(BillLineForm, extra=4, min_num=1, validate_min=True)
+PurchaseOrderLineFormSet = forms.formset_factory(BillLineForm, extra=4, min_num=1, validate_min=True)
+
+
+class GoodsReceiptHeaderForm(forms.Form):
+    date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
+    notes = forms.CharField(widget=forms.Textarea(attrs={"rows": 3}), required=False)
 
 
 class PayVendorForm(forms.Form):

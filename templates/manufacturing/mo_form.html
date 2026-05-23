@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}New Manufacturing Order — DERP{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <div>
+      <h1>New Manufacturing Order</h1>
+      <p class="text-subtle">Plan and schedule a new assembly production run.</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn secondary" href="{% url 'mo_list' %}">Cancel</a>
+    </div>
+  </div>
+
+  <div class="card" style="max-width: 600px; margin: 0 auto;">
+    <form method="post">
+      {% csrf_token %}
+      
+      {% if form.non_field_errors %}
+        <div class="errorlist">
+          {{ form.non_field_errors }}
+        </div>
+      {% endif %}
+
+      <p>
+        <label for="{{ form.product.id_for_label }}">Assembly Item *</label>
+        {{ form.product }}
+        <span class="text-subtle" style="display: block; margin-top: 4px;">Only stock products with an active BOM defined are selectable.</span>
+        {% if form.product.errors %}<span style="color: var(--err); font-size: 12px;">{{ form.product.errors.as_text }}</span>{% endif %}
+      </p>
+
+      <p>
+        <label for="{{ form.qty_target.id_for_label }}">Target Qty to Produce *</label>
+        {{ form.qty_target }}
+        {% if form.qty_target.errors %}<span style="color: var(--err); font-size: 12px;">{{ form.qty_target.errors.as_text }}</span>{% endif %}
+      </p>
+
+      <p>
+        <label for="{{ form.date_planned.id_for_label }}">Planned Production Date *</label>
+        {{ form.date_planned }}
+        {% if form.date_planned.errors %}<span style="color: var(--err); font-size: 12px;">{{ form.date_planned.errors.as_text }}</span>{% endif %}
+      </p>
+
+      <div class="action-row" style="margin-top: 24px;">
+        <button class="btn" type="submit">Create Manufacturing Order</button>
+        <a class="btn secondary" href="{% url 'mo_list' %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

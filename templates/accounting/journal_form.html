@@ -9,6 +9,7 @@
       <h2>Lines</h2>
       {{ formset.management_form }}
       {% if formset.non_form_errors %}<ul class="errorlist">{% for e in formset.non_form_errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      <div class="table-wrap">
       <table>
         <thead>
           <tr><th>Account</th><th class="num">Debit</th><th class="num">Credit</th><th>Memo</th></tr>
@@ -25,7 +26,11 @@
           {% endfor %}
         </tbody>
       </table>
-      <p style="margin-top:16px"><button class="btn" type="submit">Post entry</button> <a class="btn secondary" href="{% url 'journal_list' %}">Cancel</a></p>
+      </div>
+      <div class="action-row">
+        <button class="btn" type="submit">Post entry</button>
+        <a class="btn secondary" href="{% url 'journal_list' %}">Cancel</a>
+      </div>
     </form>
   </div>
 {% endblock %}

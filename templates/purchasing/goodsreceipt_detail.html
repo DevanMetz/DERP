@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}{{ receipt.number }} — DERP{% endblock %}
+{% block content %}
+  <h1>Goods Receipt: {{ receipt.number }}</h1>
+  <div class="card">
+    <p>
+      <strong>Purchase Order:</strong> <a href="{% url 'purchase_order_detail' receipt.purchase_order.pk %}">{{ receipt.purchase_order.number }}</a> &nbsp;
+      <strong>Vendor:</strong> {{ receipt.purchase_order.vendor.name }} &nbsp;
+      <strong>Date:</strong> {{ receipt.date|date:"Y-m-d" }} &nbsp;
+      <strong>Status:</strong> 
+      {% if receipt.is_reversed %}
+        <span class="badge danger">Reversed</span>
+      {% elif bill %}
+        <span class="badge success">Billed</span>
+      {% else %}
+        <span class="badge info">Active</span>
+      {% endif %}
+    </p>
+
+    {% if bill %}
+      <p><strong>Vendor Bill:</strong> <a href="{% url 'bill_detail' bill.pk %}" class="starBounce-link">⭐ {{ bill.number|default:"Draft Bill" }}</a></p>
+    {% endif %}
+    {% if receipt.notes %}
+      <p><strong>Notes:</strong> {{ receipt.notes }}</p>
+    {% endif %}
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Description</th>
+            <th class="num">Received Qty</th>
+            <th class="num">Unit Cost</th>
+            <th class="num">Line Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for line in receipt.lines.all %}
+            <tr>
+              <td>{{ line.product.sku }} - {{ line.product.name }}</td>
+              <td>{{ line.po_line.description }}</td>
+              <td class="num">{{ line.qty_received }}</td>
+              <td class="num">${{ line.unit_cost }}</td>
+              <td class="num">${{ line.line_total }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="action-row">
+    {% if not receipt.is_reversed and not bill %}
+      <form method="post" action="{% url 'bill_create_from_receipt' receipt.pk %}" class="inline-form">
+        {% csrf_token %}
+        <button class="btn" type="submit">Generate Vendor Bill</button>
+      </form>
+    {% endif %}
+
+    {% if not receipt.is_reversed %}
+      <form method="post" action="{% url 'goods_receipt_reverse' receipt.pk %}" class="inline-form" onsubmit="return confirm('Are you sure you want to reverse this goods receipt? This will issue the items back from stock.');">
+        {% csrf_token %}
+        <button class="btn secondary danger" type="submit">Reverse Receipt</button>
+      </form>
+    {% endif %}
+
+    <a class="btn secondary" href="{% url 'purchase_order_detail' receipt.purchase_order.pk %}">Back to PO</a>
+  </div>
+{% endblock %}

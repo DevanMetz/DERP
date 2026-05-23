@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Balance sheet - DERP{% endblock %}
+{% block content %}
+  <h1>Balance sheet</h1>
+  <div class="card">
+    <form method="get" class="filter-form">
+      {{ form.as_p }}
+      <p><button class="btn" type="submit">Run</button></p>
+    </form>
+  </div>
+
+  {% if report %}
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Account</th><th class="num">Amount</th></tr></thead>
+      <tbody>
+        <tr><th colspan="2">Assets</th></tr>
+        {% for row in report.assets %}
+          <tr>
+            <td>{% if row.account %}{{ row.account.code }} {% endif %}{{ row.label }}</td>
+            <td class="num">{{ row.amount }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="2" class="empty-state">No assets yet.</td></tr>
+        {% endfor %}
+        <tr><th>Total assets</th><th class="num">{{ report.total_assets }}</th></tr>
+
+        <tr><th colspan="2">Liabilities</th></tr>
+        {% for row in report.liabilities %}
+          <tr>
+            <td>{% if row.account %}{{ row.account.code }} {% endif %}{{ row.label }}</td>
+            <td class="num">{{ row.amount }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="2" class="empty-state">No liabilities yet.</td></tr>
+        {% endfor %}
+        <tr><th>Total liabilities</th><th class="num">{{ report.total_liabilities }}</th></tr>
+
+        <tr><th colspan="2">Equity</th></tr>
+        {% for row in report.equity %}
+          <tr>
+            <td>{% if row.account %}{{ row.account.code }} {% endif %}{{ row.label }}</td>
+            <td class="num">{{ row.amount }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="2" class="empty-state">No equity yet.</td></tr>
+        {% endfor %}
+        <tr><th>Total equity</th><th class="num">{{ report.total_equity }}</th></tr>
+        <tr><th>Total liabilities and equity</th><th class="num">{{ report.total_liabilities_and_equity }}</th></tr>
+      </tbody>
+    </table>
+    </div>
+  {% endif %}
+{% endblock %}

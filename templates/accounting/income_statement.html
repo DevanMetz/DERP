@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Profit and loss - DERP{% endblock %}
+{% block content %}
+  <h1>Profit and loss</h1>
+  <div class="card">
+    <form method="get" class="filter-form">
+      {{ form.as_p }}
+      <p><button class="btn" type="submit">Run</button></p>
+    </form>
+  </div>
+
+  {% if report %}
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Account</th><th class="num">Amount</th></tr></thead>
+      <tbody>
+        <tr><th colspan="2">Revenue</th></tr>
+        {% for row in report.revenue %}
+          <tr>
+            <td>{{ row.account.code }} {{ row.account.name }}</td>
+            <td class="num">{{ row.amount }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="2" class="empty-state">No revenue in this period.</td></tr>
+        {% endfor %}
+        <tr><th>Total revenue</th><th class="num">{{ report.total_revenue }}</th></tr>
+
+        <tr><th colspan="2">Expenses</th></tr>
+        {% for row in report.expenses %}
+          <tr>
+            <td>{{ row.account.code }} {{ row.account.name }}</td>
+            <td class="num">{{ row.amount }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="2" class="empty-state">No expenses in this period.</td></tr>
+        {% endfor %}
+        <tr><th>Total expenses</th><th class="num">{{ report.total_expenses }}</th></tr>
+        <tr><th>Net income</th><th class="num">{{ report.net_income }}</th></tr>
+      </tbody>
+    </table>
+    </div>
+  {% endif %}
+{% endblock %}

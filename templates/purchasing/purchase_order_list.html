@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Purchase orders - DERP{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <h1>Purchase orders</h1>
+    <div class="page-actions"><a class="btn" href="{% url 'purchase_order_create' %}">New purchase order</a></div>
+  </div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Number</th><th>Date</th><th>Vendor</th><th>Status</th><th>Expected</th><th class="num">Total</th></tr></thead>
+    <tbody>
+      {% for order in orders %}
+        <tr>
+          <td><a href="{% url 'purchase_order_detail' order.pk %}">{{ order.number|default:"DRAFT" }}</a></td>
+          <td>{{ order.date|date:"Y-m-d" }}</td>
+          <td>{{ order.vendor.name }}</td>
+          <td>{{ order.get_status_display }}</td>
+          <td>{{ order.expected_date|date:"Y-m-d" }}</td>
+          <td class="num">{{ order.total }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="empty-state">No purchase orders yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+{% endblock %}

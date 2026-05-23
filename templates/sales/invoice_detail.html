@@ -12,7 +12,11 @@
     {% if invoice.journal_entry %}
       <p><strong>Journal entry:</strong> <a href="{% url 'journal_detail' invoice.journal_entry.pk %}">{{ invoice.journal_entry.number }}</a></p>
     {% endif %}
+    {% if invoice.sales_order %}
+      <p><strong>Sales order:</strong> <a href="{% url 'sales_order_detail' invoice.sales_order.pk %}">{{ invoice.sales_order.number }}</a></p>
+    {% endif %}
     {% if invoice.notes %}<p><strong>Notes:</strong> {{ invoice.notes }}</p>{% endif %}
+    <div class="table-wrap">
     <table>
       <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th>Revenue account</th><th class="num">Line total</th></tr></thead>
       <tbody>
@@ -32,13 +36,19 @@
         <tr><th colspan="4" class="num">Amount due</th><th class="num">{{ invoice.amount_due }}</th></tr>
       </tbody>
     </table>
+    </div>
   </div>
-  <p style="margin-top:16px">
+  <div class="action-row">
     {% if invoice.status == "draft" %}
-      <form method="post" action="{% url 'invoice_post' invoice.pk %}" style="display:inline">{% csrf_token %}
+      <form method="post" action="{% url 'invoice_post' invoice.pk %}" class="inline-form">{% csrf_token %}
         <button class="btn" type="submit">Post invoice</button>
       </form>
+    {% elif invoice.status == "sent" and request.user.can_void and invoice.amount_paid <= 0 %}
+      <form method="post" action="{% url 'invoice_void' invoice.pk %}" class="inline-form" onsubmit="return confirm('Are you sure you want to void this invoice? This will post a reversing journal entry.');">{% csrf_token %}
+        <button class="btn danger" type="submit">Void invoice</button>
+      </form>
     {% endif %}
+    <a class="btn" href="{% url 'invoice_pdf' invoice.pk %}">Download PDF</a>
     <a class="btn secondary" href="{% url 'invoice_list' %}">Back</a>
-  </p>
+  </div>
 {% endblock %}

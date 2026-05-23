@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}{{ product.sku }} — DERP{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <h1>Product: {{ product.sku }}</h1>
+    <div class="page-actions">
+      <a class="btn" href="{% url 'product_edit' product.pk %}">Edit Product</a>
+    </div>
+  </div>
+
+  <!-- Header Detail Card -->
+  <div class="card" style="margin-bottom: 20px; display: flex; gap: 20px; align-items: center;">
+    <div style="flex-shrink: 0;">
+      {% if product.image %}
+        <img src="{{ product.image.url }}" alt="{{ product.name }}" style="width: 96px; height: 96px; object-fit: cover; border-radius: 12px; border: 1px solid var(--border);" />
+      {% else %}
+        <div style="width: 96px; height: 96px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 28px; background: {% if product.type == 'stock' %}#dbeafe; color: #1e40af; border: 1px solid #bfdbfe;{% else %}#f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff;{% endif %}" title="{{ product.name }}">
+          {{ product.sku|slice:":2"|upper }}
+        </div>
+      {% endif %}
+    </div>
+    <div>
+      <h2 style="margin: 0;">{{ product.name }}</h2>
+      <p style="margin-top: 5px; color: var(--text-mut); margin-bottom: 0;">
+        <strong>SKU:</strong> {{ product.sku }} &nbsp;&bull;&nbsp;
+        <strong>Type:</strong> 
+        {% if product.type == "stock" %}
+          <span class="badge info">Stock item</span>
+        {% else %}
+          <span class="badge warning" style="background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff;">Service</span>
+        {% endif %}
+        &nbsp;&bull;&nbsp;
+        <strong>Status:</strong>
+        {% if product.is_active %}
+          <span class="badge success">Active</span>
+        {% else %}
+          <span class="badge secondary">Inactive</span>
+        {% endif %}
+      </p>
+      {% if product.description %}
+        <p style="margin-top: 8px; line-height: 1.4; margin-bottom: 0; font-size: 13px;">{{ product.description }}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- KPIs Metrics Grid -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 25px;">
+    <!-- Stock On Hand -->
+    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+      <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-mut); letter-spacing: 0.05em;">Stock On Hand</div>
+      <div style="font-size: 28px; font-weight: 800; margin: 10px 0; color: var(--text);">
+        {% if product.type == "stock" %}
+          {% if product.is_low_stock %}
+            <span class="badge danger" style="font-size: 24px; padding: 4px 12px;" title="Low stock alert! (At or below threshold {{ product.low_stock_threshold }})">{{ product.stock_on_hand.qty|default:"0.0000" }}</span>
+          {% else %}
+            {{ product.stock_on_hand.qty|default:"0.0000" }}
+          {% endif %}
+        {% else %}
+          <span style="font-size: 16px; color: var(--text-mut); font-weight: 500;">N/A (Service)</span>
+        {% endif %}
+      </div>
+      <div style="font-size: 11px; color: var(--text-mut);">
+        {% if product.type == "stock" %}
+          Low Stock Threshold: <strong>{{ product.low_stock_threshold }}</strong> {{ product.uom }}
+        {% else %}
+          No physical tracking
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Pricing Costing -->
+    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+      <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-mut); letter-spacing: 0.05em;">Weighted Avg Cost</div>
+      <div style="font-size: 28px; font-weight: 800; margin: 10px 0; color: var(--text);">${{ product.cost }}</div>
+      <div style="font-size: 11px; color: var(--text-mut);">Cost base for COGS calculation</div>
+    </div>
+
+    <!-- Selling Price -->
+    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+      <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-mut); letter-spacing: 0.05em;">Retail Sell Price</div>
+      <div style="font-size: 28px; font-weight: 800; margin: 10px 0; color: var(--text);">${{ product.price }}</div>
+      <div style="font-size: 11px; color: var(--text-mut);">Standard charge per UOM ({{ product.uom }})</div>
+    </div>
+
+    <!-- Gross Margin -->
+    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+      <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-mut); letter-spacing: 0.05em;">Gross Profit Margin</div>
+      <div style="font-size: 28px; font-weight: 800; margin: 10px 0; color: #059669;">{{ margin_pct }}%</div>
+      <div style="font-size: 11px; color: var(--text-mut);">Estimated gross profit margin ratio</div>
+    </div>
+  </div>
+
+  <!-- Accounting Defaults -->
+  <div class="card" style="margin-bottom: 25px;">
+    <h3 style="margin-bottom: 15px; color: var(--text);">GL Accounting Mappings</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+      <div>
+        <div style="font-size: 11px; font-weight: 700; color: var(--text-mut); text-transform: uppercase; margin-bottom: 4px;">Default Revenue Account</div>
+        <div style="font-size: 14px; font-weight: 600; color: var(--text);">
+          {% if product.default_revenue_account %}
+            <span style="font-family: monospace; background: var(--bg); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border);">{{ product.default_revenue_account.code }}</span> {{ product.default_revenue_account.name }}
+          {% else %}
+            <span style="color: var(--text-mut); font-style: italic;">None (Uses system fallback 4100)</span>
+          {% endif %}
+        </div>
+      </div>
+      <div>
+        <div style="font-size: 11px; font-weight: 700; color: var(--text-mut); text-transform: uppercase; margin-bottom: 4px;">Default Expense Account</div>
+        <div style="font-size: 14px; font-weight: 600; color: var(--text);">
+          {% if product.default_expense_account %}
+            <span style="font-family: monospace; background: var(--bg); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border);">{{ product.default_expense_account.code }}</span> {{ product.default_expense_account.name }}
+          {% else %}
+            <span style="color: var(--text-mut); font-style: italic;">None (Uses system fallback 6900)</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent movements history log -->
+  <div class="card" style="margin-bottom: 20px;">
+    <h3 style="margin-bottom: 15px; color: var(--text);">Recent Stock Ledger History</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th class="num">Qty</th>
+            <th class="num">Unit Cost</th>
+            <th>Reference / Memo</th>
+            <th>Operator</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for move in movements %}
+            <tr>
+              <td>{{ move.posted_at|date:"Y-m-d H:i" }}</td>
+              <td>
+                {% if move.movement_type == "receipt" %}
+                  <span class="badge success">Receipt</span>
+                {% elif move.movement_type == "issue" %}
+                  <span class="badge danger">Issue</span>
+                {% elif move.movement_type == "adjustment" %}
+                  <span class="badge info">Adjustment</span>
+                {% else %}
+                  <span class="badge secondary">{{ move.get_movement_type_display }}</span>
+                {% endif %}
+              </td>
+              <td class="num font-mono">
+                {% if move.movement_type == "issue" %}-{% else %}+{% endif %}{{ move.qty }}
+              </td>
+              <td class="num font-mono">${{ move.unit_cost }}</td>
+              <td>
+                {% if move.ref_doc_type %}
+                  <strong>{{ move.ref_doc_type }}</strong> &bull; {{ move.memo }}
+                {% else %}
+                  {{ move.memo|default:"Manual entry" }}
+                {% endif %}
+              </td>
+              <td>
+                {% if move.created_by %}
+                  {{ move.created_by.get_full_name|default:move.created_by.username }}
+                {% else %}
+                  System
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" class="empty-state">No stock ledger movements logged for this product.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="action-row">
+    <a class="btn secondary" href="{% url 'product_list' %}">Back to Catalog</a>
+  </div>
+{% endblock %}

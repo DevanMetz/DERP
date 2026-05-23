@@ -1,11 +1,149 @@
 {% extends "base.html" %}
-{% block title %}Product — DERP{% endblock %}
+{% block title %}{% if product %}Edit{% else %}New{% endif %} Product — DERP{% endblock %}
 {% block content %}
-  <h1>{% if product %}Edit{% else %}New{% endif %} product</h1>
+  <h1>{% if product %}Edit{% else %}New{% endif %} Product</h1>
   <div class="card">
-    <form method="post">{% csrf_token %}{{ form.as_p }}
-      <button class="btn" type="submit">Save</button>
-      <a class="btn secondary" href="{% url 'product_list' %}">Cancel</a>
+    <form method="post" class="modern-form" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="form-errors" style="color: var(--err); background: var(--err-bg); border: 1px solid #fecdca; padding: 10px; border-radius: 6px; margin-bottom: 20px; font-size: 13px;">
+          {{ form.non_field_errors }}
+        </div>
+      {% endif %}
+
+      <!-- Section 1: General Info -->
+      <h3 style="margin-bottom: 15px; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 6px;">General Information</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 20px;">
+        <div class="form-group">
+          <label for="{{ form.sku.id_for_label }}" style="display: block; font-size: 12px; font-weight: 700; color: var(--text-mut); margin-bottom: 5px;">SKU *</label>
+          {{ form.sku }}
+          {% if form.sku.errors %}<span style="color: var(--err); font-size: 11px;">{{ form.sku.errors }}</span>{% endif %}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.name.id_for_label }}" style="display: block; font-size: 12px; font-weight: 700; color: var(--text-mut); margin-bottom: 5px;">Product Name *</label>
+          {{ form.name }}
+          {% if form.name.errors %}<span style="color: var(--err); font-size: 11px;">{{ form.name.errors }}</span>{% endif %}
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 20px;">
+        <div class="form-group">
+          <label for="{{ form.type.id_for_label }}" style="display: block; font-size: 12px; font-weight: 700; color: var(--text-mut); margin-bottom: 5px;">Product Type *</label>
+          {{ form.type }}
+          {% if form.type.errors %}<span style="color: var(--err); font-size: 11px;">{{ form.type.errors }}</span>{% endif %}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.uom.id_for_label }}" style="display: block; font-size: 12px; font-weight: 700; color: var(--text-mut); margin-bottom: 5px;">Unit of Measure (UOM) *</label>
+          {{ form.uom }}
+          {% if form.uom.errors %}<span style="color: var(--err); font-size: 11px;">{{ form.uom.errors }}</span>{% endif %}
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 20px;">
+        <div class="form-group">
+          <label for="{{ form.image.id_for_label }}" style="display: block; font-size: 12px; font-weight: 700; color: var(--text-mut); margin-bottom: 5px;">Product Icon / Image</label>
+          <div style="display: flex; gap: 12px; align-items: center;">
+            {% if product.image %}
+              <img src="{{ product.image.url }}" alt="{{ product.name }}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border);" />
+            {% endif %}
+            <div style="flex-grow: 1;">
+              {{ form.image }}
+            </div>
+          </div>
+          {% if form.image.errors %}<span style="color: var(--err); font-size: 11px;">{{ form.image.errors }}</span>{% endif %}
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 25px;">
+        <label for="{{ form.description.id_for_label }}" style="display: block; font-size: 12px; font-weight: 700; color: var(--text-mut); margin-bottom: 5px;">Description</label>
+        {{ form.description }}
+        {% if form.description.errors %}<span style="color: var(--err); font-size: 11px;">{{ form.description.errors }}</span>{% endif %}
+      </div>
+
+      <!-- Section 2: Pricing & Stock Alerts -->
+      <h3 style="margin-bottom: 15px; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 6px;">Pricing & Cost Control</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; margin-bottom: 25px;">
+        <div class="form-group">
+          <label for="{{ form.cost.id_for_label }}" style="display: block; font-size: 12px; font-weight: 700; color: var(--text-mut); margin-bottom: 5px;">Average Cost ($)</label>
+          {{ form.cost }}
+          {% if form.cost.errors %}<span style="color: var(--err); font-size: 11px;">{{ form.cost.errors }}</span>{% endif %}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.price.id_for_label }}" style="display: block; font-size: 12px; font-weight: 700; color: var(--text-mut); margin-bottom: 5px;">Retail Price ($)</label>
+          {{ form.price }}
+          {% if form.price.errors %}<span style="color: var(--err); font-size: 11px;">{{ form.price.errors }}</span>{% endif %}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.low_stock_threshold.id_for_label }}" style="display: block; font-size: 12px; font-weight: 700; color: var(--text-mut); margin-bottom: 5px;">Low Stock Alert Threshold</label>
+          {{ form.low_stock_threshold }}
+          {% if form.low_stock_threshold.errors %}<span style="color: var(--err); font-size: 11px;">{{ form.low_stock_threshold.errors }}</span>{% endif %}
+        </div>
+      </div>
+
+      <!-- Section 3: GL Accounts defaults -->
+      <h3 style="margin-bottom: 15px; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 6px;">GL Accounting Defaults</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 25px;">
+        <div class="form-group">
+          <label for="{{ form.default_revenue_account.id_for_label }}" style="display: block; font-size: 12px; font-weight: 700; color: var(--text-mut); margin-bottom: 5px;">Default Revenue Account</label>
+          {{ form.default_revenue_account }}
+          {% if form.default_revenue_account.errors %}<span style="color: var(--err); font-size: 11px;">{{ form.default_revenue_account.errors }}</span>{% endif %}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.default_expense_account.id_for_label }}" style="display: block; font-size: 12px; font-weight: 700; color: var(--text-mut); margin-bottom: 5px;">Default Expense Account</label>
+          {{ form.default_expense_account }}
+          {% if form.default_expense_account.errors %}<span style="color: var(--err); font-size: 11px;">{{ form.default_expense_account.errors }}</span>{% endif %}
+        </div>
+      </div>
+
+      <!-- Active Toggle -->
+      <div class="form-group" style="margin-bottom: 30px; display: flex; align-items: center; gap: 8px;">
+        {{ form.is_active }}
+        <label for="{{ form.is_active.id_for_label }}" style="font-size: 13px; font-weight: 700; color: var(--text); cursor: pointer;">This product is active and available for trade</label>
+        {% if form.is_active.errors %}<span style="color: var(--err); font-size: 11px;">{{ form.is_active.errors }}</span>{% endif %}
+      </div>
+
+      <div class="action-row">
+        <button class="btn" type="submit">Save Product</button>
+        {% if product %}
+          <a class="btn secondary" href="{% url 'product_detail' product.pk %}">Cancel</a>
+        {% else %}
+          <a class="btn secondary" href="{% url 'product_list' %}">Cancel</a>
+        {% endif %}
+      </div>
     </form>
   </div>
+
+  <style>
+    .modern-form input[type="text"],
+    .modern-form input[type="number"],
+    .modern-form select,
+    .modern-form textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .modern-form input[type="text"]:focus,
+    .modern-form input[type="number"]:focus,
+    .modern-form select:focus,
+    .modern-form textarea:focus {
+      border-color: var(--btn-bg);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+      outline: none;
+    }
+    .modern-form textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+    .modern-form input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--btn-bg);
+      cursor: pointer;
+    }
+  </style>
 {% endblock %}

@@ -1,8 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Customers — DERP{% endblock %}
 {% block content %}
-  <h1>Customers</h1>
-  <p><a class="btn" href="{% url 'customer_create' %}">New customer</a></p>
+  <div class="page-header">
+    <h1>Customers</h1>
+    <div class="page-actions"><a class="btn" href="{% url 'customer_create' %}">New customer</a></div>
+  </div>
+  <div class="table-wrap">
   <table>
     <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Terms</th><th class="num">Tax %</th><th>Active</th><th></th></tr></thead>
     <tbody>
@@ -17,8 +20,9 @@
           <td><a href="{% url 'customer_edit' c.pk %}">Edit</a></td>
         </tr>
       {% empty %}
-        <tr><td colspan="7" class="muted">No customers yet.</td></tr>
+        <tr><td colspan="7" class="empty-state">No customers yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
 {% endblock %}

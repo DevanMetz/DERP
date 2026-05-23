@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Inventory Ledger — DERP{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <div>
+      <h1>Inventory Ledger</h1>
+      <p class="text-subtle">Audit trail of all physical stock movements, receipts, issues, and adjustments.</p>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date &amp; Time</th>
+          <th>Product</th>
+          <th>Type</th>
+          <th class="num">Quantity</th>
+          <th class="num">Unit Cost</th>
+          <th>Ref Doc</th>
+          <th>Memo</th>
+          <th>User</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in movements %}
+          <tr>
+            <td style="white-space: nowrap;">{{ m.posted_at|date:"Y-m-d H:i:s" }}</td>
+            <td>
+              <a href="{% url 'product_edit' m.product.pk %}" style="font-weight: bold;">
+                {{ m.product.sku }}
+              </a>
+              <span class="muted" style="display: block; font-size: 12px;">{{ m.product.name }}</span>
+            </td>
+            <td style="vertical-align: middle;">
+              {% if m.movement_type == "receipt" %}
+                <span class="badge" style="background: var(--success-bg); color: var(--success); padding: 2px 8px; border-radius: 4px; border: 1px solid #abefc6; font-weight: 700; font-size: 11px; text-transform: uppercase;">
+                  Receipt
+                </span>
+              {% elif m.movement_type == "issue" %}
+                <span class="badge" style="background: var(--err-bg); color: var(--err); padding: 2px 8px; border-radius: 4px; border: 1px solid #fecdca; font-weight: 700; font-size: 11px; text-transform: uppercase;">
+                  Issue
+                </span>
+              {% elif m.movement_type == "adjustment" %}
+                <span class="badge" style="background: #fffcf0; color: #b54708; padding: 2px 8px; border-radius: 4px; border: 1px solid #fedf89; font-weight: 700; font-size: 11px; text-transform: uppercase;">
+                  Adjustment
+                </span>
+              {% elif m.movement_type == "transfer" %}
+                <span class="badge" style="background: #f0f5ff; color: var(--accent); padding: 2px 8px; border-radius: 4px; border: 1px solid #d1e0ff; font-weight: 700; font-size: 11px; text-transform: uppercase;">
+                  Transfer
+                </span>
+              {% else %}
+                <span class="badge" style="background: var(--surface-subtle); color: var(--muted); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--line); font-weight: 700; font-size: 11px; text-transform: uppercase;">
+                  {{ m.movement_type }}
+                </span>
+              {% endif %}
+            </td>
+            <td class="num" style="font-weight: 600;">
+              {% if m.movement_type == "issue" %}-{% else %}+{% endif %}{{ m.qty }}
+            </td>
+            <td class="num">${{ m.unit_cost }}</td>
+            <td>
+              {% if m.ref_doc_type %}
+                <span style="font-size: 12px; font-weight: 500; color: var(--muted);">
+                  {{ m.ref_doc_type }} #{{ m.ref_doc_id }}
+                </span>
+              {% else %}
+                <span class="muted">—</span>
+              {% endif %}
+            </td>
+            <td>{{ m.memo }}</td>
+            <td class="muted">
+              {% if m.created_by %}
+                {{ m.created_by.email|default:m.created_by.username }}
+              {% else %}
+                System
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="8" class="empty-state">No stock movements recorded yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

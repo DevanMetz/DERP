@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{{ order.number|default:"Draft" }} - DERP{% endblock %}
+{% block content %}
+  <h1>{{ order.number|default:"Draft purchase order" }}</h1>
+  <div class="card">
+    <p>
+      <strong>Vendor:</strong> {{ order.vendor.name }} &nbsp;
+      <strong>Date:</strong> {{ order.date|date:"Y-m-d" }} &nbsp;
+      {% if order.expected_date %}<strong>Expected:</strong> {{ order.expected_date|date:"Y-m-d" }} &nbsp;{% endif %}
+      <strong>Status:</strong> {{ order.get_status_display }}
+    </p>
+    {% if order.notes %}<p><strong>Notes:</strong> {{ order.notes }}</p>{% endif %}
+    {% if order.bills.all %}
+      <p><strong>Bill:</strong>
+        {% for bill in order.bills.all %}
+          <a href="{% url 'bill_detail' bill.pk %}">{{ bill.number|default:"Draft bill" }}</a>{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+      </p>
+    {% endif %}
+    {% if order.goods_receipts.all %}
+      <p><strong>Receipts:</strong>
+        {% for receipt in order.goods_receipts.all %}
+          <a href="{% url 'goods_receipt_detail' receipt.pk %}">{{ receipt.number }}</a>{% if receipt.is_reversed %} (reversed){% endif %}{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+      </p>
+    {% endif %}
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Received</th><th class="num">Open</th><th class="num">Unit cost</th><th>Expense account</th><th class="num">Line total</th></tr></thead>
+      <tbody>
+        {% for line in order.lines.all %}
+          <tr>
+            <td>{{ line.description }}</td>
+            <td class="num">{{ line.qty }}</td>
+            <td class="num">{{ line.received_qty }}</td>
+            <td class="num">{{ line.open_qty }}</td>
+            <td class="num">{{ line.unit_cost }}</td>
+            <td>{{ line.expense_account.code }} {{ line.expense_account.name }}</td>
+            <td class="num">{{ line.line_total }}</td>
+          </tr>
+        {% endfor %}
+        <tr><th colspan="6" class="num">Total</th><th class="num">{{ order.total }}</th></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+  <div class="action-row">
+    {% if order.status == "draft" %}
+      <form method="post" action="{% url 'purchase_order_issue' order.pk %}" class="inline-form">{% csrf_token %}
+        <button class="btn" type="submit">Issue order</button>
+      </form>
+    {% endif %}
+    {% if order.status == "issued" %}
+      <form method="post" action="{% url 'purchase_order_unissue' order.pk %}" class="inline-form">{% csrf_token %}
+        <button class="btn secondary" type="submit">Undo issue</button>
+      </form>
+      <a class="btn" href="{% url 'purchase_order_receive' order.pk %}">Receive goods</a>
+    {% endif %}
+    {% if order.status == "partially_received" %}
+      <a class="btn" href="{% url 'purchase_order_receive' order.pk %}">Receive goods</a>
+    {% endif %}
+    {% if order.status == "billed" %}
+      <a class="btn" href="{% url 'purchase_order_receive' order.pk %}">Receive goods</a>
+      <form method="post" action="{% url 'purchase_order_undo_bill' order.pk %}" class="inline-form">{% csrf_token %}
+        <button class="btn secondary" type="submit">Undo draft bill</button>
+      </form>
+    {% endif %}
+    {% if order.status == "issued" or order.status == "partially_received" or order.status == "received" %}
+      <form method="post" action="{% url 'purchase_order_bill' order.pk %}" class="inline-form">{% csrf_token %}
+        <button class="btn" type="submit">Create bill</button>
+      </form>
+    {% endif %}
+    {% for receipt in order.goods_receipts.all %}
+      {% if not receipt.is_reversed %}
+        <form method="post" action="{% url 'goods_receipt_reverse' receipt.pk %}" class="inline-form">{% csrf_token %}
+          <button class="btn secondary" type="submit">Reverse {{ receipt.number }}</button>
+        </form>
+      {% endif %}
+    {% endfor %}
+    <a class="btn" href="{% url 'purchase_order_pdf' order.pk %}">Download PDF</a>
+    <a class="btn secondary" href="{% url 'purchase_order_list' %}">Back</a>
+  </div>
+{% endblock %}

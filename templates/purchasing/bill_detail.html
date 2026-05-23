@@ -13,7 +13,11 @@
     {% if bill.journal_entry %}
       <p><strong>Journal entry:</strong> <a href="{% url 'journal_detail' bill.journal_entry.pk %}">{{ bill.journal_entry.number }}</a></p>
     {% endif %}
+    {% if bill.purchase_order %}
+      <p><strong>Purchase order:</strong> <a href="{% url 'purchase_order_detail' bill.purchase_order.pk %}">{{ bill.purchase_order.number }}</a></p>
+    {% endif %}
     {% if bill.notes %}<p><strong>Notes:</strong> {{ bill.notes }}</p>{% endif %}
+    <div class="table-wrap">
     <table>
       <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit cost</th><th>Expense account</th><th class="num">Line total</th></tr></thead>
       <tbody>
@@ -31,13 +35,18 @@
         <tr><th colspan="4" class="num">Amount due</th><th class="num">{{ bill.amount_due }}</th></tr>
       </tbody>
     </table>
+    </div>
   </div>
-  <p style="margin-top:16px">
+  <div class="action-row">
     {% if bill.status == "draft" %}
-      <form method="post" action="{% url 'bill_post' bill.pk %}" style="display:inline">{% csrf_token %}
+      <form method="post" action="{% url 'bill_post' bill.pk %}" class="inline-form">{% csrf_token %}
         <button class="btn" type="submit">Post bill</button>
+      </form>
+    {% elif bill.status == "entered" and request.user.can_void and bill.amount_paid <= 0 %}
+      <form method="post" action="{% url 'bill_void' bill.pk %}" class="inline-form" onsubmit="return confirm('Are you sure you want to void this bill? This will post a reversing journal entry.');">{% csrf_token %}
+        <button class="btn danger" type="submit">Void bill</button>
       </form>
     {% endif %}
     <a class="btn secondary" href="{% url 'bill_list' %}">Back</a>
-  </p>
+  </div>
 {% endblock %}

@@ -6,11 +6,11 @@ from django.core.exceptions import ValidationError
 from django.shortcuts import redirect, render
 
 from .forms import (
-    GLFilterForm, JournalEntryHeaderForm, JournalLineFormSet,
-    TrialBalanceFilterForm,
+    BalanceSheetFilterForm, GLFilterForm, IncomeStatementFilterForm,
+    JournalEntryHeaderForm, JournalLineFormSet, TrialBalanceFilterForm,
 )
 from .models import Account, JournalEntry, ZERO
-from .reports import general_ledger, trial_balance
+from .reports import balance_sheet, general_ledger, income_statement, trial_balance
 from .services import LineSpec, post_transaction
 
 
@@ -62,7 +62,44 @@ def journal_create(request):
 @login_required
 def journal_detail(request, pk):
     entry = JournalEntry.objects.prefetch_related("lines__account").get(pk=pk)
-    return render(request, "accounting/journal_detail.html", {"entry": entry})
+    is_reversed = JournalEntry.objects.filter(source_doc_type="JournalEntry.Reversal", source_doc_id=entry.pk).exists()
+    is_reversal = entry.source_doc_type == "JournalEntry.Reversal"
+    can_be_reversed = (entry.status == JournalEntry.Status.POSTED) and not is_reversed and not is_reversal
+    return render(request, "accounting/journal_detail.html", {
+        "entry": entry,
+        "can_be_reversed": can_be_reversed,
+    })
+
+
+@login_required
+def journal_reverse(request, pk):
+    entry = get_object_or_404(JournalEntry, pk=pk)
+    if not request.user.can_void:
+        messages.error(request, "Only Administrators can void/reverse journal entries.")
+        return redirect("journal_detail", pk=pk)
+
+    is_reversed = JournalEntry.objects.filter(source_doc_type="JournalEntry.Reversal", source_doc_id=entry.pk).exists()
+    is_reversal = entry.source_doc_type == "JournalEntry.Reversal"
+    if is_reversed or is_reversal or entry.status != JournalEntry.Status.POSTED:
+        messages.error(request, "This journal entry cannot be reversed.")
+        return redirect("journal_detail", pk=pk)
+
+    if request.method == "POST":
+        try:
+            reversing_entry = reverse_entry(
+                entry,
+                date=date_cls.today(),
+                memo=f"Reversal of {entry.number}",
+                user=request.user,
+            )
+            messages.success(request, f"Successfully reversed {entry.number} with new entry {reversing_entry.number}.")
+            return redirect("journal_detail", pk=reversing_entry.pk)
+        except ValidationError as e:
+            messages.error(request, "; ".join(e.messages))
+        except ValueError as e:
+            messages.error(request, str(e))
+
+    return redirect("journal_detail", pk=pk)
 
 
 @login_required
@@ -76,6 +113,33 @@ def trial_balance_view(request):
         total_c = sum((r.credit_total for r in rows), ZERO)
     return render(request, "accounting/trial_balance.html", {
         "form": form, "rows": rows, "total_d": total_d, "total_c": total_c,
+    })
+
+
+@login_required
+def income_statement_view(request):
+    today = date_cls.today()
+    defaults = {"start": today.replace(month=1, day=1).isoformat(), "end": today.isoformat()}
+    form = IncomeStatementFilterForm(request.GET or defaults)
+    report = None
+    if form.is_valid():
+        report = income_statement(
+            start=form.cleaned_data["start"],
+            end=form.cleaned_data["end"],
+        )
+    return render(request, "accounting/income_statement.html", {
+        "form": form, "report": report,
+    })
+
+
+@login_required
+def balance_sheet_view(request):
+    form = BalanceSheetFilterForm(request.GET or {"as_of": date_cls.today().isoformat()})
+    report = None
+    if form.is_valid():
+        report = balance_sheet(as_of=form.cleaned_data["as_of"])
+    return render(request, "accounting/balance_sheet.html", {
+        "form": form, "report": report,
     })
 
 

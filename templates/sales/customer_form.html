@@ -4,8 +4,10 @@
   <h1>{% if customer %}Edit{% else %}New{% endif %} customer</h1>
   <div class="card">
     <form method="post">{% csrf_token %}{{ form.as_p }}
-      <button class="btn" type="submit">Save</button>
-      <a class="btn secondary" href="{% url 'customer_list' %}">Cancel</a>
+      <div class="action-row">
+        <button class="btn" type="submit">Save</button>
+        <a class="btn secondary" href="{% url 'customer_list' %}">Cancel</a>
+      </div>
     </form>
   </div>
 {% endblock %}

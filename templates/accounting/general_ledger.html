@@ -2,14 +2,15 @@
 {% block title %}General ledger — DERP{% endblock %}
 {% block content %}
   <h1>General ledger</h1>
-  <div class="card" style="margin-bottom:16px">
-    <form method="get" style="display:flex; gap:12px; align-items:end">
+  <div class="card">
+    <form method="get" class="filter-form">
       {{ form.as_p }}
       <p><button class="btn" type="submit">Run</button></p>
     </form>
   </div>
   {% if account %}
     <h2>{{ account.code }} — {{ account.name }}</h2>
+    <div class="table-wrap">
     <table>
       <thead><tr><th>Date</th><th>Entry</th><th>Memo</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Running</th></tr></thead>
       <tbody>
@@ -25,5 +26,6 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   {% endif %}
 {% endblock %}

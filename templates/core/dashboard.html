@@ -1,0 +1,491 @@
+{% extends "base.html" %}
+{% block title %}Operational Analytics — DERP{% endblock %}
+{% block content %}
+  <!-- Page Header -->
+  <div class="page-header" style="margin-bottom: 28px;">
+    <div>
+      <h1 style="font-size: 28px; font-weight: 800; letter-spacing: -0.02em; color: var(--fg);">
+        Operational Analytics Dashboard
+      </h1>
+      <p class="text-subtle" style="font-size: 14px; margin-top: 4px;">
+        Real-time financial performance, working capital position, and inventory valuations for the calendar year {{ current_year }}.
+      </p>
+    </div>
+    <div class="page-actions">
+      <a class="btn secondary" href="{% url 'income_statement' %}" style="border-radius: 8px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+        View P&amp;L
+      </a>
+      <a class="btn" href="{% url 'trial_balance' %}" style="border-radius: 8px;">
+        Verify Trial Balance
+      </a>
+    </div>
+  </div>
+
+  <style>
+    /* Premium Dashboard Styles */
+    .db-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+    .db-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+      transition: all 0.2s ease-in-out;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+    .db-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+      border-color: var(--card-accent, var(--line));
+    }
+    .db-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .db-card-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0;
+    }
+    .db-icon-wrap {
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: var(--icon-bg, var(--surface-subtle));
+      color: var(--icon-color, var(--muted));
+    }
+    .db-card-value {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--fg);
+      margin: 0;
+      line-height: 1.1;
+    }
+    .db-card-footer {
+      margin-top: 14px;
+      font-size: 12.5px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    /* Reconciliation Box */
+    .recon-banner {
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 28px;
+      box-shadow: var(--shadow);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .recon-side {
+      flex: 1;
+      min-width: 200px;
+    }
+    .recon-value-box {
+      background: var(--surface);
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .recon-diff-badge {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-weight: 700;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .recon-diff-perfect {
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+    }
+    .recon-diff-warning {
+      background: #fffbeb;
+      color: #b45309;
+      border: 1px solid #fde68a;
+    }
+
+    /* Charts Container */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 992px) {
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+    .chart-title {
+      font-size: 16px;
+      font-weight: 750;
+      color: var(--fg);
+      margin: 0 0 18px;
+    }
+    .chart-container {
+      position: relative;
+      height: 320px;
+      width: 100%;
+    }
+  </style>
+
+  <!-- 1. KPI Cards Grid -->
+  <div class="db-grid">
+    <!-- Sales Card -->
+    <div class="db-card" style="--card-accent: #10b981; --icon-bg: #ecfdf5; --icon-color: #10b981;">
+      <div>
+        <div class="db-card-header">
+          <h3 class="db-card-title">YTD Sales Revenue</h3>
+          <div class="db-icon-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+          </div>
+        </div>
+        <p class="db-card-value">${{ ytd_revenue|floatformat:2 }}</p>
+      </div>
+      <div class="db-card-footer">
+        <span style="color: #10b981; font-weight: bold;">✔ Current Year</span>
+        <span>posted revenue</span>
+      </div>
+    </div>
+
+    <!-- Expenses Card -->
+    <div class="db-card" style="--card-accent: #f43f5e; --icon-bg: #fff1f2; --icon-color: #f43f5e;">
+      <div>
+        <div class="db-card-header">
+          <h3 class="db-card-title">YTD Operational Costs</h3>
+          <div class="db-icon-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" ry="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+          </div>
+        </div>
+        <p class="db-card-value">${{ ytd_expenses|floatformat:2 }}</p>
+      </div>
+      <div class="db-card-footer">
+        <span style="color: #f43f5e; font-weight: bold;">✔ Current Year</span>
+        <span>posted expenses &amp; COGS</span>
+      </div>
+    </div>
+
+    <!-- Net Profit Card -->
+    <div class="db-card" style="--card-accent: #6366f1; --icon-bg: #eef2ff; --icon-color: #6366f1;">
+      <div>
+        <div class="db-card-header">
+          <h3 class="db-card-title">YTD Net Income</h3>
+          <div class="db-icon-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          </div>
+        </div>
+        <p class="db-card-value" style="color: {% if net_profit >= 0 %}#10b981{% else %}#ef4444{% endif %};">
+          ${{ net_profit|floatformat:2 }}
+        </p>
+      </div>
+      <div class="db-card-footer">
+        <span style="font-weight: bold; color: {% if net_profit >= 0 %}#10b981{% else %}#ef4444{% endif %};">
+          {% if net_profit >= 0 %}▲ Profit{% else %}▼ Deficit{% endif %}
+        </span>
+        <span>operating surplus</span>
+      </div>
+    </div>
+
+    <!-- Accounts Receivable Card -->
+    <div class="db-card" style="--card-accent: #0284c7; --icon-bg: #f0f9ff; --icon-color: #0284c7;">
+      <div>
+        <div class="db-card-header">
+          <h3 class="db-card-title">Outstanding AR</h3>
+          <div class="db-icon-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          </div>
+        </div>
+        <p class="db-card-value">${{ outstanding_ar|floatformat:2 }}</p>
+      </div>
+      <div class="db-card-footer">
+        <span style="color: #0284c7; font-weight: bold;">✔ Active</span>
+        <span>outstanding customer invoices</span>
+      </div>
+    </div>
+
+    <!-- Accounts Payable Card -->
+    <div class="db-card" style="--card-accent: #ea580c; --icon-bg: #fff7ed; --icon-color: #ea580c;">
+      <div>
+        <div class="db-card-header">
+          <h3 class="db-card-title">Outstanding AP</h3>
+          <div class="db-icon-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+          </div>
+        </div>
+        <p class="db-card-value">${{ outstanding_ap|floatformat:2 }}</p>
+      </div>
+      <div class="db-card-footer">
+        <span style="color: #ea580c; font-weight: bold;">✔ Active</span>
+        <span>due vendor bills</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Dual Inventory Reconciliation Banner -->
+  <div class="recon-banner">
+    <div style="flex: 1.5; min-width: 280px;">
+      <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: var(--fg); display: flex; align-items: center; gap: 8px;">
+        <span>⚖️</span> Inventory Reconciliation Audit
+      </h3>
+      <p class="muted" style="margin: 6px 0 0; font-size: 13px;">
+        Compares the General Ledger Asset Balance (`1300`) with the live Operational Warehouse Valuation (Sum of `Quantity * Weighted Average Cost`). These should align under clean workflows.
+      </p>
+    </div>
+    
+    <div class="recon-side">
+      <span class="text-subtle" style="font-weight: bold; text-transform: uppercase; font-size: 11px;">GL Ledger (1300 Balance)</span>
+      <div class="recon-value-box">
+        <span style="font-weight: 700; color: var(--fg); font-size: 16px;">${{ gl_inventory_val|floatformat:2 }}</span>
+        <span class="muted" style="font-size: 11px;">Book Balance</span>
+      </div>
+    </div>
+    
+    <div class="recon-side">
+      <span class="text-subtle" style="font-weight: bold; text-transform: uppercase; font-size: 11px;">Operational Warehouse</span>
+      <div class="recon-value-box">
+        <span style="font-weight: 700; color: var(--fg); font-size: 16px;">${{ operational_inventory_val|floatformat:2 }}</span>
+        <span class="muted" style="font-size: 11px;">Stock-on-Hand Value</span>
+      </div>
+    </div>
+
+    <div>
+      {% if gl_inventory_val == operational_inventory_val %}
+        <div class="recon-diff-badge recon-diff-perfect">
+          <span>✔</span> Perfect Sync ($0.00 Diff)
+        </div>
+      {% else %}
+        <div class="recon-diff-badge recon-diff-warning">
+          <span>⚠</span> Reconciliation Variance
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- 3. Charts Section -->
+  <div class="charts-grid">
+    <!-- Revenue vs Expenses Grouped Bar Chart -->
+    <div class="chart-card">
+      <h3 class="chart-title">Revenue vs. Expenses (Monthly Breakdown)</h3>
+      <div class="chart-container">
+        <canvas id="monthlyChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Inventory Allocation Doughnut Chart -->
+    <div class="chart-card">
+      <h3 class="chart-title">Inventory Allocation (By Value)</h3>
+      <div class="chart-container">
+        {% if doughnut_data_json %}
+          <canvas id="inventoryDoughnut"></canvas>
+        {% else %}
+          <div class="empty-state" style="display: grid; place-items: center; height: 100%;">
+            <div>
+              <p style="font-size: 32px; margin: 0;">📦</p>
+              <p style="font-size: 13px; font-weight: bold; margin-top: 8px;">No stock inventory on hand</p>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Load Chart.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      // 1. Monthly Revenue vs Expenses Bar Chart
+      const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+      const monthlyRevenues = {{ monthly_revenue_json|safe }};
+      const monthlyExpenses = {{ monthly_expenses_json|safe }};
+      
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      
+      new Chart(monthlyCtx, {
+        type: 'bar',
+        data: {
+          labels: months,
+          datasets: [
+            {
+              label: 'Revenue',
+              data: monthlyRevenues,
+              backgroundColor: '#3b82f6', // Indigo-Blue
+              borderRadius: 4,
+              borderWidth: 0,
+            },
+            {
+              label: 'Expenses',
+              data: monthlyExpenses,
+              backgroundColor: '#f43f5e', // Rose Coral
+              borderRadius: 4,
+              borderWidth: 0,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: {
+                font: {
+                  family: 'Inter, system-ui, sans-serif',
+                  size: 12,
+                  weight: '600'
+                },
+                color: '#4b5563'
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  let label = context.dataset.label || '';
+                  if (label) {
+                    label += ': ';
+                  }
+                  if (context.raw !== null) {
+                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.raw);
+                  }
+                  return label;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: {
+                display: false
+              },
+              ticks: {
+                color: '#6b7280',
+                font: {
+                  family: 'Inter, system-ui, sans-serif',
+                  size: 11
+                }
+              }
+            },
+            y: {
+              grid: {
+                color: '#f3f4f6'
+              },
+              ticks: {
+                color: '#6b7280',
+                font: {
+                  family: 'Inter, system-ui, sans-serif',
+                  size: 11
+                },
+                callback: function(value) {
+                  return '$' + value;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // 2. Inventory Allocation Doughnut Chart (only if data exists)
+      const doughnutCtx = document.getElementById('inventoryDoughnut');
+      if (doughnutCtx) {
+        const labels = {{ doughnut_labels_json|safe }};
+        const data = {{ doughnut_data_json|safe }};
+        
+        // Premium harmonized colors
+        const palette = [
+          '#6366f1', // Indigo
+          '#0d9488', // Teal
+          '#0284c7', // Sky
+          '#7c3aed', // Purple
+          '#f59e0b', // Amber
+          '#94a3b8'  // Slate
+        ];
+
+        new Chart(doughnutCtx.getContext('2d'), {
+          type: 'doughnut',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: data,
+              backgroundColor: palette.slice(0, data.length),
+              borderWidth: 2,
+              borderColor: '#ffffff',
+              hoverOffset: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  boxWidth: 12,
+                  padding: 16,
+                  font: {
+                    family: 'Inter, system-ui, sans-serif',
+                    size: 11
+                  },
+                  color: '#4b5563'
+                }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    let label = context.label || '';
+                    if (label) {
+                      label += ': ';
+                    }
+                    if (context.raw !== null) {
+                      label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.raw);
+                    }
+                    return label;
+                  }
+                }
+              }
+            },
+            cutout: '65%'
+          }
+        });
+      }
+    });
+  </script>
+{% endblock %}

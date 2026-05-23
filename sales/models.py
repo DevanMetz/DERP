@@ -1,5 +1,5 @@
 """
-Sales models: Customer, Invoice, InvoiceLine.
+Sales models: Customer, SalesOrder, SalesOrderLine, Invoice, InvoiceLine.
 
 Tax model: flat per-customer rate (spec §2.2). Each Customer carries a
 single tax_rate percentage; invoices compute tax = subtotal * tax_rate / 100.
@@ -51,6 +51,69 @@ class Customer(models.Model):
         return self.name
 
 
+class SalesOrder(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        CONFIRMED = "confirmed", "Confirmed"
+        INVOICED = "invoiced", "Invoiced"
+        CANCELLED = "cancelled", "Cancelled"
+
+    number = models.CharField(max_length=32, unique=True, null=True, blank=True)
+    customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="sales_orders")
+    date = models.DateField()
+    requested_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        "core.User", null=True, blank=True, on_delete=models.PROTECT,
+        related_name="created_sales_orders",
+    )
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    confirmed_by = models.ForeignKey(
+        "core.User", null=True, blank=True, on_delete=models.PROTECT,
+        related_name="confirmed_sales_orders",
+    )
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["-date", "-id"]
+        indexes = [
+            models.Index(fields=["status", "date"]),
+            models.Index(fields=["customer", "status"]),
+        ]
+
+    def __str__(self):
+        return self.number or f"SO-DRAFT-{self.pk}"
+
+    def subtotal(self) -> Decimal:
+        return sum((l.line_total() for l in self.lines.all()), ZERO)
+
+
+class SalesOrderLine(models.Model):
+    order = models.ForeignKey(SalesOrder, on_delete=models.CASCADE, related_name="lines")
+    product = models.ForeignKey(
+        "inventory.Product", null=True, blank=True, on_delete=models.PROTECT,
+        related_name="sales_order_lines",
+    )
+    description = models.CharField(max_length=500)
+    qty = models.DecimalField(max_digits=14, decimal_places=4, default=Decimal("1"))
+    unit_price = models.DecimalField(max_digits=14, decimal_places=2, default=ZERO)
+    revenue_account = models.ForeignKey(
+        "accounting.Account", on_delete=models.PROTECT, related_name="sales_order_lines",
+        limit_choices_to={"type": "revenue", "is_postable": True},
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(name="salesorderline_qty_positive", check=models.Q(qty__gt=0)),
+            models.CheckConstraint(name="salesorderline_price_nonneg", check=models.Q(unit_price__gte=0)),
+        ]
+
+    def line_total(self) -> Decimal:
+        return (self.qty * self.unit_price).quantize(Decimal("0.01"))
+
+
 class Invoice(models.Model):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
@@ -60,6 +123,10 @@ class Invoice(models.Model):
 
     number = models.CharField(max_length=32, unique=True, null=True, blank=True)
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="invoices")
+    sales_order = models.ForeignKey(
+        SalesOrder, null=True, blank=True, on_delete=models.PROTECT,
+        related_name="invoices",
+    )
     date = models.DateField()
     due_date = models.DateField()
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)

@@ -8,7 +8,7 @@
       <p>Choose a vendor to see their open bills.</p>
       <form method="get">
         <p><label>Vendor</label>{{ header.vendor }}</p>
-        <p><button class="btn" type="submit">Continue</button></p>
+        <div class="action-row"><button class="btn" type="submit">Continue</button></div>
       </form>
     </div>
   {% else %}
@@ -26,6 +26,7 @@
 
         <h2>Apply to open bills</h2>
         {% if open_bills %}
+          <div class="table-wrap">
           <table>
             <thead><tr><th>Bill</th><th>Date</th><th class="num">Total</th><th class="num">Paid</th><th class="num">Due</th><th class="num">Apply</th></tr></thead>
             <tbody>
@@ -36,20 +37,21 @@
                   <td class="num">{{ b.total }}</td>
                   <td class="num">{{ b.amount_paid }}</td>
                   <td class="num">{{ b.amount_due }}</td>
-                  <td class="num"><input type="text" name="apply_{{ b.pk }}" inputmode="decimal" style="width:120px"></td>
+                  <td class="num"><input class="amount-input" type="text" name="apply_{{ b.pk }}" inputmode="decimal"></td>
                 </tr>
               {% endfor %}
             </tbody>
           </table>
+          </div>
           <p class="muted">Apply amounts must sum to the payment amount above.</p>
         {% else %}
           <p class="muted">No open bills for this vendor.</p>
         {% endif %}
 
-        <p style="margin-top:16px">
+        <div class="action-row">
           <button class="btn" type="submit" {% if not open_bills %}disabled{% endif %}>Record payment</button>
           <a class="btn secondary" href="{% url 'bill_list' %}">Cancel</a>
-        </p>
+        </div>
       </form>
     </div>
   {% endif %}

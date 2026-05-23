@@ -48,3 +48,15 @@ class TrialBalanceFilterForm(forms.Form):
         widget=forms.DateInput(attrs={"type": "date"}),
         label="As of",
     )
+
+
+class IncomeStatementFilterForm(forms.Form):
+    start = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
+    end = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
+
+
+class BalanceSheetFilterForm(forms.Form):
+    as_of = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}),
+        label="As of",
+    )

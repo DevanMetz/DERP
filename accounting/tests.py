@@ -16,6 +16,7 @@ from django.db import IntegrityError, transaction
 from django.test import TestCase
 
 from accounting.models import Account, AccountType, JournalEntry, JournalLine
+from accounting.reports import balance_sheet, income_statement
 from accounting.services import LineSpec, post_transaction, reverse_entry
 
 
@@ -101,15 +102,8 @@ class PostTransactionTests(TestCase):
             )
 
     def test_zero_total_rejected(self):
-        with self.assertRaises(ValidationError):
-            post_transaction(
-                date=date(2026, 1, 15),
-                memo="Zero",
-                lines=[
-                    LineSpec(account_code="1110", debit=D("0.00")),
-                    LineSpec(account_code="4100", credit=D("0.00")),
-                ],
-            )
+        with self.assertRaises(ValueError):
+            LineSpec(account_code="1110", debit=D("0.00"))
 
     def test_numbering_is_sequential_and_gap_free(self):
         for _ in range(5):
@@ -211,3 +205,79 @@ class ReversalTests(TestCase):
         cash_d = JournalLine.objects.filter(account=self.cash).aggregate(s=Sum("debit"))["s"]
         cash_c = JournalLine.objects.filter(account=self.cash).aggregate(s=Sum("credit"))["s"]
         self.assertEqual(cash_d, cash_c)
+
+
+class FinancialReportTests(TestCase):
+    def setUp(self):
+        self.cash, self.revenue, self.expense = make_accounts()
+        self.ap = Account.objects.create(
+            code="2110", name="Accounts Payable", type=AccountType.LIABILITY,
+        )
+        self.equity = Account.objects.create(
+            code="3100", name="Owner's Capital", type=AccountType.EQUITY,
+        )
+
+    def test_income_statement_uses_range_and_normal_balances(self):
+        post_transaction(
+            date=date(2026, 1, 1),
+            memo="Before period",
+            lines=[
+                LineSpec(account_code="1110", debit=D("25.00")),
+                LineSpec(account_code="4100", credit=D("25.00")),
+            ],
+        )
+        post_transaction(
+            date=date(2026, 2, 1),
+            memo="Sale in period",
+            lines=[
+                LineSpec(account_code="1110", debit=D("100.00")),
+                LineSpec(account_code="4100", credit=D("100.00")),
+            ],
+        )
+        post_transaction(
+            date=date(2026, 2, 2),
+            memo="Expense in period",
+            lines=[
+                LineSpec(account_code="6100", debit=D("40.00")),
+                LineSpec(account_code="1110", credit=D("40.00")),
+            ],
+        )
+
+        report = income_statement(start=date(2026, 2, 1), end=date(2026, 2, 28))
+
+        self.assertEqual(report.total_revenue, D("100.00"))
+        self.assertEqual(report.total_expenses, D("40.00"))
+        self.assertEqual(report.net_income, D("60.00"))
+
+    def test_balance_sheet_includes_current_earnings(self):
+        post_transaction(
+            date=date(2026, 1, 1),
+            memo="Owner investment",
+            lines=[
+                LineSpec(account_code="1110", debit=D("50.00")),
+                LineSpec(account_code="3100", credit=D("50.00")),
+            ],
+        )
+        post_transaction(
+            date=date(2026, 2, 1),
+            memo="Cash sale",
+            lines=[
+                LineSpec(account_code="1110", debit=D("100.00")),
+                LineSpec(account_code="4100", credit=D("100.00")),
+            ],
+        )
+        post_transaction(
+            date=date(2026, 2, 2),
+            memo="Vendor bill",
+            lines=[
+                LineSpec(account_code="6100", debit=D("30.00")),
+                LineSpec(account_code="2110", credit=D("30.00")),
+            ],
+        )
+
+        report = balance_sheet(as_of=date(2026, 2, 28))
+
+        self.assertEqual(report.total_assets, D("150.00"))
+        self.assertEqual(report.total_liabilities, D("30.00"))
+        self.assertEqual(report.total_equity, D("120.00"))
+        self.assertEqual(report.total_assets, report.total_liabilities_and_equity)

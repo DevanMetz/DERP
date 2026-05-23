@@ -1,0 +1,40 @@
+{% extends "account/base_entrance.html" %}
+
+{% block head_title %}Sign in{% endblock %}
+
+{% block content %}
+  <div class="auth-shell">
+    <section class="auth-card" aria-labelledby="login-title">
+      <h1 id="login-title">Sign in</h1>
+      <p class="text-subtle">Access your DERP workspace.</p>
+
+      <form method="post" action="{% url 'account_login' %}">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        {% for field in form %}
+          {% if field.is_hidden %}
+            {{ field }}
+          {% elif field.field.widget.input_type == "checkbox" %}
+            <p>
+              <label>{{ field }} {{ field.label }}</label>
+              {{ field.errors }}
+            </p>
+          {% else %}
+            <p>
+              <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {{ field.errors }}
+            </p>
+          {% endif %}
+        {% endfor %}
+        {{ redirect_field }}
+        <button class="btn" type="submit">Sign in</button>
+      </form>
+
+      <div class="auth-links">
+        <a href="{% url 'account_reset_password' %}">Forgot password?</a>
+        <a href="{{ signup_url }}">Create account</a>
+      </div>
+    </section>
+  </div>
+{% endblock %}

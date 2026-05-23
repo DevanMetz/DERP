@@ -1,16 +1,27 @@
 from datetime import date as date_cls
 from decimal import Decimal
+import io
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
+from django.http import FileResponse
 
-from accounting.models import Account
+from core.models import Company
+from core.pdf_service import generate_document_pdf
 
-from .forms import BillHeaderForm, BillLineFormSet, PayVendorForm, VendorForm
-from .models import Bill, BillLine, Vendor
-from .services import pay_vendor, post_bill
+from .forms import (
+    BillHeaderForm, BillLineFormSet, GoodsReceiptHeaderForm, PayVendorForm,
+    PurchaseOrderHeaderForm, PurchaseOrderLineFormSet, VendorForm,
+)
+from .models import Bill, GoodsReceipt, PurchaseOrder, Vendor
+from .services import (
+    create_bill_from_purchase_order, create_bill_lines, create_purchase_order_lines,
+    issue_purchase_order, pay_vendor, post_bill, receive_purchase_order,
+    reverse_goods_receipt, undo_bill_from_purchase_order,
+    undo_issue_purchase_order, create_bill_from_receipt,
+)
 
 
 # ----------------------------- Vendors -------------------------------
@@ -35,6 +46,196 @@ def vendor_edit(request, pk=None):
     return render(request, "purchasing/vendor_form.html", {"form": form, "vendor": vendor})
 
 
+# ------------------------- Purchase orders ---------------------------
+
+@login_required
+def purchase_order_list(request):
+    orders = PurchaseOrder.objects.select_related("vendor").all()
+    return render(request, "purchasing/purchase_order_list.html", {"orders": orders})
+
+
+@login_required
+def purchase_order_create(request):
+    if request.method == "POST":
+        header = PurchaseOrderHeaderForm(request.POST)
+        formset = PurchaseOrderLineFormSet(request.POST)
+        if header.is_valid() and formset.is_valid():
+            order = header.save(commit=False)
+            order.created_by = request.user
+            order.save()
+            create_purchase_order_lines(order, formset.cleaned_data)
+
+            if "issue_now" in request.POST:
+                try:
+                    issue_purchase_order(order, user=request.user)
+                except ValidationError as e:
+                    messages.error(request, "; ".join(e.messages))
+                    return redirect("purchase_order_detail", pk=order.pk)
+                messages.success(request, f"Issued {order.number}.")
+            else:
+                messages.success(request, "Draft purchase order saved.")
+            return redirect("purchase_order_detail", pk=order.pk)
+    else:
+        header = PurchaseOrderHeaderForm(initial={"date": date_cls.today()})
+        formset = PurchaseOrderLineFormSet()
+    return render(request, "purchasing/purchase_order_form.html", {"header": header, "formset": formset})
+
+
+@login_required
+def purchase_order_detail(request, pk):
+    order = get_object_or_404(
+        PurchaseOrder.objects.select_related("vendor").prefetch_related(
+            "lines__product", "lines__expense_account", "bills",
+        ),
+        pk=pk,
+    )
+    return render(request, "purchasing/purchase_order_detail.html", {"order": order})
+
+
+@login_required
+def purchase_order_issue(request, pk):
+    order = get_object_or_404(PurchaseOrder, pk=pk)
+    if request.method != "POST":
+        return redirect("purchase_order_detail", pk=pk)
+    try:
+        issue_purchase_order(order, user=request.user)
+    except ValidationError as e:
+        messages.error(request, "; ".join(e.messages))
+    else:
+        messages.success(request, f"Issued {order.number}.")
+    return redirect("purchase_order_detail", pk=pk)
+
+
+@login_required
+def purchase_order_unissue(request, pk):
+    order = get_object_or_404(PurchaseOrder, pk=pk)
+    if request.method != "POST":
+        return redirect("purchase_order_detail", pk=pk)
+    try:
+        undo_issue_purchase_order(order)
+    except ValidationError as e:
+        messages.error(request, "; ".join(e.messages))
+    else:
+        messages.success(request, "Purchase order moved back to draft.")
+    return redirect("purchase_order_detail", pk=pk)
+
+
+@login_required
+def purchase_order_bill(request, pk):
+    order = get_object_or_404(PurchaseOrder, pk=pk)
+    if request.method != "POST":
+        return redirect("purchase_order_detail", pk=pk)
+    try:
+        bill = create_bill_from_purchase_order(order, user=request.user)
+    except ValidationError as e:
+        messages.error(request, "; ".join(e.messages))
+        return redirect("purchase_order_detail", pk=pk)
+    messages.success(request, f"Created draft bill from {order.number}.")
+    return redirect("bill_detail", pk=bill.pk)
+
+
+@login_required
+def purchase_order_undo_bill(request, pk):
+    order = get_object_or_404(PurchaseOrder, pk=pk)
+    if request.method != "POST":
+        return redirect("purchase_order_detail", pk=pk)
+    try:
+        undo_bill_from_purchase_order(order)
+    except ValidationError as e:
+        messages.error(request, "; ".join(e.messages))
+    else:
+        messages.success(request, "Draft bill removed and purchase order reopened.")
+    return redirect("purchase_order_detail", pk=pk)
+
+
+@login_required
+def purchase_order_receive(request, pk):
+    order = get_object_or_404(
+        PurchaseOrder.objects.select_related("vendor").prefetch_related("lines__product"),
+        pk=pk,
+    )
+    if request.method == "POST":
+        header = GoodsReceiptHeaderForm(request.POST)
+        if header.is_valid():
+            receipts = []
+            for line in order.lines.all():
+                raw = request.POST.get(f"receive_{line.pk}", "").strip()
+                if not raw:
+                    continue
+                try:
+                    qty = Decimal(raw)
+                except Exception:
+                    messages.error(request, f"Invalid received quantity for {line.description}.")
+                    return redirect("purchase_order_receive", pk=pk)
+                if qty > 0:
+                    receipts.append((line, qty))
+            try:
+                receipt = receive_purchase_order(
+                    order=order,
+                    date=header.cleaned_data["date"],
+                    receipts=receipts,
+                    notes=header.cleaned_data.get("notes", ""),
+                    user=request.user,
+                )
+            except ValidationError as e:
+                messages.error(request, "; ".join(e.messages))
+            else:
+                messages.success(request, f"Posted {receipt.number}.")
+                return redirect("purchase_order_detail", pk=pk)
+    else:
+        header = GoodsReceiptHeaderForm(initial={"date": date_cls.today()})
+
+    return render(request, "purchasing/goods_receipt_form.html", {
+        "header": header,
+        "order": order,
+    })
+
+
+@login_required
+def goods_receipt_reverse(request, pk):
+    receipt = get_object_or_404(GoodsReceipt.objects.select_related("purchase_order"), pk=pk)
+    order_pk = receipt.purchase_order_id
+    if request.method != "POST":
+        return redirect("purchase_order_detail", pk=order_pk)
+    try:
+        reverse_goods_receipt(receipt, user=request.user)
+    except ValidationError as e:
+        messages.error(request, "; ".join(e.messages))
+    else:
+        messages.success(request, f"Reversed {receipt.number}.")
+    return redirect("purchase_order_detail", pk=order_pk)
+
+
+@login_required
+def goods_receipt_detail(request, pk):
+    receipt = get_object_or_404(
+        GoodsReceipt.objects.select_related("purchase_order", "purchase_order__vendor").prefetch_related(
+            "lines__product", "lines__po_line", "bills"
+        ),
+        pk=pk,
+    )
+    bill = receipt.bills.first()
+    return render(
+        request,
+        "purchasing/goodsreceipt_detail.html",
+        {"receipt": receipt, "bill": bill},
+    )
+
+
+@login_required
+def bill_create_from_receipt(request, pk):
+    receipt = get_object_or_404(GoodsReceipt, pk=pk)
+    if request.method != "POST":
+        return redirect("goods_receipt_detail", pk=pk)
+    try:
+        bill = create_bill_from_receipt(receipt, user=request.user)
+    except ValidationError as e:
+        messages.error(request, "; ".join(e.messages))
+        return redirect("goods_receipt_detail", pk=pk)
+    messages.success(request, f"Created draft bill from {receipt.number}.")
+    return redirect("bill_detail", pk=bill.pk)
+
+
 # ------------------------------ Bills --------------------------------
 
 @login_required
@@ -53,26 +254,7 @@ def bill_create(request):
             bill.created_by = request.user
             bill.save()
 
-            fallback_expense = Account.objects.filter(code="6900").first()  # Miscellaneous
-            for line in formset.cleaned_data:
-                product = line.get("product")
-                desc = (line.get("description") or "").strip()
-                qty = line.get("qty")
-                cost = line.get("unit_cost")
-                if not (product or desc) or not qty:
-                    continue
-                if not desc:
-                    desc = f"{product.sku} {product.name}"
-                expense_account = (
-                    line.get("expense_account")
-                    or (product.default_expense_account if product else None)
-                    or bill.vendor.default_expense_account
-                    or fallback_expense
-                )
-                BillLine.objects.create(
-                    bill=bill, product=product, description=desc,
-                    qty=qty, unit_cost=cost, expense_account=expense_account,
-                )
+            create_bill_lines(bill, formset.cleaned_data)
 
             if "post_now" in request.POST:
                 try:
@@ -96,7 +278,7 @@ def bill_create(request):
 @login_required
 def bill_detail(request, pk):
     bill = get_object_or_404(
-        Bill.objects.select_related("vendor", "journal_entry").prefetch_related("lines__product", "lines__expense_account"),
+        Bill.objects.select_related("vendor", "journal_entry", "purchase_order").prefetch_related("lines__product", "lines__expense_account"),
         pk=pk,
     )
     return render(request, "purchasing/bill_detail.html", {"bill": bill})
@@ -177,3 +359,82 @@ def vendor_payment_create(request):
     return render(request, "purchasing/payment_form.html", {
         "header": header, "vendor": vendor, "open_bills": open_bills,
     })
+
+
+@login_required
+def bill_void(request, pk):
+    bill = get_object_or_404(Bill, pk=pk)
+    if request.method != "POST":
+        return redirect("bill_detail", pk=pk)
+    if not request.user.can_void:
+        messages.error(request, "Only Administrators can void bills.")
+        return redirect("bill_detail", pk=pk)
+    from .services import void_bill
+    try:
+        void_bill(bill, user=request.user)
+    except ValidationError as e:
+        messages.error(request, "; ".join(e.messages))
+    else:
+        messages.success(request, f"Successfully voided bill {bill.number}.")
+    return redirect("bill_detail", pk=pk)
+
+
+@login_required
+def purchase_order_pdf(request, pk):
+    order = get_object_or_404(
+        PurchaseOrder.objects.select_related("vendor").prefetch_related("lines__product"),
+        pk=pk,
+    )
+    company = Company.get()
+
+    extra_meta = []
+    if order.expected_date:
+        extra_meta.append(("Expected Date", order.expected_date.strftime("%Y-%m-%d")))
+    extra_meta.append(("Status", order.get_status_display()))
+
+    company_data = {
+        "name": company.name,
+        "legal_name": company.legal_name,
+        "email": company.email,
+        "phone": company.phone,
+        "address": company.address,
+        "tax_id": company.tax_id,
+    }
+
+    partner_data = {
+        "name": order.vendor.name,
+        "email": order.vendor.email,
+        "phone": order.vendor.phone,
+        "address": order.vendor.address,
+    }
+
+    lines_data = []
+    for line in order.lines.all():
+        lines_data.append({
+            "description": line.description,
+            "qty": line.qty,
+            "unit_price": f"${line.unit_cost:.2f}",
+            "total": f"${line.line_total():.2f}",
+        })
+
+    totals_data = [
+        ("Total", f"${order.total():.2f}"),
+    ]
+
+    pdf_bytes = generate_document_pdf(
+        filename_prefix="po",
+        title="Purchase Order",
+        doc_number=order.number or f"DRAFT-{order.pk}",
+        doc_date=order.date.strftime("%Y-%m-%d"),
+        extra_meta=extra_meta,
+        company=company_data,
+        partner=partner_data,
+        lines=lines_data,
+        totals=totals_data,
+        notes=order.notes,
+    )
+
+    response = FileResponse(io.BytesIO(pdf_bytes), content_type="application/pdf")
+    filename = f"PO-{order.number or order.pk}.pdf"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response

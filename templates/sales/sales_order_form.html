@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}New sales order - DERP{% endblock %}
+{% block content %}
+  <h1>New sales order</h1>
+  <div class="card">
+    <form method="post">
+      {% csrf_token %}
+      {{ header.as_p }}
+      <h2>Lines</h2>
+      {{ formset.management_form }}
+      {% if formset.non_form_errors %}<ul class="errorlist">{% for e in formset.non_form_errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Product</th><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th>Revenue account</th></tr></thead>
+        <tbody>
+          {% for f in formset %}
+            <tr>
+              <td>{{ f.product }}</td>
+              <td>{{ f.description }}</td>
+              <td class="num">{{ f.qty }}</td>
+              <td class="num">{{ f.unit_price }}</td>
+              <td>{{ f.revenue_account }}</td>
+            </tr>
+            {% if f.non_field_errors %}<tr><td colspan="5"><ul class="errorlist">{% for e in f.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul></td></tr>{% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <div class="action-row">
+        <button class="btn" type="submit">Save draft</button>
+        <button class="btn" type="submit" name="confirm_now" value="1">Save and confirm</button>
+        <a class="btn secondary" href="{% url 'sales_order_list' %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

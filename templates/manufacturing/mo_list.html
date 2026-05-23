@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Manufacturing Orders — DERP{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <div>
+      <h1>Manufacturing Orders</h1>
+      <p class="text-subtle">Log assemblies production, verify stock shortages, and record finished product GL transactions.</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn" href="{% url 'mo_create' %}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        New MO
+      </a>
+    </div>
+  </div>
+
+  {% if mos %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>MO Number</th>
+            <th>Planned Date</th>
+            <th>Finished Item SKU</th>
+            <th>Product Name</th>
+            <th class="num">Target Qty</th>
+            <th class="num">Completed Qty</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for mo in mos %}
+            <tr>
+              <td>
+                <a href="{% url 'mo_detail' mo.pk %}" style="font-weight: bold;">
+                  {{ mo.number|default:mo.id|stringformat:"06d"|default:"DRAFT" }}
+                </a>
+              </td>
+              <td>{{ mo.date_planned|date:"Y-m-d" }}</td>
+              <td>{{ mo.product.sku }}</td>
+              <td>{{ mo.product.name }}</td>
+              <td class="num" style="font-variant-numeric: tabular-nums;">{{ mo.qty_target|floatformat:4 }}</td>
+              <td class="num" style="font-variant-numeric: tabular-nums;">{{ mo.qty_produced|floatformat:4 }}</td>
+              <td>
+                {% if mo.status == 'draft' %}
+                  <span class="badge" style="background: #f2f4f7; color: #344054; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-weight: 700; border: 1px solid #d0d5dd;">Draft</span>
+                {% elif mo.status == 'confirmed' %}
+                  <span class="badge" style="background: #eff6ff; color: #175cd3; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-weight: 700; border: 1px solid #b2ddff;">Confirmed</span>
+                {% elif mo.status == 'completed' %}
+                  <span class="badge" style="background: #ecfdf3; color: #027a48; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-weight: 700; border: 1px solid #a7f3d0;">Completed</span>
+                {% elif mo.status == 'cancelled' %}
+                  <span class="badge" style="background: #fef3f2; color: #b42318; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-weight: 700; border: 1px solid #fecdca;">Cancelled</span>
+                {% endif %}
+              </td>
+              <td>
+                <a href="{% url 'mo_detail' mo.pk %}">Details</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="card">
+      <div class="empty-state">
+        <p style="font-size: 36px; margin: 0 0 12px;">🏭</p>
+        <h3 style="margin: 0 0 4px; color: var(--fg);">No Manufacturing Orders</h3>
+        <p class="muted" style="font-size: 13px; margin: 0 0 16px;">Schedule and confirm production runs to issue raw components and produce finished assemblies.</p>
+        <a class="btn" href="{% url 'mo_create' %}">Create Your First MO</a>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

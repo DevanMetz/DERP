@@ -4,7 +4,7 @@ from django import forms
 from accounting.models import Account
 from inventory.models import Product
 
-from .models import Customer, Invoice, InvoiceLine
+from .models import Customer, Invoice, SalesOrder
 
 
 class CustomerForm(forms.ModelForm):
@@ -24,6 +24,18 @@ class InvoiceHeaderForm(forms.ModelForm):
         widgets = {
             "date": forms.DateInput(attrs={"type": "date"}),
             "due_date": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 3}),
+        }
+
+
+class SalesOrderHeaderForm(forms.ModelForm):
+    class Meta:
+        model = SalesOrder
+        fields = ["customer", "date", "requested_date", "notes"]
+        widgets = {
+            "date": forms.DateInput(attrs={"type": "date"}),
+            "requested_date": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 3}),
         }
 
 
@@ -58,6 +70,7 @@ class InvoiceLineForm(forms.Form):
 
 
 InvoiceLineFormSet = forms.formset_factory(InvoiceLineForm, extra=4, min_num=1, validate_min=True)
+SalesOrderLineFormSet = forms.formset_factory(InvoiceLineForm, extra=4, min_num=1, validate_min=True)
 
 
 class ReceivePaymentForm(forms.Form):

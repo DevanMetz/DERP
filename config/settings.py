@@ -109,6 +109,8 @@ USE_TZ = True
 TIME_ZONE = "UTC"
 LANGUAGE_CODE = "en-us"
 STATIC_URL = "static/"
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 # Currency is locked to USD for v1.
 DEFAULT_CURRENCY = "USD"

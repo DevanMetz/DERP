@@ -4,8 +4,10 @@
   <h1>{% if vendor %}Edit{% else %}New{% endif %} vendor</h1>
   <div class="card">
     <form method="post">{% csrf_token %}{{ form.as_p }}
-      <button class="btn" type="submit">Save</button>
-      <a class="btn secondary" href="{% url 'vendor_list' %}">Cancel</a>
+      <div class="action-row">
+        <button class="btn" type="submit">Save</button>
+        <a class="btn secondary" href="{% url 'vendor_list' %}">Cancel</a>
+      </div>
     </form>
   </div>
 {% endblock %}

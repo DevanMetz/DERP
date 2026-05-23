@@ -9,6 +9,7 @@
       <h2>Lines</h2>
       {{ formset.management_form }}
       {% if formset.non_form_errors %}<ul class="errorlist">{% for e in formset.non_form_errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      <div class="table-wrap">
       <table>
         <thead><tr><th>Product</th><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th>Revenue account</th></tr></thead>
         <tbody>
@@ -24,12 +25,13 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
       <p class="muted">If you leave revenue account blank, it falls back to the product default, then the customer default, then 4100 Product Sales.</p>
-      <p style="margin-top:16px">
+      <div class="action-row">
         <button class="btn" type="submit">Save draft</button>
         <button class="btn" type="submit" name="post_now" value="1">Save and post</button>
         <a class="btn secondary" href="{% url 'invoice_list' %}">Cancel</a>
-      </p>
+      </div>
     </form>
   </div>
 {% endblock %}

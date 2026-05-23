@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Receive {{ order.number }} - DERP{% endblock %}
+{% block content %}
+  <h1>Receive {{ order.number }}</h1>
+  <div class="card">
+    <p>
+      <strong>Vendor:</strong> {{ order.vendor.name }} &nbsp;
+      <strong>Date:</strong> {{ order.date|date:"Y-m-d" }} &nbsp;
+      <strong>Status:</strong> {{ order.get_status_display }}
+    </p>
+    <form method="post">
+      {% csrf_token %}
+      {{ header.as_p }}
+      <h2>Open lines</h2>
+      <div class="table-wrap">
+      <table>
+        <thead><tr><th>Description</th><th class="num">Ordered</th><th class="num">Received</th><th class="num">Open</th><th class="num">Receive</th></tr></thead>
+        <tbody>
+          {% for line in order.lines.all %}
+            <tr>
+              <td>{{ line.description }}</td>
+              <td class="num">{{ line.qty }}</td>
+              <td class="num">{{ line.received_qty }}</td>
+              <td class="num">{{ line.open_qty }}</td>
+              <td class="num"><input class="amount-input" type="text" inputmode="decimal" name="receive_{{ line.pk }}" {% if line.open_qty <= 0 %}disabled{% endif %}></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <div class="action-row">
+        <button class="btn" type="submit">Post receipt</button>
+        <a class="btn secondary" href="{% url 'purchase_order_detail' order.pk %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

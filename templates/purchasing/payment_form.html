@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Pay vendor — DERP{% endblock %}
+{% block content %}
+  <h1>Pay vendor</h1>
+
+  {% if not vendor %}
+    <div class="card">
+      <p>Choose a vendor to see their open bills.</p>
+      <form method="get">
+        <p><label>Vendor</label>{{ header.vendor }}</p>
+        <p><button class="btn" type="submit">Continue</button></p>
+      </form>
+    </div>
+  {% else %}
+    <div class="card">
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="vendor" value="{{ vendor.pk }}">
+        <p><strong>Vendor:</strong> {{ vendor.name }} <a href="{% url 'vendor_payment_create' %}" class="muted">(change)</a></p>
+        <p><label>Date</label>{{ header.date }}</p>
+        <p><label>Amount</label>{{ header.amount }}</p>
+        <p><label>Cash account</label>{{ header.cash_account }}</p>
+        <p><label>Method</label>{{ header.method }}</p>
+        <p><label>Reference</label>{{ header.reference }}</p>
+        <p><label>Notes</label>{{ header.notes }}</p>
+
+        <h2>Apply to open bills</h2>
+        {% if open_bills %}
+          <table>
+            <thead><tr><th>Bill</th><th>Date</th><th class="num">Total</th><th class="num">Paid</th><th class="num">Due</th><th class="num">Apply</th></tr></thead>
+            <tbody>
+              {% for b in open_bills %}
+                <tr>
+                  <td><a href="{% url 'bill_detail' b.pk %}">{{ b.number }}</a></td>
+                  <td>{{ b.date|date:"Y-m-d" }}</td>
+                  <td class="num">{{ b.total }}</td>
+                  <td class="num">{{ b.amount_paid }}</td>
+                  <td class="num">{{ b.amount_due }}</td>
+                  <td class="num"><input type="text" name="apply_{{ b.pk }}" inputmode="decimal" style="width:120px"></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <p class="muted">Apply amounts must sum to the payment amount above.</p>
+        {% else %}
+          <p class="muted">No open bills for this vendor.</p>
+        {% endif %}
+
+        <p style="margin-top:16px">
+          <button class="btn" type="submit" {% if not open_bills %}disabled{% endif %}>Record payment</button>
+          <a class="btn secondary" href="{% url 'bill_list' %}">Cancel</a>
+        </p>
+      </form>
+    </div>
+  {% endif %}
+{% endblock %}

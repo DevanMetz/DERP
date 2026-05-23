@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Customers — DERP{% endblock %}
+{% block content %}
+  <h1>Customers</h1>
+  <p><a class="btn" href="{% url 'customer_create' %}">New customer</a></p>
+  <table>
+    <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Terms</th><th class="num">Tax %</th><th>Active</th><th></th></tr></thead>
+    <tbody>
+      {% for c in customers %}
+        <tr>
+          <td><a href="{% url 'customer_edit' c.pk %}">{{ c.name }}</a></td>
+          <td>{{ c.email }}</td>
+          <td>{{ c.phone }}</td>
+          <td>Net {{ c.payment_terms_days }}</td>
+          <td class="num">{{ c.tax_rate }}</td>
+          <td>{{ c.is_active|yesno:"yes,no" }}</td>
+          <td><a href="{% url 'customer_edit' c.pk %}">Edit</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="muted">No customers yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

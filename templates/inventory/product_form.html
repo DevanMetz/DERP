@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Product — DERP{% endblock %}
+{% block content %}
+  <h1>{% if product %}Edit{% else %}New{% endif %} product</h1>
+  <div class="card">
+    <form method="post">{% csrf_token %}{{ form.as_p }}
+      <button class="btn" type="submit">Save</button>
+      <a class="btn secondary" href="{% url 'product_list' %}">Cancel</a>
+    </form>
+  </div>
+{% endblock %}

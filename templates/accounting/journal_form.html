@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}New journal entry — DERP{% endblock %}
+{% block content %}
+  <h1>New journal entry</h1>
+  <div class="card">
+    <form method="post">
+      {% csrf_token %}
+      {{ header.as_p }}
+      <h2>Lines</h2>
+      {{ formset.management_form }}
+      {% if formset.non_form_errors %}<ul class="errorlist">{% for e in formset.non_form_errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      <table>
+        <thead>
+          <tr><th>Account</th><th class="num">Debit</th><th class="num">Credit</th><th>Memo</th></tr>
+        </thead>
+        <tbody>
+          {% for f in formset %}
+            <tr>
+              <td>{{ f.account }}{% if f.account.errors %}{{ f.account.errors }}{% endif %}</td>
+              <td class="num">{{ f.debit }}</td>
+              <td class="num">{{ f.credit }}</td>
+              <td>{{ f.memo }}</td>
+            </tr>
+            {% if f.non_field_errors %}<tr><td colspan="4"><ul class="errorlist">{% for e in f.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul></td></tr>{% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+      <p style="margin-top:16px"><button class="btn" type="submit">Post entry</button> <a class="btn secondary" href="{% url 'journal_list' %}">Cancel</a></p>
+    </form>
+  </div>
+{% endblock %}

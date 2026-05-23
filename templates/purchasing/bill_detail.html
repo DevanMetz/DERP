@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ bill.number|default:"Draft" }} — DERP{% endblock %}
+{% block content %}
+  <h1>{{ bill.number|default:"Draft bill" }}</h1>
+  <div class="card">
+    <p>
+      <strong>Vendor:</strong> {{ bill.vendor.name }} &nbsp;
+      {% if bill.vendor_ref %}<strong>Vendor ref:</strong> {{ bill.vendor_ref }} &nbsp;{% endif %}
+      <strong>Date:</strong> {{ bill.date|date:"Y-m-d" }} &nbsp;
+      <strong>Due:</strong> {{ bill.due_date|date:"Y-m-d" }} &nbsp;
+      <strong>Status:</strong> {{ bill.get_status_display }}
+    </p>
+    {% if bill.journal_entry %}
+      <p><strong>Journal entry:</strong> <a href="{% url 'journal_detail' bill.journal_entry.pk %}">{{ bill.journal_entry.number }}</a></p>
+    {% endif %}
+    {% if bill.notes %}<p><strong>Notes:</strong> {{ bill.notes }}</p>{% endif %}
+    <table>
+      <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit cost</th><th>Expense account</th><th class="num">Line total</th></tr></thead>
+      <tbody>
+        {% for l in bill.lines.all %}
+          <tr>
+            <td>{{ l.description }}</td>
+            <td class="num">{{ l.qty }}</td>
+            <td class="num">{{ l.unit_cost }}</td>
+            <td>{{ l.expense_account.code }} {{ l.expense_account.name }}</td>
+            <td class="num">{{ l.line_total }}</td>
+          </tr>
+        {% endfor %}
+        <tr><th colspan="4" class="num">Total</th><th class="num">{{ bill.total }}</th></tr>
+        <tr><th colspan="4" class="num">Paid</th><th class="num">{{ bill.amount_paid }}</th></tr>
+        <tr><th colspan="4" class="num">Amount due</th><th class="num">{{ bill.amount_due }}</th></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:16px">
+    {% if bill.status == "draft" %}
+      <form method="post" action="{% url 'bill_post' bill.pk %}" style="display:inline">{% csrf_token %}
+        <button class="btn" type="submit">Post bill</button>
+      </form>
+    {% endif %}
+    <a class="btn secondary" href="{% url 'bill_list' %}">Back</a>
+  </p>
+{% endblock %}

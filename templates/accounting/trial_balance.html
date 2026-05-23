@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Trial balance — DERP{% endblock %}
+{% block content %}
+  <h1>Trial balance</h1>
+  <div class="card" style="margin-bottom:16px">
+    <form method="get" style="display:flex; gap:12px; align-items:end">
+      {{ form.as_p }}
+      <p><button class="btn" type="submit">Run</button></p>
+    </form>
+  </div>
+  <table>
+    <thead><tr><th>Code</th><th>Account</th><th class="num">Debit total</th><th class="num">Credit total</th><th class="num">Balance DR</th><th class="num">Balance CR</th></tr></thead>
+    <tbody>
+      {% for r in rows %}
+        <tr>
+          <td>{{ r.account.code }}</td>
+          <td>{{ r.account.name }}</td>
+          <td class="num">{{ r.debit_total }}</td>
+          <td class="num">{{ r.credit_total }}</td>
+          <td class="num">{% if r.balance_debit %}{{ r.balance_debit }}{% endif %}</td>
+          <td class="num">{% if r.balance_credit %}{{ r.balance_credit }}{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="muted">No activity.</td></tr>
+      {% endfor %}
+      <tr><th colspan="2">Total</th><th class="num">{{ total_d }}</th><th class="num">{{ total_c }}</th><th></th><th></th></tr>
+    </tbody>
+  </table>
+{% endblock %}

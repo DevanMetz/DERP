@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — DERP{% endblock %}
+{% block content %}
+  <h1>{{ company.name }}</h1>
+  <p class="muted">Phase 0 scaffold. Use the links above to set up the company, post journal entries, and view reports.</p>
+  <div class="card">
+    <h2 style="margin-top:0">Getting started</h2>
+    <ol>
+      <li><a href="{% url 'company_setup' %}">Set up the company</a> — name, address, fiscal year.</li>
+      <li><a href="{% url 'journal_list' %}">Post a manual journal entry</a>.</li>
+      <li><a href="{% url 'trial_balance' %}">View the trial balance</a> — debits should equal credits.</li>
+    </ol>
+  </div>
+{% endblock %}

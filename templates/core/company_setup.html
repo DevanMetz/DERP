@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Company setup — DERP{% endblock %}
+{% block content %}
+  <h1>Company setup</h1>
+  <div class="card">
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="btn" type="submit">Save</button>
+    </form>
+  </div>
+{% endblock %}

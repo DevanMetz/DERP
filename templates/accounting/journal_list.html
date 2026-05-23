@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Journal — DERP{% endblock %}
+{% block content %}
+  <h1>Journal entries</h1>
+  <p><a class="btn" href="{% url 'journal_create' %}">New entry</a></p>
+  <table>
+    <thead><tr><th>Number</th><th>Date</th><th>Memo</th><th>Status</th><th class="num">Debit</th></tr></thead>
+    <tbody>
+      {% for e in entries %}
+        <tr>
+          <td><a href="{% url 'journal_detail' e.pk %}">{{ e.number|default:"DRAFT" }}</a></td>
+          <td>{{ e.date|date:"Y-m-d" }}</td>
+          <td>{{ e.memo }}</td>
+          <td>{{ e.get_status_display }}</td>
+          <td class="num">{{ e.total_debit }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="muted">No entries yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

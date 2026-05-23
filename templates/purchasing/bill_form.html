@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}New bill — DERP{% endblock %}
+{% block content %}
+  <h1>New bill</h1>
+  <div class="card">
+    <form method="post">
+      {% csrf_token %}
+      {{ header.as_p }}
+      <h2>Lines</h2>
+      {{ formset.management_form }}
+      {% if formset.non_form_errors %}<ul class="errorlist">{% for e in formset.non_form_errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      <table>
+        <thead><tr><th>Product</th><th>Description</th><th class="num">Qty</th><th class="num">Unit cost</th><th>Expense account</th></tr></thead>
+        <tbody>
+          {% for f in formset %}
+            <tr>
+              <td>{{ f.product }}</td>
+              <td>{{ f.description }}</td>
+              <td class="num">{{ f.qty }}</td>
+              <td class="num">{{ f.unit_cost }}</td>
+              <td>{{ f.expense_account }}</td>
+            </tr>
+            {% if f.non_field_errors %}<tr><td colspan="5"><ul class="errorlist">{% for e in f.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul></td></tr>{% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="muted">If expense account is blank, it falls back to the product default, then the vendor default, then 6900 Miscellaneous.</p>
+      <p style="margin-top:16px">
+        <button class="btn" type="submit">Save draft</button>
+        <button class="btn" type="submit" name="post_now" value="1">Save and post</button>
+        <a class="btn secondary" href="{% url 'bill_list' %}">Cancel</a>
+      </p>
+    </form>
+  </div>
+{% endblock %}

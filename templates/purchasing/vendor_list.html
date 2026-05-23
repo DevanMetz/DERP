@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Vendors — DERP{% endblock %}
+{% block content %}
+  <h1>Vendors</h1>
+  <p><a class="btn" href="{% url 'vendor_create' %}">New vendor</a></p>
+  <table>
+    <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Terms</th><th>Active</th><th></th></tr></thead>
+    <tbody>
+      {% for v in vendors %}
+        <tr>
+          <td><a href="{% url 'vendor_edit' v.pk %}">{{ v.name }}</a></td>
+          <td>{{ v.email }}</td>
+          <td>{{ v.phone }}</td>
+          <td>Net {{ v.payment_terms_days }}</td>
+          <td>{{ v.is_active|yesno:"yes,no" }}</td>
+          <td><a href="{% url 'vendor_edit' v.pk %}">Edit</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="muted">No vendors yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

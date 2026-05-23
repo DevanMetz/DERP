@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Invoices — DERP{% endblock %}
+{% block content %}
+  <h1>Invoices</h1>
+  <p><a class="btn" href="{% url 'invoice_create' %}">New invoice</a> <a class="btn secondary" href="{% url 'payment_create' %}">Receive payment</a></p>
+  <table>
+    <thead><tr><th>Number</th><th>Date</th><th>Customer</th><th>Status</th><th>Due</th><th class="num">Total</th><th class="num">Due</th></tr></thead>
+    <tbody>
+      {% for inv in invoices %}
+        <tr>
+          <td><a href="{% url 'invoice_detail' inv.pk %}">{{ inv.number|default:"DRAFT" }}</a></td>
+          <td>{{ inv.date|date:"Y-m-d" }}</td>
+          <td>{{ inv.customer.name }}</td>
+          <td>{{ inv.get_status_display }}</td>
+          <td>{{ inv.due_date|date:"Y-m-d" }}</td>
+          <td class="num">{{ inv.total }}</td>
+          <td class="num">{{ inv.amount_due }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="muted">No invoices yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Bills — DERP{% endblock %}
+{% block content %}
+  <h1>Bills</h1>
+  <p><a class="btn" href="{% url 'bill_create' %}">New bill</a> <a class="btn secondary" href="{% url 'vendor_payment_create' %}">Pay vendor</a></p>
+  <table>
+    <thead><tr><th>Number</th><th>Vendor ref</th><th>Date</th><th>Vendor</th><th>Status</th><th>Due</th><th class="num">Total</th><th class="num">Due</th></tr></thead>
+    <tbody>
+      {% for b in bills %}
+        <tr>
+          <td><a href="{% url 'bill_detail' b.pk %}">{{ b.number|default:"DRAFT" }}</a></td>
+          <td>{{ b.vendor_ref }}</td>
+          <td>{{ b.date|date:"Y-m-d" }}</td>
+          <td>{{ b.vendor.name }}</td>
+          <td>{{ b.get_status_display }}</td>
+          <td>{{ b.due_date|date:"Y-m-d" }}</td>
+          <td class="num">{{ b.total }}</td>
+          <td class="num">{{ b.amount_due }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="muted">No bills yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

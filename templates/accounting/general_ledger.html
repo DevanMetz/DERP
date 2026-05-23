@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}General ledger — DERP{% endblock %}
+{% block content %}
+  <h1>General ledger</h1>
+  <div class="card" style="margin-bottom:16px">
+    <form method="get" style="display:flex; gap:12px; align-items:end">
+      {{ form.as_p }}
+      <p><button class="btn" type="submit">Run</button></p>
+    </form>
+  </div>
+  {% if account %}
+    <h2>{{ account.code }} — {{ account.name }}</h2>
+    <table>
+      <thead><tr><th>Date</th><th>Entry</th><th>Memo</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Running</th></tr></thead>
+      <tbody>
+        {% for l in lines %}
+          <tr>
+            <td>{{ l.date|date:"Y-m-d" }}</td>
+            <td>{{ l.entry_number }}</td>
+            <td>{{ l.memo }}</td>
+            <td class="num">{% if l.debit %}{{ l.debit }}{% endif %}</td>
+            <td class="num">{% if l.credit %}{{ l.credit }}{% endif %}</td>
+            <td class="num">{{ l.running_balance }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+{% endblock %}

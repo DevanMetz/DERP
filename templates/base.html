@@ -1,0 +1,68 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}DERP{% endblock %}</title>
+  <style>
+    :root { --fg:#222; --muted:#666; --bg:#fafafa; --line:#e5e5e5; --accent:#1a56db; --err:#b91c1c; }
+    * { box-sizing: border-box; }
+    body { font: 14px/1.45 -apple-system, Segoe UI, Roboto, sans-serif; color: var(--fg); background: var(--bg); margin: 0; }
+    header { background: #fff; border-bottom: 1px solid var(--line); padding: 10px 20px; display: flex; align-items: center; gap: 20px; }
+    header a { color: var(--fg); text-decoration: none; padding: 6px 10px; border-radius: 4px; }
+    header a.brand { font-weight: 600; }
+    header a:hover { background: #f0f0f0; }
+    header .spacer { flex: 1; }
+    main { max-width: 1100px; margin: 24px auto; padding: 0 20px; }
+    h1 { font-size: 22px; margin: 0 0 16px; }
+    h2 { font-size: 16px; margin: 24px 0 8px; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 16px; }
+    table { width: 100%; border-collapse: collapse; background: #fff; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: #f7f7f7; font-weight: 600; font-size: 12px; text-transform: uppercase; color: var(--muted); }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .btn { display: inline-block; background: var(--accent); color: #fff; padding: 8px 14px; border: 0; border-radius: 4px; cursor: pointer; text-decoration: none; font-size: 14px; }
+    .btn.secondary { background: #fff; color: var(--fg); border: 1px solid var(--line); }
+    form p { margin: 8px 0; }
+    label { display: block; font-weight: 500; margin-bottom: 4px; }
+    input[type=text], input[type=email], input[type=number], input[type=date], select, textarea {
+      width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; font: inherit;
+    }
+    .errorlist { color: var(--err); list-style: none; padding: 0; margin: 4px 0; }
+    .msg { padding: 10px 12px; border-radius: 4px; margin: 0 0 12px; }
+    .msg.success { background: #e7f5ec; color: #166534; }
+    .msg.error { background: #fde8e8; color: var(--err); }
+    .muted { color: var(--muted); }
+  </style>
+</head>
+<body>
+<header>
+  <a href="{% url 'home' %}" class="brand">DERP</a>
+  {% if user.is_authenticated %}
+    <a href="{% url 'company_setup' %}">Company</a>
+    <a href="{% url 'customer_list' %}">Customers</a>
+    <a href="{% url 'vendor_list' %}">Vendors</a>
+    <a href="{% url 'product_list' %}">Products</a>
+    <a href="{% url 'invoice_list' %}">Invoices</a>
+    <a href="{% url 'bill_list' %}">Bills</a>
+    <a href="{% url 'journal_list' %}">Journal</a>
+    <a href="{% url 'trial_balance' %}">Trial balance</a>
+    <a href="{% url 'general_ledger' %}">GL</a>
+    <span class="spacer"></span>
+    <span class="muted">{{ user.email|default:user.username }}</span>
+    <a href="{% url 'admin:index' %}">Admin</a>
+    <form method="post" action="{% url 'account_logout' %}" style="display:inline">{% csrf_token %}<button class="btn secondary" type="submit">Sign out</button></form>
+  {% else %}
+    <span class="spacer"></span>
+    <a href="{% url 'account_login' %}">Sign in</a>
+  {% endif %}
+</header>
+<main>
+  {% if messages %}
+    {% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}
+  {% endif %}
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

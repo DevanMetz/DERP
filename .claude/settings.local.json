@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import django; print\\(django.get_version\\(\\)\\)\")",
+      "Bash(pg_isready)",
+      "PowerShell(.\\\\.venv\\\\Scripts\\\\python.exe manage.py seed_chart_of_accounts 2>&1)",
+      "PowerShell(Start-Sleep -Seconds 3; try { $r = Invoke-WebRequest -Uri http://127.0.0.1:8000/ -UseBasicParsing -MaximumRedirection 5; \"STATUS: $\\($r.StatusCode\\)\"; $r.Content.Substring\\(0, [Math]::Min\\(400, $r.Content.Length\\)\\) } catch { \"ERR: $_\" })",
+      "PowerShell($env:DJANGO_SUPERUSER_EMAIL='admin@local.test'; $env:DJANGO_SUPERUSER_PASSWORD='admin12345'; .\\\\.venv\\\\Scripts\\\\python.exe manage.py createsuperuser --noinput --username admin --email admin@local.test 2>&1)"
+    ]
+  }
+}

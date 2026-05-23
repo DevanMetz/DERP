@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ entry.number|default:"Draft" }} — DERP{% endblock %}
+{% block content %}
+  <h1>{{ entry.number|default:"Draft entry" }}</h1>
+  <div class="card">
+    <p><strong>Date:</strong> {{ entry.date|date:"Y-m-d" }} &nbsp; <strong>Status:</strong> {{ entry.get_status_display }}</p>
+    {% if entry.memo %}<p><strong>Memo:</strong> {{ entry.memo }}</p>{% endif %}
+    {% if entry.posted_by %}<p class="muted">Posted by {{ entry.posted_by.email|default:entry.posted_by.username }} at {{ entry.posted_at|date:"Y-m-d H:i" }}</p>{% endif %}
+    <table>
+      <thead><tr><th>Account</th><th class="num">Debit</th><th class="num">Credit</th><th>Memo</th></tr></thead>
+      <tbody>
+        {% for l in entry.lines.all %}
+          <tr>
+            <td>{{ l.account.code }} {{ l.account.name }}</td>
+            <td class="num">{% if l.debit %}{{ l.debit }}{% endif %}</td>
+            <td class="num">{% if l.credit %}{{ l.credit }}{% endif %}</td>
+            <td>{{ l.memo }}</td>
+          </tr>
+        {% endfor %}
+        <tr><th>Total</th><th class="num">{{ entry.total_debit }}</th><th class="num">{{ entry.total_credit }}</th><th></th></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:16px"><a class="btn secondary" href="{% url 'journal_list' %}">Back</a></p>
+{% endblock %}

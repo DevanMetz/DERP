@@ -45,6 +45,7 @@ def _send_email_via_resend(to_email, subject, text_body):
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            "User-Agent": "DERP/1.0 (+https://inventorymanager.xyz)",
         },
         method="POST",
     )

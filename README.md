@@ -1,4 +1,4 @@
-# DERP — Decentralized Enterprise Resource Planner
+# DERP — Devan's Enterprise Resource Planner
 
 An open-source, single-tenant Enterprise Resource Planner (ERP) for small-to-medium businesses. Fully licensed under the **MIT License**.
 

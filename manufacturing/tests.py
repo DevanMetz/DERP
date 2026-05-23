@@ -2,6 +2,7 @@ from decimal import Decimal
 from core.test_utils import DERPTenantTestCase as TestCase
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from django.urls import reverse
 
 from core.models import User, Role, Company
 from inventory.models import Product, ProductType, StockOnHand, StockMovement
@@ -9,6 +10,38 @@ from manufacturing.forms import ManufacturingOrderForm
 from accounting.models import Account, AccountType, JournalEntry, JournalLine
 from .models import BillOfMaterials, BOMComponent, ManufacturingOrder
 from .services import confirm_manufacturing_order, complete_manufacturing_order, cancel_manufacturing_order
+
+
+class ManufacturingReadOnlyAccessTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="mfg_readonly",
+            email="mfg-readonly@example.com",
+            password="password",
+            role=Role.READONLY,
+        )
+        self.product = Product.objects.create(sku="FG", name="Finished Good", type=ProductType.STOCK)
+        self.bom = BillOfMaterials.objects.create(product=self.product, name="FG BOM")
+        self.mo = ManufacturingOrder.objects.create(
+            product=self.product,
+            bom=self.bom,
+            qty_target=Decimal("1.0000"),
+            date_planned=timezone.localdate(),
+        )
+
+    def test_readonly_user_cannot_open_manufacturing_write_forms(self):
+        self.client.force_login(self.user)
+
+        self.assertEqual(self.client.get(reverse("bom_create")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("bom_edit", args=[self.bom.pk])).status_code, 403)
+        self.assertEqual(self.client.get(reverse("mo_create")).status_code, 403)
+
+    def test_readonly_user_cannot_post_manufacturing_actions(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(reverse("mo_confirm", args=[self.mo.pk]))
+
+        self.assertEqual(response.status_code, 403)
 
 
 class ManufacturingModuleTests(TestCase):

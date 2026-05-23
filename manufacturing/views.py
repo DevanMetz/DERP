@@ -5,6 +5,8 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
+from core.permissions import write_required
+
 from .models import BillOfMaterials, BOMComponent, ManufacturingOrder
 from .forms import BOMForm, BOMComponentFormSet, ManufacturingOrderForm
 from .services import confirm_manufacturing_order, complete_manufacturing_order, cancel_manufacturing_order
@@ -25,6 +27,7 @@ def bom_detail(request, pk):
 
 
 @login_required
+@write_required
 @transaction.atomic
 def bom_create(request):
     if request.method == "POST":
@@ -52,6 +55,7 @@ def bom_create(request):
 
 
 @login_required
+@write_required
 @transaction.atomic
 def bom_edit(request, pk):
     bom = get_object_or_404(BillOfMaterials, pk=pk)
@@ -119,6 +123,7 @@ def mo_list(request):
 
 
 @login_required
+@write_required
 def mo_create(request):
     if request.method == "POST":
         form = ManufacturingOrderForm(request.POST)
@@ -179,6 +184,7 @@ def mo_detail(request, pk):
 
 
 @login_required
+@write_required
 def mo_confirm(request, pk):
     mo = get_object_or_404(ManufacturingOrder, pk=pk)
     if request.method == "POST":
@@ -191,6 +197,7 @@ def mo_confirm(request, pk):
 
 
 @login_required
+@write_required
 def mo_complete(request, pk):
     mo = get_object_or_404(ManufacturingOrder, pk=pk)
     if request.method == "POST":
@@ -203,6 +210,7 @@ def mo_complete(request, pk):
 
 
 @login_required
+@write_required
 def mo_cancel(request, pk):
     mo = get_object_or_404(ManufacturingOrder, pk=pk)
     if request.method == "POST":

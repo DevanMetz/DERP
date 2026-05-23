@@ -134,6 +134,12 @@ class ProductViewsTests(TestCase):
             password="password",
             role=Role.ADMIN,
         )
+        self.readonly_user = User.objects.create_user(
+            username="inv_readonly",
+            email="inv-readonly@example.com",
+            password="password",
+            role=Role.READONLY,
+        )
         self.product = Product.objects.create(
             sku="TPRODUCT",
             name="Test Product",
@@ -147,6 +153,16 @@ class ProductViewsTests(TestCase):
             unit_cost=D("60.00"),
             memo="Initial seed",
         )
+
+    def test_readonly_user_cannot_open_product_write_forms(self):
+        from django.urls import reverse
+        self.client.force_login(self.readonly_user)
+
+        create_response = self.client.get(reverse("product_create"))
+        edit_response = self.client.get(reverse("product_edit", args=[self.product.pk]))
+
+        self.assertEqual(create_response.status_code, 403)
+        self.assertEqual(edit_response.status_code, 403)
 
     def test_product_detail_view(self):
         from django.urls import reverse

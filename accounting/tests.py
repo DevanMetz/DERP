@@ -13,14 +13,33 @@ from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.urls import reverse
 from core.test_utils import DERPTenantTestCase as TestCase
 
+from core.models import Role, User
 from accounting.models import Account, AccountType, JournalEntry, JournalLine
 from accounting.reports import balance_sheet, income_statement
 from accounting.services import LineSpec, post_transaction, reverse_entry
 
 
 D = Decimal
+
+
+class AccountingReadOnlyAccessTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="accounting_readonly",
+            email="accounting-readonly@example.com",
+            password="password",
+            role=Role.READONLY,
+        )
+
+    def test_readonly_user_cannot_open_journal_create(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("journal_create"))
+
+        self.assertEqual(response.status_code, 403)
 
 
 def make_accounts():

@@ -2,8 +2,10 @@ from datetime import date
 from decimal import Decimal
 
 from core.test_utils import DERPTenantTestCase as TestCase
+from django.urls import reverse
 
 from accounting.models import Account, AccountType
+from core.models import Role, User
 from inventory.models import Product
 from purchasing.forms import BillLineForm
 from purchasing.models import Bill, PurchaseOrder, PurchaseOrderLine, Vendor
@@ -16,6 +18,33 @@ from inventory.models import StockOnHand, StockMovement
 
 
 D = Decimal
+
+
+class PurchasingReadOnlyAccessTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="purchasing_readonly",
+            email="purchasing-readonly@example.com",
+            password="password",
+            role=Role.READONLY,
+        )
+        self.vendor = Vendor.objects.create(name="Supply Co")
+        self.order = PurchaseOrder.objects.create(vendor=self.vendor, date=date(2026, 5, 1))
+
+    def test_readonly_user_cannot_open_purchasing_write_forms(self):
+        self.client.force_login(self.user)
+
+        self.assertEqual(self.client.get(reverse("vendor_create")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("purchase_order_create")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("bill_create")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("vendor_payment_create")).status_code, 403)
+
+    def test_readonly_user_cannot_post_purchase_order_actions(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(reverse("purchase_order_issue", args=[self.order.pk]))
+
+        self.assertEqual(response.status_code, 403)
 
 
 class PurchaseOrderWorkflowTests(TestCase):
@@ -397,5 +426,4 @@ class LocalizedGoodsReceiptTests(TestCase):
         # Verify default location is empty
         wh_stock_exists = LocationStock.objects.filter(product=self.product, location__name="Main Warehouse").exists()
         self.assertFalse(wh_stock_exists)
-
 

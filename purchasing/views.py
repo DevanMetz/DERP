@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.http import FileResponse
 
 from core.models import Company
+from core.permissions import write_required
 from core.pdf_service import generate_document_pdf
 
 from .forms import (
@@ -33,6 +34,7 @@ def vendor_list(request):
 
 
 @login_required
+@write_required
 def vendor_edit(request, pk=None):
     vendor = get_object_or_404(Vendor, pk=pk) if pk else None
     if request.method == "POST":
@@ -115,6 +117,7 @@ def purchase_order_list(request):
 
 
 @login_required
+@write_required
 def purchase_order_create(request):
     if request.method == "POST":
         header = PurchaseOrderHeaderForm(request.POST)
@@ -153,6 +156,7 @@ def purchase_order_detail(request, pk):
 
 
 @login_required
+@write_required
 def purchase_order_issue(request, pk):
     order = get_object_or_404(PurchaseOrder, pk=pk)
     if request.method != "POST":
@@ -167,6 +171,7 @@ def purchase_order_issue(request, pk):
 
 
 @login_required
+@write_required
 def purchase_order_unissue(request, pk):
     order = get_object_or_404(PurchaseOrder, pk=pk)
     if request.method != "POST":
@@ -181,6 +186,7 @@ def purchase_order_unissue(request, pk):
 
 
 @login_required
+@write_required
 def purchase_order_bill(request, pk):
     order = get_object_or_404(PurchaseOrder, pk=pk)
     if request.method != "POST":
@@ -195,6 +201,7 @@ def purchase_order_bill(request, pk):
 
 
 @login_required
+@write_required
 def purchase_order_undo_bill(request, pk):
     order = get_object_or_404(PurchaseOrder, pk=pk)
     if request.method != "POST":
@@ -209,6 +216,7 @@ def purchase_order_undo_bill(request, pk):
 
 
 @login_required
+@write_required
 def purchase_order_receive(request, pk):
     order = get_object_or_404(
         PurchaseOrder.objects.select_related("vendor").prefetch_related("lines__product"),
@@ -265,6 +273,7 @@ def purchase_order_receive(request, pk):
 
 
 @login_required
+@write_required
 def goods_receipt_reverse(request, pk):
     receipt = get_object_or_404(GoodsReceipt.objects.select_related("purchase_order"), pk=pk)
     order_pk = receipt.purchase_order_id
@@ -296,6 +305,7 @@ def goods_receipt_detail(request, pk):
 
 
 @login_required
+@write_required
 def bill_create_from_receipt(request, pk):
     receipt = get_object_or_404(GoodsReceipt, pk=pk)
     if request.method != "POST":
@@ -366,6 +376,7 @@ def bill_list(request):
 
 
 @login_required
+@write_required
 def bill_create(request):
     if request.method == "POST":
         header = BillHeaderForm(request.POST)
@@ -406,6 +417,7 @@ def bill_detail(request, pk):
 
 
 @login_required
+@write_required
 def bill_post(request, pk):
     bill = get_object_or_404(Bill, pk=pk)
     if request.method != "POST":
@@ -422,6 +434,7 @@ def bill_post(request, pk):
 # ------------------------- Vendor payments ---------------------------
 
 @login_required
+@write_required
 def vendor_payment_create(request):
     vendor = None
     open_bills = []
@@ -483,6 +496,7 @@ def vendor_payment_create(request):
 
 
 @login_required
+@write_required
 def bill_void(request, pk):
     bill = get_object_or_404(Bill, pk=pk)
     if request.method != "POST":

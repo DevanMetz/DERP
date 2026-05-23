@@ -12,6 +12,7 @@ from decimal import Decimal
 from django.db.models import Sum, Q
 
 from .models import Company, Role
+from .permissions import write_required
 from accounting.models import Account, AccountType, JournalEntry, JournalLine
 from inventory.models import Product, ProductType
 from purchasing.models import Vendor
@@ -107,6 +108,7 @@ def ai_chat(request):
 
 
 @login_required
+@write_required
 def ai_confirm(request):
     if request.method != "POST":
         return JsonResponse({"error": "POST required."}, status=405)
@@ -260,6 +262,7 @@ class CompanyForm(forms.ModelForm):
 
 
 @login_required
+@write_required
 def company_setup(request):
     company = Company.get()
     if request.method == "POST":

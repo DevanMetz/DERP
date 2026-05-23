@@ -1,8 +1,10 @@
 from datetime import date
 from decimal import Decimal
 from core.test_utils import DERPTenantTestCase as TestCase
+from django.urls import reverse
 
 from accounting.models import Account, AccountType
+from core.models import Role, User
 from inventory.models import Product, StockOnHand, StockMovement
 from inventory.services import post_stock_movement
 from sales.forms import InvoiceLineForm
@@ -14,6 +16,33 @@ from sales.services import (
 )
 
 D = Decimal
+
+
+class SalesReadOnlyAccessTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="sales_readonly",
+            email="sales-readonly@example.com",
+            password="password",
+            role=Role.READONLY,
+        )
+        self.customer = Customer.objects.create(name="Acme")
+        self.order = SalesOrder.objects.create(customer=self.customer, date=date(2026, 5, 1))
+
+    def test_readonly_user_cannot_open_sales_write_forms(self):
+        self.client.force_login(self.user)
+
+        self.assertEqual(self.client.get(reverse("customer_create")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("sales_order_create")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("invoice_create")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("payment_create")).status_code, 403)
+
+    def test_readonly_user_cannot_post_sales_actions(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(reverse("sales_order_confirm", args=[self.order.pk]))
+
+        self.assertEqual(response.status_code, 403)
 
 
 class SalesOrderWorkflowTests(TestCase):
@@ -376,4 +405,3 @@ class LocalizedInvoiceTests(TestCase):
         # Verify that default location has no stock
         wh_stock_exists = LocationStock.objects.filter(product=self.product, location__name="Main Warehouse").exists()
         self.assertFalse(wh_stock_exists)
-

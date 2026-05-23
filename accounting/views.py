@@ -3,7 +3,9 @@ from datetime import date as date_cls
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
+
+from core.permissions import write_required
 
 from .forms import (
     BalanceSheetFilterForm, GLFilterForm, IncomeStatementFilterForm,
@@ -61,6 +63,7 @@ def journal_list(request):
 
 
 @login_required
+@write_required
 def journal_create(request):
     if request.method == "POST":
         header = JournalEntryHeaderForm(request.POST)
@@ -112,6 +115,7 @@ def journal_detail(request, pk):
 
 
 @login_required
+@write_required
 def journal_reverse(request, pk):
     entry = get_object_or_404(JournalEntry, pk=pk)
     if not request.user.can_void:

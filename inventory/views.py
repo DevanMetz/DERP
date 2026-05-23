@@ -4,6 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
+from core.permissions import write_required
+
 from .forms import ProductForm
 from .models import Product, StockMovement
 
@@ -51,6 +53,7 @@ def product_list(request):
 
 
 @login_required
+@write_required
 def product_edit(request, pk=None):
     product = get_object_or_404(Product, pk=pk) if pk else None
     if request.method == "POST":
@@ -144,6 +147,7 @@ def location_list(request):
 
 
 @login_required
+@write_required
 def location_edit(request, pk=None):
     from inventory.models import Location
     from inventory.forms import LocationForm

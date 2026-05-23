@@ -50,6 +50,23 @@ class HomeViewTests(TestCase):
         self.assertNotContains(response, "Low Stock Alerts")
 
 
+class RoleAccessTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="readonly",
+            email="readonly@example.com",
+            password="password",
+            role=Role.READONLY,
+        )
+
+    def test_readonly_user_cannot_edit_company_setup(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("company_setup"))
+
+        self.assertEqual(response.status_code, 403)
+
+
 class DashboardViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(

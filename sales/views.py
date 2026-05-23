@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.http import FileResponse
 
 from core.models import Company
+from core.permissions import write_required
 from core.pdf_service import generate_document_pdf
 
 from .forms import (
@@ -32,6 +33,7 @@ def customer_list(request):
 
 
 @login_required
+@write_required
 def customer_edit(request, pk=None):
     customer = get_object_or_404(Customer, pk=pk) if pk else None
     if request.method == "POST":
@@ -115,6 +117,7 @@ def sales_order_list(request):
 
 
 @login_required
+@write_required
 def sales_order_create(request):
     if request.method == "POST":
         header = SalesOrderHeaderForm(request.POST)
@@ -153,6 +156,7 @@ def sales_order_detail(request, pk):
 
 
 @login_required
+@write_required
 def sales_order_confirm(request, pk):
     order = get_object_or_404(SalesOrder, pk=pk)
     if request.method != "POST":
@@ -167,6 +171,7 @@ def sales_order_confirm(request, pk):
 
 
 @login_required
+@write_required
 def sales_order_unconfirm(request, pk):
     order = get_object_or_404(SalesOrder, pk=pk)
     if request.method != "POST":
@@ -181,6 +186,7 @@ def sales_order_unconfirm(request, pk):
 
 
 @login_required
+@write_required
 def sales_order_invoice(request, pk):
     order = get_object_or_404(SalesOrder, pk=pk)
     if request.method != "POST":
@@ -195,6 +201,7 @@ def sales_order_invoice(request, pk):
 
 
 @login_required
+@write_required
 def sales_order_undo_invoice(request, pk):
     order = get_object_or_404(SalesOrder, pk=pk)
     if request.method != "POST":
@@ -265,6 +272,7 @@ def invoice_list(request):
 
 
 @login_required
+@write_required
 def invoice_create(request):
     """
     Draft creation. The header form + line formset post together.
@@ -311,6 +319,7 @@ def invoice_detail(request, pk):
 
 
 @login_required
+@write_required
 def payment_create(request):
     """
     Receive a customer payment. Workflow:
@@ -379,6 +388,7 @@ def payment_create(request):
 
 
 @login_required
+@write_required
 def invoice_post(request, pk):
     invoice = get_object_or_404(Invoice, pk=pk)
     if request.method != "POST":
@@ -393,6 +403,7 @@ def invoice_post(request, pk):
 
 
 @login_required
+@write_required
 def invoice_void(request, pk):
     invoice = get_object_or_404(Invoice, pk=pk)
     if request.method != "POST":

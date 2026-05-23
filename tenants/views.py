@@ -48,10 +48,14 @@ def _send_email_via_resend(to_email, subject, text_body):
         },
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        body = resp.read()
-        if resp.status >= 400:
-            raise RuntimeError(f"Resend API error {resp.status}: {body!r}")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            body = resp.read()
+            if resp.status >= 400:
+                raise RuntimeError(f"Resend API error {resp.status}: {body!r}")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Resend API error {e.code}: {body}") from e
 
 from .forms import TenantSignupForm
 from .models import Domain, PendingTenant, SignupAttempt, TenantCompany

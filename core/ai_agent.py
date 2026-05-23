@@ -12,11 +12,11 @@ from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 
-from accounting.models import Account
+from accounting.models import Account, JournalEntry
 from inventory.models import Product
-from purchasing.models import PurchaseOrder, PurchaseOrderLine, Vendor
+from purchasing.models import Bill, GoodsReceipt, PurchaseOrder, PurchaseOrderLine, Vendor
 from purchasing.services import resolve_expense_account
-from sales.models import Customer, SalesOrder, SalesOrderLine
+from sales.models import Customer, Invoice, SalesOrder, SalesOrderLine
 from sales.services import resolve_revenue_account
 from manufacturing.models import BillOfMaterials, ManufacturingOrder
 
@@ -37,6 +37,11 @@ def run_copilot_turn(message: str, *, api_key: str = "", user=None, session=None
     # Slot-fill from the message itself before we plan — captures qty/cost the user
     # mentioned in passing so the next turn can use them as defaults.
     _absorb_message_into_pending(message, state)
+
+    # If the user is sitting on a record page (e.g. /customers/123/), pre-fill the
+    # matching pending slot so questions like "draft a PO" / "what did they buy?"
+    # don't require re-typing the name.
+    _absorb_page_record_into_pending(context.get("page", {}).get("record"), state)
 
     plan = _plan_with_ai(message, state, context, api_key) if api_key else _plan_without_ai(message, state)
     tools = _execute_tool_plan(plan, state, user=user)
@@ -326,7 +331,7 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
                             "search_boms", "get_stock_levels", "get_open_purchase_orders",
                             "get_recent_purchase_prices", "search_accounts", "search_docs",
                             "draft_purchase_order_preview", "draft_sales_order_preview",
-                            "draft_manufacturing_order_preview",
+                            "draft_manufacturing_order_preview", "get_record_details",
                         ]},
                         "arguments": {"type": "object"},
                     },
@@ -360,6 +365,11 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
         '     "requested_date": "<YYYY-MM-DD or empty>"\n'
         '  }) — preview of a sale. Use for "sold", "selling", "ship to <customer>", "make an SO".\n'
         '  search_boms({"query": "<product-or-bom-name>"}) — fuzzy search BOMs.\n'
+        '  get_record_details({"type": "<customer|vendor|product|sales_order|invoice|purchase_order|'
+        'manufacturing_order|bom>", "id": <int>}) — return full info on a specific record, including '
+        'recent sales orders/invoices for a customer, recent POs/bills for a vendor, or lines for a doc. '
+        'Call this when the user references "this", "them", "it" while the context.page.record is set, '
+        'or asks for activity history.\n'
         '  draft_manufacturing_order_preview({\n'
         '     "bom": "<product or BOM name as user said it>",\n'
         '     "qty": "<number to produce>",\n'
@@ -376,6 +386,10 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
         "draft_sales_order_preview with customer='acme', lines=[{product:'widgets', qty:'3', unit_price:'50'}]. "
         "'produce 50 widgets' → draft_manufacturing_order_preview with bom='widgets', qty='50'. "
         "Trust the fuzzy search to resolve names.\n"
+        "  • context.page.record (when set) tells you what the user is looking at. e.g. "
+        "{type:'customer', id:5, label:'Acme Corp'} means they're on Acme's page. References like 'them', "
+        "'this customer', 'what did they buy?' should use that record's id. Call get_record_details({type, "
+        "id}) to fetch full info including recent activity.\n"
         "  • state.pending_po, pending_so, and pending_mo carry partial info across turns. Use whichever "
         "matches the "
         "current intent. If a previous turn established a vendor/customer or product, do NOT re-ask — carry it.\n"
@@ -409,6 +423,12 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
         "\n"
         "  User: 'do any BOMs use pla filament?' or 'what BOMs use pla filament?'\n"
         "  → tool_calls: [{name: 'search_boms', arguments: {query: 'pla filament'}}]\n"
+        "\n"
+        "  User: 'what did they buy last month?'   (context.page.record = {type:'customer', id:5, label:'Acme'})\n"
+        "  → tool_calls: [{name: 'get_record_details', arguments: {type: 'customer', id: 5}}]\n"
+        "\n"
+        "  User: 'what's on this PO?'   (context.page.record = {type:'purchase_order', id:12, label:'PO-001'})\n"
+        "  → tool_calls: [{name: 'get_record_details', arguments: {type: 'purchase_order', id: 12}}]\n"
         "\n"
         "  User: 'what can we do with pla filament?'\n"
         "  → Exploratory. Call multiple searches to give a useful answer: search_boms (does it appear in any\n"
@@ -477,6 +497,8 @@ def _execute_tool_plan(plan: dict, state: dict, *, user=None) -> list[dict]:
             result = _tool_search_boms(args.get("query", ""))
         elif name == "draft_manufacturing_order_preview":
             result = _tool_draft_manufacturing_order_preview(args, state, user=user)
+        elif name == "get_record_details":
+            result = _tool_get_record_details(args.get("type", ""), args.get("id"))
         else:
             result = {"error": f"Unknown tool: {name}"}
         results.append({"name": name, "arguments": args, "result": result})
@@ -528,6 +550,11 @@ def _build_reply(message: str, plan: dict, tools: list[dict], state: dict, *, us
         lines.append("Recent purchase prices: " + "; ".join(f"{item['vendor']} {item['product']} at ${item['unit_cost']}" for item in recent["matches"]))
     if open_pos is not None and open_pos.get("matches"):
         lines.append("Open POs: " + "; ".join(f"{item['number']} with {item['vendor']} ({item['status']})" for item in open_pos["matches"]))
+
+    details = _tool_result(tools, "get_record_details")
+    if details and not details.get("error"):
+        lines.append(_format_record_details(details))
+
     reply = " ".join(line for line in lines if line)
 
     # Only surface the pending-so-far summary when the user is clearly continuing
@@ -584,6 +611,59 @@ def _format_pending_so(state: dict) -> str:
     if missing:
         out += " Still need: " + ", ".join(missing) + ". (Say 'try your best' and I'll use defaults.)"
     return out
+
+
+def _format_record_details(d: dict) -> str:
+    t = d.get("type")
+    if t == "customer":
+        bits = [f"{d['name']} (customer)."]
+        if d.get("outstanding_ar") and d["outstanding_ar"] != "0.00":
+            bits.append(f"Outstanding AR: ${d['outstanding_ar']}.")
+        if d.get("recent_invoices"):
+            bits.append("Recent invoices: " + "; ".join(
+                f"{i['number']} {i['date']} ${i['total']} ({i['status']})"
+                for i in d["recent_invoices"]))
+        if d.get("recent_sales_orders"):
+            bits.append("Recent SOs: " + "; ".join(
+                f"{s['number']} {s['date']} ${s['total']} ({s['status']})"
+                for s in d["recent_sales_orders"]))
+        return " ".join(bits)
+    if t == "vendor":
+        bits = [f"{d['name']} (vendor)."]
+        if d.get("recent_purchase_orders"):
+            bits.append("Recent POs: " + "; ".join(
+                f"{p['number']} {p['date']} ({p['status']})"
+                for p in d["recent_purchase_orders"]))
+        if d.get("recent_bills"):
+            bits.append("Recent bills: " + "; ".join(
+                f"{b['number']} {b['date']} ({b['status']})"
+                for b in d["recent_bills"]))
+        return " ".join(bits)
+    if t == "product":
+        return (f"{d['sku']} — {d['name']}. Cost ${d['cost']}, price ${d['price']}, "
+                f"qty on hand {d['qty_on_hand']}.")
+    if t in ("purchase_order", "sales_order"):
+        party = d.get("vendor") or d.get("customer", "")
+        unit_key = "unit_cost" if t == "purchase_order" else "unit_price"
+        line_str = "; ".join(
+            f"{l['qty']} x {l['product']} @ ${l[unit_key]} = ${l['line_total']}"
+            for l in d.get("lines", [])
+        ) or "no lines"
+        return f"{d['number']} for {party} ({d['status']}). Lines: {line_str}."
+    if t == "invoice":
+        line_str = "; ".join(
+            f"{l['qty']} x {l['product']} @ ${l['unit_price']} = ${l['line_total']}"
+            for l in d.get("lines", [])
+        ) or "no lines"
+        return (f"{d['number']} for {d['customer']} ({d['status']}). "
+                f"Total ${d['total']} (due ${d['amount_due']}). Lines: {line_str}.")
+    if t == "manufacturing_order":
+        return (f"{d['number']} producing {d['qty_target']} x {d['product']} "
+                f"({d['status']}, planned {d.get('date_planned') or 'TBD'}).")
+    if t == "bom":
+        comps = "; ".join(f"{c['qty']} x {c['product']}" for c in d.get("components", []))
+        return f"{d['name']} (rollup ${d['rollup_cost']}). Components: {comps or 'none'}."
+    return ""
 
 
 def _format_pending_mo(state: dict) -> str:
@@ -677,6 +757,171 @@ def _tool_search_products(query: str) -> dict:
             "type": product.get_type_display(),
         })
     return {"matches": matches, "count": len(matches)}
+
+
+def _tool_get_record_details(kind: str, record_id) -> dict:
+    """Return rich details for a record the user is viewing, plus recent activity.
+
+    Used to answer questions like 'what did they buy last month?' on a customer
+    page, 'what's on this PO?' on a PO page, etc.
+    """
+    try:
+        pk = int(record_id)
+    except (TypeError, ValueError):
+        return {"error": "id must be an integer"}
+
+    if kind == "customer":
+        obj = Customer.objects.filter(pk=pk).first()
+        if not obj:
+            return {"error": f"customer {pk} not found"}
+        sos = list(SalesOrder.objects.filter(customer=obj).order_by("-date")[:5])
+        invs = list(Invoice.objects.filter(customer=obj).order_by("-date")[:5])
+        outstanding = sum((i.amount_due() for i in Invoice.objects.filter(customer=obj).exclude(status__in=["draft", "void"])), Decimal("0.00"))
+        return {
+            "type": "customer",
+            "id": obj.pk,
+            "name": obj.name,
+            "email": obj.email,
+            "outstanding_ar": str(outstanding.quantize(Decimal("0.01"))),
+            "recent_sales_orders": [
+                {"id": s.pk, "number": s.number or f"SO-DRAFT-{s.pk}", "date": s.date.isoformat(),
+                 "status": s.get_status_display(), "total": str(s.subtotal())}
+                for s in sos
+            ],
+            "recent_invoices": [
+                {"id": i.pk, "number": i.number or f"DRAFT-{i.pk}", "date": i.date.isoformat(),
+                 "status": i.get_status_display(), "total": str(i.total()), "due": str(i.amount_due())}
+                for i in invs
+            ],
+        }
+
+    if kind == "vendor":
+        obj = Vendor.objects.filter(pk=pk).first()
+        if not obj:
+            return {"error": f"vendor {pk} not found"}
+        pos = list(PurchaseOrder.objects.filter(vendor=obj).order_by("-date")[:5])
+        bills = list(Bill.objects.filter(vendor=obj).order_by("-date")[:5])
+        return {
+            "type": "vendor",
+            "id": obj.pk,
+            "name": obj.name,
+            "email": obj.email,
+            "recent_purchase_orders": [
+                {"id": p.pk, "number": p.number or f"PO-DRAFT-{p.pk}", "date": p.date.isoformat(),
+                 "status": p.get_status_display()} for p in pos
+            ],
+            "recent_bills": [
+                {"id": b.pk, "number": b.number or f"BILL-DRAFT-{b.pk}", "date": b.date.isoformat(),
+                 "status": b.get_status_display()} for b in bills
+            ],
+        }
+
+    if kind == "product":
+        obj = Product.objects.filter(pk=pk).first()
+        if not obj:
+            return {"error": f"product {pk} not found"}
+        qty_on_hand = obj.stock_on_hand.qty if hasattr(obj, "stock_on_hand") else Decimal("0")
+        return {
+            "type": "product",
+            "id": obj.pk,
+            "sku": obj.sku,
+            "name": obj.name,
+            "cost": str(obj.cost),
+            "price": str(obj.price),
+            "qty_on_hand": str(qty_on_hand),
+            "low_stock_threshold": str(obj.low_stock_threshold) if hasattr(obj, "low_stock_threshold") else None,
+        }
+
+    if kind in ("purchase_order",):
+        obj = PurchaseOrder.objects.select_related("vendor").prefetch_related("lines__product").filter(pk=pk).first()
+        if not obj:
+            return {"error": f"purchase order {pk} not found"}
+        return {
+            "type": "purchase_order", "id": obj.pk,
+            "number": obj.number or f"PO-DRAFT-{obj.pk}",
+            "vendor": obj.vendor.name,
+            "date": obj.date.isoformat(),
+            "status": obj.get_status_display(),
+            "lines": [
+                {"product": (l.product.sku if l.product else l.description),
+                 "qty": str(l.qty), "unit_cost": str(l.unit_cost),
+                 "line_total": str((l.qty * l.unit_cost).quantize(Decimal("0.01")))}
+                for l in obj.lines.all()
+            ],
+        }
+
+    if kind == "sales_order":
+        obj = SalesOrder.objects.select_related("customer").prefetch_related("lines__product").filter(pk=pk).first()
+        if not obj:
+            return {"error": f"sales order {pk} not found"}
+        return {
+            "type": "sales_order", "id": obj.pk,
+            "number": obj.number or f"SO-DRAFT-{obj.pk}",
+            "customer": obj.customer.name,
+            "date": obj.date.isoformat(),
+            "status": obj.get_status_display(),
+            "lines": [
+                {"product": (l.product.sku if l.product else l.description),
+                 "qty": str(l.qty), "unit_price": str(l.unit_price),
+                 "line_total": str(l.line_total())}
+                for l in obj.lines.all()
+            ],
+        }
+
+    if kind == "invoice":
+        obj = Invoice.objects.select_related("customer").prefetch_related("lines__product").filter(pk=pk).first()
+        if not obj:
+            return {"error": f"invoice {pk} not found"}
+        return {
+            "type": "invoice", "id": obj.pk,
+            "number": obj.number or f"DRAFT-{obj.pk}",
+            "customer": obj.customer.name,
+            "date": obj.date.isoformat(),
+            "due_date": obj.due_date.isoformat() if obj.due_date else None,
+            "status": obj.get_status_display(),
+            "subtotal": str(obj.subtotal()),
+            "tax": str(obj.tax_total()),
+            "total": str(obj.total()),
+            "amount_due": str(obj.amount_due()),
+            "lines": [
+                {"product": (l.product.sku if l.product else l.description),
+                 "qty": str(l.qty), "unit_price": str(l.unit_price),
+                 "line_total": str(l.line_total())}
+                for l in obj.lines.all()
+            ],
+        }
+
+    if kind == "manufacturing_order":
+        obj = ManufacturingOrder.objects.select_related("product", "bom").filter(pk=pk).first()
+        if not obj:
+            return {"error": f"manufacturing order {pk} not found"}
+        return {
+            "type": "manufacturing_order", "id": obj.pk,
+            "number": obj.number or f"MO-DRAFT-{obj.pk}",
+            "product": f"{obj.product.sku} - {obj.product.name}",
+            "qty_target": str(obj.qty_target),
+            "qty_produced": str(obj.qty_produced),
+            "status": obj.get_status_display(),
+            "date_planned": obj.date_planned.isoformat() if obj.date_planned else None,
+        }
+
+    if kind == "bom":
+        obj = BillOfMaterials.objects.select_related("product").prefetch_related("components__product").filter(pk=pk).first()
+        if not obj:
+            return {"error": f"BOM {pk} not found"}
+        return {
+            "type": "bom", "id": obj.pk,
+            "name": obj.name or f"BOM - {obj.product.sku}",
+            "product": f"{obj.product.sku} - {obj.product.name}",
+            "rollup_cost": str(obj.total_cost_rollup),
+            "components": [
+                {"product": f"{c.product.sku} - {c.product.name}",
+                 "qty": str(c.qty), "extended_cost": str(c.extended_cost)}
+                for c in obj.components.all()
+            ],
+        }
+
+    return {"error": f"Unknown record type: {kind}"}
 
 
 def _tool_search_boms(query: str) -> dict:
@@ -1080,17 +1325,134 @@ def _parse_expected_date(value: str):
 
 def _domain_context(*, user, page_context: dict) -> dict:
     company = Company.get()
+    enriched_page = dict(page_context or {})
+    record = _resolve_page_record(enriched_page)
+    if record:
+        enriched_page["record"] = record
     return {
         "company": company.name,
         "user_role": getattr(user, "role", ""),
         "can_create_purchase_documents": _can_create_purchase_documents(user),
-        "page": page_context,
+        "page": enriched_page,
         "rules": [
             "All draft purchase orders must be previewed before creation.",
             "Posted accounting records are immutable; corrections use reversing entries.",
             "Goods receipts update inventory and should only be posted from issued POs.",
         ],
     }
+
+
+# Map URL path prefixes → record type. Order matters: more specific first.
+_PAGE_ROUTES = [
+    (re.compile(r"^/customers/(\d+)/?"), "customer"),
+    (re.compile(r"^/vendors/(\d+)/?"), "vendor"),
+    (re.compile(r"^/products/(\d+)/?"), "product"),
+    (re.compile(r"^/sales-orders/(\d+)/?"), "sales_order"),
+    (re.compile(r"^/invoices/(\d+)/?"), "invoice"),
+    (re.compile(r"^/purchase-orders/(\d+)/?"), "purchase_order"),
+    (re.compile(r"^/goods-receipts/(\d+)/?"), "goods_receipt"),
+    (re.compile(r"^/bills/(\d+)/?"), "bill"),
+    (re.compile(r"^/manufacturing-orders/(\d+)/?"), "manufacturing_order"),
+    (re.compile(r"^/boms/(\d+)/?"), "bom"),
+    (re.compile(r"^/journal/(\d+)/?"), "journal_entry"),
+]
+
+
+def _resolve_page_record(page_context: dict) -> dict | None:
+    """Parse the path and resolve the record the user is looking at.
+
+    Returns a dict like {type, id, label, summary} that the LLM can use, or None
+    if the path doesn't reference a specific record.
+    """
+    path = (page_context.get("path") or "").rstrip("/") + "/"
+    for pattern, kind in _PAGE_ROUTES:
+        match = pattern.match(path)
+        if not match:
+            continue
+        try:
+            return _summarize_record(kind, int(match.group(1)))
+        except Exception:
+            return None
+    return None
+
+
+def _summarize_record(kind: str, pk: int) -> dict | None:
+    if kind == "customer":
+        obj = Customer.objects.filter(pk=pk, is_active=True).first()
+        if not obj:
+            return None
+        return {"type": "customer", "id": obj.pk, "label": obj.name,
+                "summary": f"Customer {obj.name} (id={obj.pk}). Email: {obj.email or 'n/a'}."}
+    if kind == "vendor":
+        obj = Vendor.objects.filter(pk=pk, is_active=True).first()
+        if not obj:
+            return None
+        return {"type": "vendor", "id": obj.pk, "label": obj.name,
+                "summary": f"Vendor {obj.name} (id={obj.pk}). Email: {obj.email or 'n/a'}."}
+    if kind == "product":
+        obj = Product.objects.filter(pk=pk, is_active=True).first()
+        if not obj:
+            return None
+        return {"type": "product", "id": obj.pk, "label": f"{obj.sku} - {obj.name}",
+                "summary": f"Product {obj.sku} ({obj.name}). Cost ${obj.cost}, price ${obj.price}."}
+    if kind == "sales_order":
+        obj = SalesOrder.objects.select_related("customer").filter(pk=pk).first()
+        if not obj:
+            return None
+        return {"type": "sales_order", "id": obj.pk,
+                "label": obj.number or f"SO-DRAFT-{obj.pk}",
+                "summary": f"Sales order {obj} for {obj.customer.name}, status={obj.get_status_display()}."}
+    if kind == "invoice":
+        obj = Invoice.objects.select_related("customer").filter(pk=pk).first()
+        if not obj:
+            return None
+        return {"type": "invoice", "id": obj.pk,
+                "label": obj.number or f"DRAFT-{obj.pk}",
+                "summary": f"Invoice {obj} for {obj.customer.name}, status={obj.get_status_display()}, total ${obj.total()}."}
+    if kind == "purchase_order":
+        obj = PurchaseOrder.objects.select_related("vendor").filter(pk=pk).first()
+        if not obj:
+            return None
+        return {"type": "purchase_order", "id": obj.pk,
+                "label": obj.number or f"PO-DRAFT-{obj.pk}",
+                "summary": f"Purchase order {obj} from {obj.vendor.name}, status={obj.get_status_display()}."}
+    if kind == "goods_receipt":
+        obj = GoodsReceipt.objects.select_related("po__vendor").filter(pk=pk).first()
+        if not obj:
+            return None
+        vendor = obj.po.vendor.name if obj.po else "n/a"
+        return {"type": "goods_receipt", "id": obj.pk, "label": f"GR-{obj.pk}",
+                "summary": f"Goods receipt #{obj.pk} from {vendor}, date {obj.date}."}
+    if kind == "bill":
+        obj = Bill.objects.select_related("vendor").filter(pk=pk).first()
+        if not obj:
+            return None
+        return {"type": "bill", "id": obj.pk,
+                "label": obj.number or f"BILL-DRAFT-{obj.pk}",
+                "summary": f"Bill {obj} from {obj.vendor.name}, status={obj.get_status_display()}."}
+    if kind == "manufacturing_order":
+        obj = ManufacturingOrder.objects.select_related("product", "bom").filter(pk=pk).first()
+        if not obj:
+            return None
+        return {"type": "manufacturing_order", "id": obj.pk,
+                "label": obj.number or f"MO-DRAFT-{obj.pk}",
+                "summary": (f"MO {obj} producing {obj.qty_target} x {obj.product.sku}, "
+                            f"status={obj.get_status_display()}.")}
+    if kind == "bom":
+        obj = BillOfMaterials.objects.select_related("product").filter(pk=pk, is_active=True).first()
+        if not obj:
+            return None
+        return {"type": "bom", "id": obj.pk,
+                "label": obj.name or f"BOM - {obj.product.sku}",
+                "summary": f"BOM for {obj.product.sku} ({obj.product.name}), rollup cost ${obj.total_cost_rollup}."}
+    if kind == "journal_entry":
+        obj = JournalEntry.objects.filter(pk=pk).first()
+        if not obj:
+            return None
+        return {"type": "journal_entry", "id": obj.pk,
+                "label": obj.number or f"JE-{obj.pk}",
+                "summary": f"Journal entry {obj}, date {obj.date}."}
+    return None
 
 
 def _can_create_purchase_documents(user) -> bool:
@@ -1186,6 +1548,55 @@ def _public_pending_mo(state: dict) -> dict:
 def _absorb_message_into_pending(message: str, state: dict) -> None:
     """Intentionally a no-op. The LLM parses messages; Python only carries state."""
     return
+
+
+def _absorb_page_record_into_pending(record: dict | None, state: dict) -> None:
+    """If the user is on a record page, seed the right pending slot.
+
+    Only fills empty slots — never overwrites something the user explicitly set in
+    a previous turn.
+    """
+    if not record:
+        return
+    kind = record.get("type")
+    rid = record.get("id")
+    label = record.get("label", "")
+
+    if kind == "vendor":
+        po = state.setdefault("pending_po", {})
+        if not po.get("vendor_id"):
+            po["vendor_id"] = rid
+            po["vendor_name"] = label
+            state["last_vendor_id"] = rid
+            state["last_vendor_name"] = label
+    elif kind == "customer":
+        so = state.setdefault("pending_so", {})
+        if not so.get("customer_id"):
+            so["customer_id"] = rid
+            so["customer_name"] = label
+            state["last_customer_id"] = rid
+            state["last_customer_name"] = label
+    elif kind == "product":
+        obj = Product.objects.filter(pk=rid).first()
+        if obj:
+            for slot in ("pending_po", "pending_so", "pending_mo"):
+                p = state.setdefault(slot, {})
+                if not p.get("product_id"):
+                    p["product_id"] = obj.pk
+                    p["product_sku"] = obj.sku
+                    p["product_label"] = f"{obj.sku} - {obj.name}"
+                    p["product_cost"] = str(obj.cost)
+                    p["product_price"] = str(obj.price)
+    elif kind == "bom":
+        mo = state.setdefault("pending_mo", {})
+        if not mo.get("bom_id"):
+            mo["bom_id"] = rid
+            mo["bom_label"] = label
+            obj = BillOfMaterials.objects.select_related("product").filter(pk=rid).first()
+            if obj:
+                mo["product_id"] = obj.product.pk
+                mo["product_sku"] = obj.product.sku
+                mo["product_label"] = f"{obj.product.sku} - {obj.product.name}"
 
 
 def _absorb_tools_into_pending(tools: list[dict], state: dict) -> None:

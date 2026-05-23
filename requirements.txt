@@ -4,6 +4,7 @@ python-dotenv>=1.0
 django-allauth>=0.61
 django-simple-history>=3.5
 django-htmx>=1.17
+django-tenants>=3.6
 reportlab>=4.1.0
 Pillow>=10.0
 gunicorn>=21.0

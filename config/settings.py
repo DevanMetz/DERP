@@ -13,10 +13,19 @@ load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-do-not-use-in-prod")
 DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+
+BASE_DOMAIN = os.environ.get("BASE_DOMAIN", "localhost")
+
+# Accept any subdomain of BASE_DOMAIN plus localhost helpers
+_static_hosts = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = _static_hosts + [BASE_DOMAIN, f".{BASE_DOMAIN}"]
 if railway_domain := os.environ.get("RAILWAY_PUBLIC_DOMAIN"):
     ALLOWED_HOSTS.append(railway_domain)
-CSRF_TRUSTED_ORIGINS = [f"https://{h}" for h in ALLOWED_HOSTS if h not in ("localhost", "127.0.0.1")]
+
+CSRF_TRUSTED_ORIGINS = [
+    f"https://{h}" for h in ALLOWED_HOSTS
+    if h not in ("localhost", "127.0.0.1") and not h.startswith(".")
+] + ([f"https://*.{BASE_DOMAIN}"] if BASE_DOMAIN != "localhost" else [])
 
 # HTTPS security — only active when not in debug mode
 if not DEBUG:
@@ -28,19 +37,27 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 
 
-INSTALLED_APPS = [
-    "django.contrib.admin",
-    "django.contrib.auth",
+SHARED_APPS = [
+    # django-tenants must be first
+    "django_tenants",
+    "tenants",
+
+    # Django core shared apps
     "django.contrib.contenttypes",
-    "django.contrib.sessions",
-    "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.sites",
+]
+
+TENANT_APPS = [
+    "django.contrib.auth",
+    "django.contrib.admin",
+    "django.contrib.sessions",
+    "django.contrib.messages",
 
     # Third-party
     "allauth",
     "allauth.account",
-    "allauth.mfa",            # TOTP 2FA, enabled per-user later
+    "allauth.mfa",
     "simple_history",
     "django_htmx",
 
@@ -54,7 +71,14 @@ INSTALLED_APPS = [
     "projects",
 ]
 
+INSTALLED_APPS = list(dict.fromkeys(SHARED_APPS + TENANT_APPS))
+
+TENANT_MODEL = "tenants.TenantCompany"
+TENANT_DOMAIN_MODEL = "tenants.Domain"
+PUBLIC_SCHEMA_URLCONF = "config.public_urls"
+
 MIDDLEWARE = [
+    "django_tenants.middleware.main.TenantMainMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -92,7 +116,7 @@ def _parse_db_url(url: str) -> dict:
     from urllib.parse import urlparse
     u = urlparse(url)
     return {
-        "ENGINE": "django.db.backends.postgresql",
+        "ENGINE": "django_tenants.postgresql_backend",
         "NAME": u.path.lstrip("/"),
         "USER": u.username or "",
         "PASSWORD": u.password or "",
@@ -103,6 +127,7 @@ def _parse_db_url(url: str) -> dict:
 DATABASES = {
     "default": _parse_db_url(os.environ.get("DATABASE_URL", "postgres://erp:erp@localhost:5432/erp")),
 }
+DATABASE_ROUTERS = ["django_tenants.routers.TenantSyncRouter"]
 
 AUTH_USER_MODEL = "core.User"
 
@@ -114,7 +139,7 @@ AUTHENTICATION_BACKENDS = [
 ACCOUNT_EMAIL_VERIFICATION = "none"
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
-ACCOUNT_ALLOW_REGISTRATION = False  # accounts created via manage.py or admin only
+ACCOUNT_ALLOW_REGISTRATION = False  # tenant users created at signup or via admin
 ACCOUNT_LOGIN_ATTEMPTS_LIMIT = 5
 ACCOUNT_LOGIN_ATTEMPTS_TIMEOUT = 300  # 5-minute lockout after 5 failed attempts
 LOGIN_REDIRECT_URL = "/"

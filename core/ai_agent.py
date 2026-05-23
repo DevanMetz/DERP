@@ -18,6 +18,7 @@ from purchasing.models import PurchaseOrder, PurchaseOrderLine, Vendor
 from purchasing.services import resolve_expense_account
 from sales.models import Customer, SalesOrder, SalesOrderLine
 from sales.services import resolve_revenue_account
+from manufacturing.models import BillOfMaterials, ManufacturingOrder
 
 from .docs import list_doc_pages
 from .models import Company, CopilotAuditEvent, Role
@@ -46,7 +47,8 @@ def run_copilot_turn(message: str, *, api_key: str = "", user=None, session=None
     # Decide whether to attempt an autofill, and which doc to draft.
     doc_intent = _detect_doc_intent(message, state)
     asked_for_doc = bool(re.search(
-        r"\b(make|create|draft|build|generate|do)\s+(?:a|the)?\s*(po|so|purchase\s+order|sales\s+order)\b",
+        r"\b(make|create|draft|build|generate|do|produce|manufacture)\s+(?:a|the)?\s*"
+        r"(po|so|mo|purchase\s+order|sales\s+order|manufacturing\s+order|work\s+order)\b",
         (message or ""), re.IGNORECASE,
     ))
     pending = state.get(f"pending_{doc_intent}") or {} if doc_intent else {}
@@ -60,13 +62,19 @@ def run_copilot_turn(message: str, *, api_key: str = "", user=None, session=None
             pending.get("customer_name") and pending.get("product_label")
             and pending.get("qty") and pending.get("unit_price")
         )
+    elif doc_intent == "mo":
+        has_enough = bool(pending.get("bom_id") and pending.get("qty_target"))
     else:
         has_enough = False
 
     should_autofill = _user_wants_best_effort(message) or (asked_for_doc and has_enough)
 
     if should_autofill and doc_intent:
-        tool_name = "draft_purchase_order_preview" if doc_intent == "po" else "draft_sales_order_preview"
+        tool_name = {
+            "po": "draft_purchase_order_preview",
+            "so": "draft_sales_order_preview",
+            "mo": "draft_manufacturing_order_preview",
+        }[doc_intent]
         existing = _tool_result(tools, tool_name)
         if not existing or not existing.get("preview"):
             auto = _autofill_preview(state, user=user, doc_type=doc_intent)
@@ -81,6 +89,7 @@ def run_copilot_turn(message: str, *, api_key: str = "", user=None, session=None
         "last_product": state.get("last_product_label", ""),
         "pending_po": _public_pending_po(state),
         "pending_so": _public_pending_so(state),
+        "pending_mo": _public_pending_mo(state),
     }
     _save_state(session, state)
     _audit(
@@ -113,6 +122,8 @@ def confirm_action_token(action_token: str, user) -> dict:
         return _confirm_create_purchase_order(payload, user)
     if action == "create_sales_order_draft":
         return _confirm_create_sales_order(payload, user)
+    if action == "create_manufacturing_order_draft":
+        return _confirm_create_manufacturing_order(payload, user)
     raise ValidationError("Unsupported AI action.")
 
 
@@ -209,6 +220,36 @@ def _confirm_create_sales_order(payload: dict, user) -> dict:
     }
 
 
+@transaction.atomic
+def _confirm_create_manufacturing_order(payload: dict, user) -> dict:
+    if not _can_create_manufacturing_documents(user):
+        raise ValidationError("Your role can review AI previews, but cannot create manufacturing documents.")
+
+    bom = BillOfMaterials.objects.select_related("product").get(pk=payload["bom_id"], is_active=True)
+    mo = ManufacturingOrder.objects.create(
+        product=bom.product,
+        bom=bom,
+        qty_target=Decimal(str(payload["qty_target"])),
+        date_planned=payload.get("date_planned") or timezone.localdate(),
+        status=ManufacturingOrder.Status.DRAFT,
+        created_by=user if getattr(user, "is_authenticated", False) else None,
+    )
+
+    _audit(
+        user=user,
+        event_type=CopilotAuditEvent.EventType.CONFIRM,
+        tool_names=["create_manufacturing_order_draft"],
+        metadata={"product": bom.product.sku, "qty_target": str(mo.qty_target)},
+        object_type="manufacturing.ManufacturingOrder",
+        object_id=mo.pk,
+    )
+    return {
+        "reply": f"Created draft manufacturing order {mo}.",
+        "manufacturing_order_id": mo.pk,
+        "url": reverse("mo_detail", args=[mo.pk]),
+    }
+
+
 def build_purchase_order_preview(message: str, api_key: str = "") -> dict:
     return run_copilot_turn(message, api_key=api_key)
 
@@ -265,9 +306,10 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
                     "properties": {
                         "name": {"type": "string", "enum": [
                             "search_vendors", "search_customers", "search_products",
-                            "get_stock_levels", "get_open_purchase_orders",
+                            "search_boms", "get_stock_levels", "get_open_purchase_orders",
                             "get_recent_purchase_prices", "search_accounts", "search_docs",
                             "draft_purchase_order_preview", "draft_sales_order_preview",
+                            "draft_manufacturing_order_preview",
                         ]},
                         "arguments": {"type": "object"},
                     },
@@ -300,16 +342,25 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
         '     "lines": [{"product": "<product>", "qty": "<number>", "unit_price": "<number>", "description": "<optional>"}],\n'
         '     "requested_date": "<YYYY-MM-DD or empty>"\n'
         '  }) — preview of a sale. Use for "sold", "selling", "ship to <customer>", "make an SO".\n'
+        '  search_boms({"query": "<product-or-bom-name>"}) — fuzzy search BOMs.\n'
+        '  draft_manufacturing_order_preview({\n'
+        '     "bom": "<product or BOM name as user said it>",\n'
+        '     "qty": "<number to produce>",\n'
+        '     "date_planned": "<YYYY-MM-DD or empty>"\n'
+        '  }) — preview of a production run. Use for "manufacture", "produce", "build N of X", "make an MO".\n'
         "\n"
         "RULES:\n"
         "  • Pick the right tool from the user's verb. 'bought / purchased / order from <vendor>' → "
-        "draft_purchase_order_preview. 'sold / selling / ship to <customer>' → draft_sales_order_preview.\n"
+        "draft_purchase_order_preview. 'sold / selling / ship to <customer>' → draft_sales_order_preview. "
+        "'manufacture / produce / build / make N of <product>' → draft_manufacturing_order_preview.\n"
         "  • Extract party, product, qty, and unit cost/price from ANY phrasing. 'make a po for pla filament "
         "from bambulab 5 pieces $20 each' → draft_purchase_order_preview with vendor='bambulab', "
         "lines=[{product:'pla filament', qty:'5', unit_cost:'20'}]. 'sold 3 widgets to acme for $50 each' → "
         "draft_sales_order_preview with customer='acme', lines=[{product:'widgets', qty:'3', unit_price:'50'}]. "
+        "'produce 50 widgets' → draft_manufacturing_order_preview with bom='widgets', qty='50'. "
         "Trust the fuzzy search to resolve names.\n"
-        "  • state.pending_po and state.pending_so carry partial info across turns. Use whichever matches the "
+        "  • state.pending_po, pending_so, and pending_mo carry partial info across turns. Use whichever "
+        "matches the "
         "current intent. If a previous turn established a vendor/customer or product, do NOT re-ask — carry it.\n"
         "  • 'try your best', 'just do it', 'go ahead', 'any', 'whatever' = user authorizes defaults. Fill "
         "missing slots: qty='1', unit_cost=product_cost (PO) or unit_price=product_price (SO). Always call "
@@ -334,7 +385,10 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
         "\n"
         "  User: 'sold 3 pla filament to acme corp for $30 each'\n"
         "  → tool_calls: [{name: 'draft_sales_order_preview', arguments: {customer: 'acme corp', lines: "
-        "[{product: 'pla filament', qty: '3', unit_price: '30'}]}}]"
+        "[{product: 'pla filament', qty: '3', unit_price: '30'}]}}]\n"
+        "\n"
+        "  User: 'build 50 widgets'\n"
+        "  → tool_calls: [{name: 'draft_manufacturing_order_preview', arguments: {bom: 'widgets', qty: '50'}}]"
     )
     payload = {
         "model": DEFAULT_MODEL,
@@ -390,6 +444,10 @@ def _execute_tool_plan(plan: dict, state: dict, *, user=None) -> list[dict]:
             result = _tool_search_customers(args.get("query", ""))
         elif name == "draft_sales_order_preview":
             result = _tool_draft_sales_order_preview(args, state, user=user)
+        elif name == "search_boms":
+            result = _tool_search_boms(args.get("query", ""))
+        elif name == "draft_manufacturing_order_preview":
+            result = _tool_draft_manufacturing_order_preview(args, state, user=user)
         else:
             result = {"error": f"Unknown tool: {name}"}
         results.append({"name": name, "arguments": args, "result": result})
@@ -397,8 +455,12 @@ def _execute_tool_plan(plan: dict, state: dict, *, user=None) -> list[dict]:
 
 
 def _build_reply(message: str, plan: dict, tools: list[dict], state: dict, *, user=None) -> dict:
-    # Either preview wins — return immediately.
-    for tool_name in ("draft_purchase_order_preview", "draft_sales_order_preview"):
+    # Whichever preview tool succeeded wins — return its result immediately.
+    for tool_name in (
+        "draft_purchase_order_preview",
+        "draft_sales_order_preview",
+        "draft_manufacturing_order_preview",
+    ):
         preview_tool = _tool_result(tools, tool_name)
         if preview_tool:
             return preview_tool
@@ -434,11 +496,12 @@ def _build_reply(message: str, plan: dict, tools: list[dict], state: dict, *, us
     intent = _detect_doc_intent(message, state)
     if intent == "so":
         reply += _format_pending_so(state)
+    elif intent == "mo":
+        reply += _format_pending_mo(state)
     elif intent == "po":
         reply += _format_pending_po(state)
     else:
-        # No clear intent — try whichever has more state.
-        reply += _format_pending_po(state) or _format_pending_so(state)
+        reply += _format_pending_po(state) or _format_pending_so(state) or _format_pending_mo(state)
 
     return {
         "reply": reply.strip() or plan.get("reply") or "I checked the available tools, but need a little more detail.",
@@ -480,6 +543,26 @@ def _format_pending_so(state: dict) -> str:
         else:
             missing.append(label)
     out = " Pending SO so far — " + ", ".join(have) + "."
+    if missing:
+        out += " Still need: " + ", ".join(missing) + ". (Say 'try your best' and I'll use defaults.)"
+    return out
+
+
+def _format_pending_mo(state: dict) -> str:
+    pending = state.get("pending_mo") or {}
+    if not (pending.get("bom_id") or pending.get("product_label")):
+        return ""
+    have, missing = [], []
+    for label, key, prefix in [
+        ("product", "product_label", ""),
+        ("BOM", "bom_label", ""),
+        ("qty", "qty_target", ""),
+    ]:
+        if pending.get(key):
+            have.append(f"{label}: {prefix}{pending[key]}")
+        else:
+            missing.append(label)
+    out = " Pending MO so far — " + ", ".join(have) + "."
     if missing:
         out += " Still need: " + ", ".join(missing) + ". (Say 'try your best' and I'll use defaults.)"
     return out
@@ -554,6 +637,50 @@ def _tool_search_products(query: str) -> dict:
             "cost": str(product.cost),
             "price": str(product.price),
             "type": product.get_type_display(),
+        })
+    return {"matches": matches, "count": len(matches)}
+
+
+def _tool_search_boms(query: str) -> dict:
+    """Find BOMs by name, product SKU, or product name."""
+    base = BillOfMaterials.objects.filter(is_active=True).select_related("product")
+    if query:
+        qs = base.filter(
+            Q(name__icontains=query)
+            | Q(product__sku__icontains=query)
+            | Q(product__name__icontains=query)
+        )
+    else:
+        qs = base
+    boms = list(qs.order_by("product__sku")[:5])
+    if query and not boms:
+        # Fuzzy fallback uses normalized whitespace on product SKU/name and BOM name.
+        candidates = list(base)
+        # Build score from any of (bom.name, product.sku, product.name)
+        nq = _normalize_for_match(query)
+        if nq and len(nq) >= 2:
+            scored = []
+            for b in candidates:
+                hay_strs = [b.name or "", b.product.sku, b.product.name]
+                best = 0.0
+                for s in hay_strs:
+                    h = _normalize_for_match(s)
+                    if h and (nq in h or h in nq):
+                        best = max(best, min(len(nq), len(h)) / max(len(nq), len(h)))
+                if best > 0:
+                    scored.append((best, b))
+            scored.sort(key=lambda i: i[0], reverse=True)
+            boms = [b for _, b in scored[:5]]
+
+    matches = []
+    for b in boms:
+        matches.append({
+            "id": b.pk,
+            "name": b.name or f"BOM - {b.product.sku}",
+            "product_id": b.product.pk,
+            "product_sku": b.product.sku,
+            "product_label": f"{b.product.sku} - {b.product.name}",
+            "rollup_cost": str(b.total_cost_rollup),
         })
     return {"matches": matches, "count": len(matches)}
 
@@ -763,6 +890,84 @@ def _tool_draft_sales_order_preview(args: dict, state: dict, *, user=None) -> di
     return {"reply": f"Ready to create a draft SO for {customer.name}{date_phrase} totaling ${preview['total']}.", "preview": preview}
 
 
+def _tool_draft_manufacturing_order_preview(args: dict, state: dict, *, user=None) -> dict:
+    if not _can_create_manufacturing_documents(user):
+        return {"reply": "Your role can search and review ERP data, but cannot create manufacturing orders.", "preview": None}
+
+    pending = state.get("pending_mo") or {}
+    bom_query = (args.get("bom") or args.get("product") or pending.get("bom_label") or pending.get("product_label") or "").strip()
+    qty = _decimal_or_none(args.get("qty") or args.get("qty_target") or pending.get("qty_target"), scale="0.0001")
+    date_planned = _parse_expected_date(args.get("date_planned") or args.get("planned_date") or "")
+
+    if not bom_query and not pending.get("bom_id"):
+        return {"reply": "Which product (or BOM) should be manufactured?", "preview": None}
+    if qty is None or qty <= 0:
+        return {"reply": "How many units should be produced?", "preview": None}
+
+    # Resolve BOM. If user gave the finished product, find a BOM whose product matches.
+    bom = None
+    if pending.get("bom_id"):
+        bom = BillOfMaterials.objects.filter(pk=pending["bom_id"], is_active=True).select_related("product").first()
+    if bom is None and bom_query:
+        bom_matches = _tool_search_boms(bom_query)["matches"]
+        if not bom_matches:
+            return {"reply": f"I could not find an active BOM matching \"{bom_query}\". Create a BOM for that product first.", "preview": None}
+        if len(bom_matches) > 1 and not any(m["product_sku"].lower() == bom_query.lower() for m in bom_matches):
+            return {"reply": "I found multiple matching BOMs: " + ", ".join(m["product_label"] for m in bom_matches) + ". Which one?", "preview": None}
+        bom = BillOfMaterials.objects.select_related("product").get(pk=bom_matches[0]["id"])
+
+    if bom is None:
+        return {"reply": "Could not resolve the BOM. Try giving the product SKU or BOM name.", "preview": None}
+
+    unit_cost = bom.total_cost_rollup
+    estimated_total = (qty * unit_cost).quantize(Decimal("0.01"))
+
+    payload = {
+        "action": "create_manufacturing_order_draft",
+        "bom_id": bom.pk,
+        "product_id": bom.product.pk,
+        "product_sku": bom.product.sku,
+        "product_label": f"{bom.product.sku} - {bom.product.name}",
+        "qty_target": str(qty),
+        "date_planned": date_planned.isoformat() if date_planned else "",
+    }
+    state.setdefault("pending_mo", {})
+    state["pending_mo"]["bom_id"] = bom.pk
+    state["pending_mo"]["bom_label"] = bom.name or f"BOM - {bom.product.sku}"
+    state["pending_mo"]["product_id"] = bom.product.pk
+    state["pending_mo"]["product_label"] = payload["product_label"]
+    state["pending_mo"]["product_sku"] = bom.product.sku
+    state["pending_mo"]["qty_target"] = str(qty)
+    state["pending_mo"]["date_planned"] = payload["date_planned"]
+
+    preview = {
+        "title": "Create draft manufacturing order",
+        "product": payload["product_label"],
+        "bom": bom.name or f"BOM - {bom.product.sku}",
+        "qty_target": str(qty),
+        "date_planned": payload["date_planned"],
+        "unit_cost": str(unit_cost),
+        "estimated_total": str(estimated_total),
+        "lines": [{
+            "qty": str(qty),
+            "product": bom.product.sku,
+            "description": payload["product_label"],
+            "unit_cost": str(unit_cost),
+            "line_total": str(estimated_total),
+        }],
+        "total": str(estimated_total),
+        "action_token": signing.dumps(payload, salt=ACTION_SALT),
+    }
+    date_phrase = f" planned for {payload['date_planned']}" if payload["date_planned"] else ""
+    return {
+        "reply": (
+            f"Ready to create a draft MO for {qty} x {payload['product_label']}"
+            f"{date_phrase}. Estimated material cost ${estimated_total}."
+        ),
+        "preview": preview,
+    }
+
+
 def _parse_purchase_request(message: str) -> dict | None:
     match = re.search(
         r"(?:purchased|bought|buy|order(?:ed)?)?\s*(?P<qty>\d+(?:\.\d+)?)\s*(?:units?|pcs?|pieces?|ea|each)?\s+(?:of\s+)?(?P<product>.+?)\s+from\s+(?P<vendor>.+?)(?:\s+(?:at|for)\s+\$?(?P<cost>\d+(?:\.\d+)?))?(?:\s*(?:each|ea|per unit))?$",
@@ -849,6 +1054,10 @@ def _can_create_sales_documents(user) -> bool:
     return getattr(user, "is_authenticated", False) and getattr(user, "role", None) in {Role.ADMIN, Role.MANAGER, Role.STAFF}
 
 
+def _can_create_manufacturing_documents(user) -> bool:
+    return getattr(user, "is_authenticated", False) and getattr(user, "role", None) in {Role.ADMIN, Role.MANAGER, Role.STAFF}
+
+
 def _load_state(session) -> dict:
     if session is None:
         return {}
@@ -868,6 +1077,7 @@ def _save_state(session, state: dict) -> None:
         "last_expected_date": state.get("last_expected_date", ""),
         "pending_po": state.get("pending_po", {}),
         "pending_so": state.get("pending_so", {}),
+        "pending_mo": state.get("pending_mo", {}),
     }
     session.modified = True
 
@@ -916,6 +1126,16 @@ def _public_pending_so(state: dict) -> dict:
     }
 
 
+def _public_pending_mo(state: dict) -> dict:
+    p = state.get("pending_mo") or {}
+    return {
+        "product": p.get("product_label", ""),
+        "bom": p.get("bom_label", ""),
+        "qty_target": p.get("qty_target", ""),
+        "date_planned": p.get("date_planned", ""),
+    }
+
+
 def _absorb_message_into_pending(message: str, state: dict) -> None:
     """Intentionally a no-op. The LLM parses messages; Python only carries state."""
     return
@@ -925,6 +1145,7 @@ def _absorb_tools_into_pending(tools: list[dict], state: dict) -> None:
     """If a search came back with at least one match, remember the top hit."""
     pending_po = _pending(state)
     pending_so = _pending_so(state)
+    pending_mo = state.setdefault("pending_mo", {})
 
     vendors = _tool_result(tools, "search_vendors")
     if vendors and vendors.get("matches"):
@@ -942,6 +1163,15 @@ def _absorb_tools_into_pending(tools: list[dict], state: dict) -> None:
         state["last_customer_id"] = top["id"]
         state["last_customer_name"] = top["name"]
 
+    boms = _tool_result(tools, "search_boms")
+    if boms and boms.get("matches"):
+        top = boms["matches"][0]
+        pending_mo["bom_id"] = top["id"]
+        pending_mo["bom_label"] = top["name"]
+        pending_mo["product_id"] = top["product_id"]
+        pending_mo["product_sku"] = top["product_sku"]
+        pending_mo["product_label"] = top["product_label"]
+
     products = _tool_result(tools, "search_products")
     if products and products.get("matches"):
         top = products["matches"][0]
@@ -952,41 +1182,74 @@ def _absorb_tools_into_pending(tools: list[dict], state: dict) -> None:
             p["product_sku"] = top["sku"]
             p["product_cost"] = top.get("cost", "0")
             p["product_price"] = top.get("price", "0")
+        # For MO, only set product info — don't overwrite an existing bom_id since
+        # the user might have selected a BOM separately.
+        if not pending_mo.get("product_id"):
+            pending_mo["product_id"] = top["id"]
+            pending_mo["product_sku"] = top["sku"]
+            pending_mo["product_label"] = top["label"]
         state["last_product_label"] = top["label"]
 
 
 def _detect_doc_intent(message: str, state: dict) -> str:
-    """Return 'po', 'so', or '' depending on what the user seems to want.
-
-    Heuristics:
-      - explicit verbs ('sold/selling/customer/ship to' → so;
-        'bought/purchase/vendor/order from' → po)
-      - 'po' / 'so' / 'sales order' / 'purchase order' tokens
-      - else: whichever pending_* has more filled slots
-      - else: 'po' as historical default
-    """
+    """Return 'po', 'so', 'mo', or '' depending on what the user seems to want."""
     lower = (message or "").lower()
+    mo_signals = re.search(r"\b(manufacture|manufacturing|produce|production|assemble|build|mo\b|m\.?o\.?|work\s*order|bom)\b", lower)
     so_signals = re.search(r"\b(sold|sale|selling|sells|customer|invoice|ship\s+to|so\b|sales\s*order)\b", lower)
     po_signals = re.search(r"\b(bought|buy|buying|buys|purchase|purchased|vendor|supplier|po\b|order\s+from)\b", lower)
-    if so_signals and not po_signals:
-        return "so"
-    if po_signals and not so_signals:
-        return "po"
-    # Both or neither — go with whichever side has more pending state filled.
+
+    # Exclusive signals win.
+    signals = [(s, name) for s, name in [(mo_signals, "mo"), (so_signals, "so"), (po_signals, "po")] if s]
+    if len(signals) == 1:
+        return signals[0][1]
+
+    # Fall back to whichever pending_* has the most filled slots.
     po_slots = sum(1 for k in ("vendor_name", "product_label", "qty", "unit_cost") if (state.get("pending_po") or {}).get(k))
     so_slots = sum(1 for k in ("customer_name", "product_label", "qty", "unit_price") if (state.get("pending_so") or {}).get(k))
-    if so_slots > po_slots:
-        return "so"
-    if po_slots > so_slots:
-        return "po"
-    return "po" if po_signals or so_signals else ""
+    mo_slots = sum(1 for k in ("bom_id", "product_label", "qty_target") if (state.get("pending_mo") or {}).get(k))
+    best = max((po_slots, "po"), (so_slots, "so"), (mo_slots, "mo"), key=lambda x: x[0])
+    if best[0] > 0:
+        return best[1]
+    return signals[0][1] if signals else ""
 
 
 def _autofill_preview(state: dict, *, user, doc_type: str = "po") -> dict | None:
     """Best-effort draft: fill missing slots with defaults and call the right preview tool."""
     if doc_type == "so":
         return _autofill_sales_preview(state, user=user)
+    if doc_type == "mo":
+        return _autofill_manufacturing_preview(state, user=user)
     return _autofill_purchase_preview(state, user=user)
+
+
+def _autofill_manufacturing_preview(state: dict, *, user) -> dict | None:
+    pending = state.setdefault("pending_mo", {})
+
+    bom_id = pending.get("bom_id")
+    if not bom_id:
+        # Try by product first, then fall back to the first active BOM in the workspace.
+        product_hint = pending.get("product_sku") or pending.get("product_label") or ""
+        bom = None
+        if product_hint:
+            bom_matches = _tool_search_boms(product_hint)["matches"]
+            if bom_matches:
+                bom = BillOfMaterials.objects.filter(pk=bom_matches[0]["id"], is_active=True).select_related("product").first()
+        if bom is None:
+            bom = BillOfMaterials.objects.filter(is_active=True).select_related("product").order_by("product__sku").first()
+        if bom is None:
+            return {"reply": "There are no active BOMs in this workspace yet. Create a BOM before drafting an MO.", "preview": None}
+        pending["bom_id"] = bom.pk
+        pending["bom_label"] = bom.name or f"BOM - {bom.product.sku}"
+        pending["product_id"] = bom.product.pk
+        pending["product_sku"] = bom.product.sku
+        pending["product_label"] = f"{bom.product.sku} - {bom.product.name}"
+
+    args = {
+        "bom": pending.get("product_sku") or pending.get("bom_label", ""),
+        "qty": pending.get("qty_target") or "1",
+        "date_planned": pending.get("date_planned", ""),
+    }
+    return _tool_draft_manufacturing_order_preview(args, state, user=user)
 
 
 def _autofill_purchase_preview(state: dict, *, user) -> dict | None:

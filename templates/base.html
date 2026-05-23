@@ -1418,8 +1418,9 @@
 
     function renderAiPreview(preview) {
       if (!aiMessages || !preview) return;
-      const isSales = !!preview.customer;
-      const docLabel = isSales ? "SO" : "PO";
+      let docLabel = "PO";
+      if (preview.customer) docLabel = "SO";
+      else if (preview.bom || preview.qty_target) docLabel = "MO";
 
       const wrapper = document.createElement("div");
       wrapper.className = "ai-preview";
@@ -1428,13 +1429,26 @@
       wrapper.appendChild(title);
 
       const party = document.createElement("div");
-      party.textContent = isSales ? `Customer: ${preview.customer}` : `Vendor: ${preview.vendor}`;
+      if (docLabel === "SO") {
+        party.textContent = `Customer: ${preview.customer}`;
+      } else if (docLabel === "MO") {
+        party.textContent = `Product: ${preview.product}`;
+      } else {
+        party.textContent = `Vendor: ${preview.vendor}`;
+      }
       wrapper.appendChild(party);
 
-      const dateValue = preview.requested_date || preview.expected_date;
+      if (docLabel === "MO" && preview.bom) {
+        const bomDiv = document.createElement("div");
+        bomDiv.textContent = `BOM: ${preview.bom}`;
+        wrapper.appendChild(bomDiv);
+      }
+
+      const dateValue = preview.date_planned || preview.requested_date || preview.expected_date;
       if (dateValue) {
         const dateDiv = document.createElement("div");
-        dateDiv.textContent = isSales ? `Requested: ${dateValue}` : `Expected: ${dateValue}`;
+        const dateLabel = docLabel === "SO" ? "Requested" : (docLabel === "MO" ? "Planned" : "Expected");
+        dateDiv.textContent = `${dateLabel}: ${dateValue}`;
         wrapper.appendChild(dateDiv);
       }
 

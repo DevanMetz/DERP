@@ -1,8 +1,32 @@
+import urllib.parse
+import urllib.request
+import json
+
 from django.conf import settings
 from django.core.mail import send_mail
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django_tenants.utils import schema_context
+
+
+def _verify_turnstile(token, ip):
+    """Return True if Cloudflare Turnstile token is valid."""
+    secret = getattr(settings, "TURNSTILE_SECRET_KEY", "")
+    if not secret:
+        return True  # skip check if not configured (local dev)
+    data = urllib.parse.urlencode({
+        "secret": secret,
+        "response": token,
+        "remoteip": ip,
+    }).encode()
+    try:
+        with urllib.request.urlopen(
+            "https://challenges.cloudflare.com/turnstile/v0/siteverify", data, timeout=5
+        ) as resp:
+            result = json.loads(resp.read())
+            return result.get("success", False)
+    except Exception:
+        return False
 
 from .forms import TenantSignupForm
 from .models import Domain, PendingTenant, SignupAttempt, TenantCompany
@@ -19,7 +43,12 @@ def signup(request):
         return HttpResponseForbidden("Too many signup attempts. Please try again in an hour.")
 
     form = TenantSignupForm(request.POST or None)
+    captcha_error = None
     if request.method == "POST" and form.is_valid():
+        token = request.POST.get("cf-turnstile-response", "")
+        if not _verify_turnstile(token, ip):
+            captcha_error = "CAPTCHA verification failed. Please try again."
+    if request.method == "POST" and form.is_valid() and not captcha_error:
         SignupAttempt.record(ip)
         data = form.cleaned_data
         base = settings.BASE_DOMAIN
@@ -52,7 +81,11 @@ def signup(request):
             "base": base,
         })
 
-    return render(request, "tenants/signup.html", {"form": form})
+    return render(request, "tenants/signup.html", {
+        "form": form,
+        "captcha_error": captcha_error,
+        "turnstile_site_key": getattr(settings, "TURNSTILE_SITE_KEY", ""),
+    })
 
 
 def confirm(request, token):

@@ -41,11 +41,17 @@ def run_copilot_turn(message: str, *, api_key: str = "", user=None, session=None
     # Update pending PO state from anything the searches just found.
     _absorb_tools_into_pending(tools, state)
 
-    # If the user asked us to "try our best" and we have enough state, auto-draft.
-    if _user_wants_best_effort(message) and not _tool_result(tools, "draft_purchase_order_preview"):
-        auto = _autofill_preview(state, user=user)
-        if auto is not None:
-            tools.append({"name": "draft_purchase_order_preview", "arguments": {"auto": True}, "result": auto})
+    # If the user asked us to "try our best" and we don't already have a real preview,
+    # auto-fill missing slots and try again. (The AI may have tried draft_purchase_order_preview
+    # with empty lines and gotten back a 'need details' reply — we override that.)
+    if _user_wants_best_effort(message):
+        existing = _tool_result(tools, "draft_purchase_order_preview")
+        if not existing or not existing.get("preview"):
+            auto = _autofill_preview(state, user=user)
+            if auto is not None and auto.get("preview"):
+                # Replace any failed preview attempt with the autofilled one.
+                tools = [t for t in tools if t["name"] != "draft_purchase_order_preview"]
+                tools.append({"name": "draft_purchase_order_preview", "arguments": {"auto": True}, "result": auto})
 
     response = _build_reply(message, plan, tools, state, user=user)
     response["state"] = {

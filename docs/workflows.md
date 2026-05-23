@@ -32,14 +32,16 @@ Goods receipt billing prevents duplicate bills from the same receipt.
 
 Completion is atomic. If raw materials are short, stock and accounting remain unchanged.
 
-## AI Copilot drafting
+## AI Copilot drafting and posting
 
-The copilot panel (robot icon at bottom-right) can take any of these workflows from a plain-English sentence to a draft preview the user confirms:
+The copilot panel (robot icon at bottom-right) can take plain-English inputs to draft documents or post stock changes directly:
 
 - `bought 5 PLA filament from BambuLab at $20 each` → draft PO
 - `sold 3 widgets to Acme for $50 each` → draft SO
 - `build 50 widgets` → draft MO
+- `received 100 of WIDGET at $5 each` → post stock movement receipt
+- `wrote off 5 damaged widgets` → post stock movement issue
 
-It also resolves the record on the page you're viewing. On a customer page, *"what did they buy last month?"* answers itself; on a vendor page, *"draft a PO"* skips the "which vendor?" step.
+It also resolves the record on the page you're viewing. On a customer page, *"what did they buy last month?"* resolves itself; on a vendor page, *"draft a PO"* skips the "which vendor?" step.
 
 See [AI Copilot](ai-copilot) for the full feature list, examples, and safety model.

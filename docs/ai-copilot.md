@@ -1,6 +1,6 @@
 # AI Copilot
 
-DERP ships with a built-in conversational copilot that translates plain-English requests into ERP actions. It can draft purchase orders, sales orders, and manufacturing orders, look up records, and answer questions about your data — all with a preview-confirm safety net for anything that writes.
+DERP ships with a built-in conversational copilot that translates plain-English requests into ERP actions. It can draft purchase orders, sales orders, and manufacturing orders, post stock movements (receipts, issues, adjustments), look up records, and answer questions about your data — all with a preview-confirm safety net for anything that writes.
 
 ## Opening it
 
@@ -10,9 +10,11 @@ The panel's open/closed state and chat history are persisted in browser `localSt
 
 ## What it can do
 
+The copilot can draft documents and post inventory changes. All actions follow a preview → confirm pattern: the copilot proposes the preview, and you click the confirm button to commit it to the database.
+
 ### Draft documents
 
-The copilot can draft three document types. All three follow a preview → confirm pattern: the copilot proposes a draft, you click **Create Draft PO/SO/MO** to commit it.
+The copilot drafts three document types. After confirmation, they are created in `DRAFT` status:
 
 | Verb cues | Doc | Example |
 |---|---|---|
@@ -21,6 +23,18 @@ The copilot can draft three document types. All three follow a preview → confi
 | `manufacture`, `produce`, `build` | Manufacturing order | `build 50 widgets` |
 
 Documents are always created in `DRAFT` status. Confirming, posting, completing, or voiding still happens through the regular UI workflows so the irreversible steps stay deliberate.
+
+### Post stock movements
+
+Unlike drafts (PO/SO/MO), the copilot can post stock movements (receipts, issues, and adjustments) immediately upon confirmation. These calls run through the atomic inventory service (`inventory.services.post_stock_movement`), which updates stock-on-hand and recalculates the weighted-average cost (WAC).
+
+| Verb cues | Movement Type | Example |
+|---|---|---|
+| `received`, `stock in`, `restock` | Receipt | `received 100 of WIDGET at $5 each` |
+| `wrote off`, `damaged`, `scrap`, `shipped`, `lost` | Issue | `wrote off 5 damaged widgets` |
+| `found`, `adjust stock`, `inventory count` | Adjustment | `found 10 extra widgets in count` |
+
+*Note: Issues are pre-flight checked and will surface "insufficient stock" warnings with the current on-hand quantity before you confirm. The preview card displays the current "on hand before" quantity so the user can sanity-check the change before committing.*
 
 ### Look up records
 
@@ -48,6 +62,7 @@ Say *"try your best"*, *"just do it"*, *"go ahead"*, or *"whatever works"* and t
 - **PO**: qty=1, unit_cost from `product.cost`, first active vendor if none specified
 - **SO**: qty=1, unit_price from `product.price`, first active customer if none specified
 - **MO**: qty=1, first active BOM if none specified
+- **Stock Movement**: qty=1, unit_cost from `product.cost` (for receipts), first active stock product if none specified, default type is "receipt"
 
 ## Multi-turn slot filling
 
@@ -71,14 +86,14 @@ The fuzzy search tolerates misspellings and missing spaces — `bambulab` matche
 The copilot never writes to the database without a confirm step:
 
 1. The model proposes an action and the server returns a signed, time-limited (30 min) preview token
-2. The preview is rendered as a card with **Create Draft** and **Cancel** buttons
-3. Clicking the button POSTs the signed token to a separate confirm endpoint, which validates the token and creates the record
-4. The newly created record is returned with a link so you can open it
+2. The preview is rendered as a card with confirm buttons (e.g., **Create Draft** or **Post Stock Movement**) and a **Cancel** button
+3. Clicking the button POSTs the signed token to a separate confirm endpoint, which validates the token and commits the action
+4. The newly created or posted record is returned with a link so you can open or view it
 
 Other safety features:
-- **Role check**: only Admin, Manager, and Staff roles can confirm draft creation
+- **Role check**: only Admin, Manager, and Staff roles can confirm draft creation or post stock movements
 - **Audit log**: every chat, every preview, every confirm is logged to `CopilotAuditEvent` (per-tenant table)
-- **No financial posting**: the copilot only creates documents in `DRAFT` status — posting to the GL still requires explicit user action through the document's own UI
+- **No financial posting**: the copilot only creates purchase/sales/manufacturing documents in `DRAFT` status — posting to the GL still requires explicit user action through the document's own UI. While stock movements are posted immediately to the stock ledger, they are atomic, audited, and role-restricted.
 - **Per-tenant isolation**: chat state lives in the session and `localStorage`, both scoped per tenant subdomain
 
 ## What it cannot do (yet)

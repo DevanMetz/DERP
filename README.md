@@ -104,13 +104,13 @@ Most ERP systems are either expensive SaaS products or large enterprise platform
 ### AI Copilot
 
 - Conversational sidebar panel on every page (bring-your-own OpenAI key, browser-only).
-- Drafts Purchase Orders, Sales Orders, and Manufacturing Orders from plain English (`bought 5 PLA filament from BambuLab at $20 each`, `sold 3 widgets to Acme for $50 each`, `build 50 widgets`).
+- Drafts Purchase Orders, Sales Orders, and Manufacturing Orders, and posts Stock Movements (receipts, issues, adjustments) from plain English (`bought 5 PLA filament from BambuLab at $20 each`, `sold 3 widgets to Acme for $50 each`, `build 50 widgets`, `received 100 of WIDGET at $5 each`, `wrote off 5 damaged widgets`).
 - Fuzzy vendor / customer / product / BOM search — tolerates misspellings and missing spaces.
 - Multi-turn slot filling: carries vendor, product, qty, unit cost across turns until the draft is complete.
-- "Try your best" defaults: fills missing slots with `product.cost` / `product.price` and the first active counterparty.
+- "Try your best" defaults: fills missing slots with `product.cost` / `product.price` and the first active counterparty or stock product.
 - Page-context awareness: on `/customers/123/`, *"what did they buy last month?"* resolves to that customer automatically; on `/boms/4/`, *"make 100"* uses that BOM.
 - Look-up tools: vendor / customer / product / BOM search, stock levels, recent purchase prices, open POs, record detail with recent activity.
-- Preview-confirm safety: every write is staged behind a signed, 30-minute action token; nothing is created without an explicit click.
+- Preview-confirm safety: every write or immediate post is staged behind a signed, 30-minute action token; nothing is created or committed without an explicit click.
 - Audit trail: each chat, preview, and confirm is logged in a per-tenant `CopilotAuditEvent` table.
 - Persistent chat history in browser `localStorage` (per-tenant), with a Clear button.
 - Per-tenant row caps and write rate limits apply — the copilot can't be used to bulk-load junk data.

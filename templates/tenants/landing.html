@@ -34,6 +34,7 @@
     }
     .brand { font-size: 18px; font-weight: 800; letter-spacing: .02em; color: var(--fg); }
     .brand span { color: var(--accent); }
+    nav { display: flex; align-items: center; gap: 10px; }
     nav a {
       display: inline-block;
       padding: 8px 20px;
@@ -45,6 +46,77 @@
       text-decoration: none;
     }
     nav a:hover { background: var(--accent-dark); }
+    .signin-wrap { position: relative; }
+    .signin-btn {
+      padding: 8px 20px;
+      background: #fff;
+      color: var(--fg);
+      border: 1.5px solid var(--line);
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: border-color .15s;
+    }
+    .signin-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .signin-popover {
+      display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      background: #fff;
+      border: 1.5px solid var(--line);
+      border-radius: 10px;
+      padding: 16px;
+      width: 260px;
+      box-shadow: 0 4px 16px rgba(16,24,40,.1);
+      z-index: 100;
+    }
+    .signin-popover.open { display: block; }
+    .signin-popover p { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+    .subdomain-input-row {
+      display: flex;
+      align-items: center;
+      border: 1.5px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 10px;
+      background: #fff;
+      transition: border-color .15s;
+    }
+    .subdomain-input-row:focus-within { border-color: var(--accent); }
+    .subdomain-input-row input {
+      border: none;
+      outline: none;
+      padding: 8px 10px;
+      font-size: 13px;
+      flex: 1;
+      min-width: 0;
+      font-family: inherit;
+    }
+    .subdomain-input-row span {
+      padding: 8px 10px;
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+      border-left: 1.5px solid var(--line);
+    }
+    .signin-go {
+      width: 100%;
+      padding: 8px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background .15s;
+    }
+    .signin-go:hover { background: var(--accent-dark); }
     main {
       flex: 1;
       display: flex;
@@ -109,7 +181,20 @@
 <body>
   <header>
     <div class="brand">D<span>ERP</span></div>
-    <nav><a href="/signup/">Get started free</a></nav>
+    <nav>
+      <div class="signin-wrap">
+        <button class="signin-btn" id="signinBtn">Sign in</button>
+        <div class="signin-popover" id="signinPopover">
+          <p>Enter your workspace subdomain to sign in.</p>
+          <div class="subdomain-input-row">
+            <input type="text" id="subdomainInput" placeholder="yourcompany" autocomplete="off" spellcheck="false">
+            <span>.inventorymanager.xyz</span>
+          </div>
+          <button class="signin-go" id="signinGo">Go to workspace</button>
+        </div>
+      </div>
+      <a href="/signup/">Get started free</a>
+    </nav>
   </header>
 
   <main>
@@ -161,5 +246,31 @@
   <footer>
     &copy; 2026 DERP &mdash; MIT License &mdash; <a href="https://github.com/DevanMetz/DERP">GitHub</a>
   </footer>
+  <script>
+    const btn = document.getElementById('signinBtn');
+    const popover = document.getElementById('signinPopover');
+    const input = document.getElementById('subdomainInput');
+    const go = document.getElementById('signinGo');
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      popover.classList.toggle('open');
+      if (popover.classList.contains('open')) input.focus();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!popover.contains(e.target) && e.target !== btn) {
+        popover.classList.remove('open');
+      }
+    });
+
+    function navigate() {
+      const slug = input.value.trim().toLowerCase();
+      if (slug) window.location.href = `https://${slug}.inventorymanager.xyz/accounts/login/`;
+    }
+
+    go.addEventListener('click', navigate);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') navigate(); });
+  </script>
 </body>
 </html>

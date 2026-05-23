@@ -93,6 +93,7 @@ class PublicSiteUrlTests(TestCase):
         self.assertIn('property="og:url" content="https://public.example/"', content)
         self.assertIn('"url": "https://public.example/"', content)
         self.assertIn("<span>.workspaces.example</span>", content)
+        self.assertIn('href="https://github.com/DevanMetz/DERP/tree/main/docs"', content)
         self.assertIn("const workspaceLoginBaseUrl = 'https://workspaces.example/';", content)
         self.assertNotIn("inventorymanager.xyz", content)
 

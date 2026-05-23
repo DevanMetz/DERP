@@ -3,7 +3,6 @@ import urllib.request
 import json
 
 from django.conf import settings
-from django.core.mail import send_mail
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django_tenants.utils import schema_context
@@ -27,6 +26,32 @@ def _verify_turnstile(token, ip):
             return result.get("success", False)
     except Exception:
         return False
+
+
+def _send_email_via_resend(to_email, subject, text_body):
+    """Send email through Resend's HTTPS API (Railway blocks outbound SMTP)."""
+    api_key = getattr(settings, "RESEND_API_KEY", "") or __import__("os").environ.get("RESEND_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("RESEND_API_KEY not configured")
+    payload = json.dumps({
+        "from": settings.DEFAULT_FROM_EMAIL,
+        "to": [to_email],
+        "subject": subject,
+        "text": text_body,
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        body = resp.read()
+        if resp.status >= 400:
+            raise RuntimeError(f"Resend API error {resp.status}: {body!r}")
 
 from .forms import TenantSignupForm
 from .models import Domain, PendingTenant, SignupAttempt, TenantCompany
@@ -62,18 +87,16 @@ def signup(request):
 
         confirm_url = f"https://{base}/signup/confirm/{pending.token}/"
         try:
-            send_mail(
+            _send_email_via_resend(
+                to_email=data["email"],
                 subject="Confirm your DERP workspace",
-                message=(
+                text_body=(
                     f"Hi,\n\n"
                     f"You requested a workspace at {data['subdomain']}.{base}.\n\n"
                     f"Click the link below to confirm and activate it:\n{confirm_url}\n\n"
                     f"This link expires in 24 hours. If you didn't sign up, you can ignore this email.\n\n"
                     f"— The DERP team"
                 ),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[data["email"]],
-                fail_silently=False,
             )
         except Exception as exc:
             import logging

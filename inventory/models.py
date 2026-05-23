@@ -10,8 +10,15 @@ default accounts) so adding them later doesn't require backfill churn.
 """
 
 from decimal import Decimal
+from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
 from django.db import models
 from simple_history.models import HistoricalRecords
+
+
+def _validate_image_size(file):
+    if file.size > 5 * 1024 * 1024:
+        raise ValidationError("Image must be 5 MB or smaller.")
 
 
 class ProductType(models.TextChoices):
@@ -26,7 +33,16 @@ class Product(models.Model):
     description = models.TextField(blank=True)
     type = models.CharField(max_length=20, choices=ProductType.choices, default=ProductType.STOCK)
     uom = models.CharField(max_length=20, default="ea", help_text="Unit of measure: ea, kg, hr, etc.")
-    image = models.ImageField(upload_to="products/", null=True, blank=True, help_text="Product thumbnail or icon.")
+    image = models.ImageField(
+        upload_to="products/",
+        null=True,
+        blank=True,
+        validators=[
+            FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "gif", "webp"]),
+            _validate_image_size,
+        ],
+        help_text="Product thumbnail or icon (JPG/PNG/GIF/WebP, max 5 MB).",
+    )
 
     # Pricing. Cost is what we paid (avg cost in Phase 2); price is default sell price.
     cost = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))

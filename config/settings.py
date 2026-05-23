@@ -46,6 +46,7 @@ SHARED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.staticfiles",
     "django.contrib.sites",
+    "django_ratelimit",
 ]
 
 TENANT_APPS = [
@@ -157,3 +158,25 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 # Currency is locked to USD for v1.
 DEFAULT_CURRENCY = "USD"
+
+# Password hashing — prefer Argon2, fall back to PBKDF2 for existing hashes.
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+]
+
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 10}},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
+# File upload limits (5 MB)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
+
+# Security headers
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"

@@ -1,5 +1,6 @@
 import re
 from django import forms
+from django.contrib.auth.password_validation import validate_password
 
 
 class TenantSignupForm(forms.Form):
@@ -18,7 +19,11 @@ class TenantSignupForm(forms.Form):
         label="Admin email",
         widget=forms.EmailInput(attrs={"placeholder": "you@company.com"}),
     )
-    password1 = forms.CharField(label="Password", widget=forms.PasswordInput())
+    password1 = forms.CharField(
+        label="Password",
+        widget=forms.PasswordInput(),
+        help_text="At least 10 characters. Cannot be entirely numeric.",
+    )
     password2 = forms.CharField(label="Confirm password", widget=forms.PasswordInput())
 
     RESERVED = {"www", "api", "admin", "mail", "public", "static", "media", "app", "dashboard"}
@@ -33,6 +38,12 @@ class TenantSignupForm(forms.Form):
         if TenantCompany.objects.filter(schema_name=slug).exists():
             raise forms.ValidationError("That subdomain is already taken.")
         return slug
+
+    def clean_password1(self):
+        password = self.cleaned_data.get("password1")
+        if password:
+            validate_password(password)
+        return password
 
     def clean(self):
         cleaned = super().clean()

@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.contrib import messages
 from django.shortcuts import redirect, render
+from django.views.decorators.http import require_http_methods
+from django_ratelimit.decorators import ratelimit
 from django_tenants.utils import schema_context
 
 from .forms import TenantSignupForm
@@ -11,6 +13,7 @@ def landing(request):
     return render(request, "tenants/landing.html")
 
 
+@ratelimit(key="ip", rate="5/h", method="POST", block=True)
 def signup(request):
     form = TenantSignupForm(request.POST or None)
     if request.method == "POST" and form.is_valid():

@@ -1067,7 +1067,7 @@
   <form class="ai-composer" id="ai-composer">
     <textarea id="ai-input" placeholder="I purchased 20 units of WIDGET from Supply Co at $5 each"></textarea>
     <div class="ai-composer-actions">
-      <button class="btn secondary" id="ai-clear" type="button">Clear</button>
+      <button class="btn secondary" id="ai-clear" type="button" title="Clear chat history">Clear history</button>
       <button class="btn" id="ai-send" type="submit">Send</button>
     </div>
   </form>
@@ -1387,6 +1387,34 @@
     const aiSend = document.getElementById("ai-send");
     const AI_KEY_STORAGE = "derp_ai_api_key";
     const AI_OPEN_STORAGE = "derp_ai_panel_open";
+    const AI_HISTORY_STORAGE = "derp_ai_chat_history";
+    const AI_HISTORY_MAX = 200;
+
+    function loadAiHistory() {
+      try {
+        const raw = localStorage.getItem(AI_HISTORY_STORAGE);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveAiHistory(history) {
+      try {
+        const trimmed = history.slice(-AI_HISTORY_MAX);
+        localStorage.setItem(AI_HISTORY_STORAGE, JSON.stringify(trimmed));
+      } catch (e) {
+        // Quota exceeded or storage disabled — fail silently.
+      }
+    }
+
+    function recordAiMessage(role, text) {
+      const history = loadAiHistory();
+      history.push({ role, text });
+      saveAiHistory(history);
+    }
 
     function getCookie(name) {
       const value = `; ${document.cookie}`;
@@ -1406,13 +1434,17 @@
       }
     }
 
-    function appendAiMessage(role, text) {
+    function appendAiMessage(role, text, options) {
       if (!aiMessages) return null;
       const message = document.createElement("div");
       message.className = `ai-message ${role}`;
       message.textContent = text;
       aiMessages.appendChild(message);
       aiMessages.scrollTop = aiMessages.scrollHeight;
+      // Skip persistence when replaying from storage or for transient placeholders.
+      if (!options || !options.skipHistory) {
+        recordAiMessage(role, text);
+      }
       return message;
     }
 
@@ -1516,9 +1548,20 @@
     if (aiClose) aiClose.addEventListener("click", () => setAiOpen(false));
     if (aiClear && aiMessages) {
       aiClear.addEventListener("click", () => {
+        if (!confirm("Clear chat history?")) return;
         aiMessages.innerHTML = "";
-        appendAiMessage("assistant", "Ready for the next purchasing task.");
+        localStorage.removeItem(AI_HISTORY_STORAGE);
+        appendAiMessage("assistant", "Ready for the next task.", { skipHistory: true });
       });
+    }
+
+    // Replay persisted history (or show the welcome message if empty).
+    if (aiMessages) {
+      const history = loadAiHistory();
+      if (history.length > 0) {
+        aiMessages.innerHTML = "";
+        history.forEach(item => appendAiMessage(item.role, item.text, { skipHistory: true }));
+      }
     }
     if (aiComposer) {
       aiComposer.addEventListener("submit", async event => {
@@ -1528,7 +1571,8 @@
         appendAiMessage("user", message);
         aiInput.value = "";
         if (aiSend) aiSend.disabled = true;
-        const pending = appendAiMessage("assistant", "Thinking...");
+        // Transient placeholder — don't persist; we'll record the final reply text below.
+        const pending = appendAiMessage("assistant", "Thinking...", { skipHistory: true });
         try {
           const response = await fetch("{% url 'ai_chat' %}", {
             method: "POST",
@@ -1548,12 +1592,15 @@
           });
           const data = await response.json();
           if (!response.ok) throw new Error(data.error || "AI request failed.");
-          if (pending) pending.textContent = data.reply || "Done.";
+          const finalText = data.reply || "Done.";
+          if (pending) pending.textContent = finalText;
+          recordAiMessage("assistant", finalText);
           renderAiPreview(data.preview);
         } catch (error) {
           if (pending) {
             pending.classList.add("error");
             pending.textContent = error.message;
+            recordAiMessage("error", error.message);
           } else {
             appendAiMessage("error", error.message);
           }

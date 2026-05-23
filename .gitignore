@@ -42,3 +42,6 @@ staticfiles/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# AI assistants
+.claude/

@@ -3,7 +3,92 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>DERP — Enterprise Resource Planner</title>
+  <title>DERP — Open Source ERP Software for Small Business | Free & Self-Hostable</title>
+  <meta name="description" content="DERP is free, open source ERP software for small and medium businesses. Double-entry accounting, inventory, manufacturing, sales, and purchasing — self-hosted or cloud. MIT licensed. Sign up free.">
+  <meta name="keywords" content="open source ERP, open source ERP software, free ERP, free ERP software, self-hosted ERP, ERP for small business, multi-tenant ERP, Django ERP, open source accounting software, open source inventory management, MIT license ERP">
+  <meta name="robots" content="index, follow">
+  <meta name="author" content="DERP">
+  <link rel="canonical" href="https://inventorymanager.xyz/">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="DERP — Open Source ERP Software for Small Business">
+  <meta property="og:description" content="Free, open source ERP. Double-entry accounting, inventory, manufacturing, sales & purchasing. Self-hosted or cloud. MIT licensed.">
+  <meta property="og:url" content="https://inventorymanager.xyz/">
+  <meta property="og:site_name" content="DERP">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="DERP — Open Source ERP Software for Small Business">
+  <meta name="twitter:description" content="Free, open source ERP. Self-hosted or cloud. MIT licensed.">
+
+  <!-- Structured data: SoftwareApplication -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "DERP",
+    "alternateName": "Devan's Enterprise Resource Planner",
+    "applicationCategory": "BusinessApplication",
+    "applicationSubCategory": "ERP",
+    "operatingSystem": "Web, Linux, Windows, macOS",
+    "description": "Free, open source ERP software for small and medium businesses. Includes double-entry accounting, inventory, manufacturing, sales, and purchasing.",
+    "url": "https://inventorymanager.xyz/",
+    "downloadUrl": "https://github.com/DevanMetz/DERP",
+    "license": "https://opensource.org/licenses/MIT",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "softwareVersion": "1.0",
+    "author": {
+      "@type": "Organization",
+      "name": "DERP"
+    }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Is DERP really free and open source?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. DERP is released under the MIT License. You can use, modify, and redistribute it freely, including for commercial use."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I self-host DERP?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. Clone the GitHub repository, install PostgreSQL and Python 3.13+, and run it on your own server. Full instructions are in the README."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What does DERP include?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Double-entry accounting, inventory management with weighted average costing, sales orders and invoicing, purchase orders and bills, manufacturing with bills of materials, financial reports (Trial Balance, P&L, Balance Sheet, GL), and PDF document generation."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How is DERP different from other open source ERPs like Odoo or ERPNext?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "DERP is intentionally lightweight — it focuses on the core ERP loop (accounting, inventory, sales, purchasing, manufacturing) without enterprise bloat. It is built on Django, MIT licensed, and easy to deploy on a single server or any platform that runs Python."
+        }
+      }
+    ]
+  }
+  </script>
+
   <style>
     :root {
       --bg: #f6f7f9;
@@ -32,10 +117,17 @@
       align-items: center;
       justify-content: space-between;
     }
-    .brand { font-size: 18px; font-weight: 800; letter-spacing: .02em; color: var(--fg); }
+    .brand { font-size: 18px; font-weight: 800; letter-spacing: .02em; color: var(--fg); text-decoration: none; }
     .brand span { color: var(--accent); }
-    nav { display: flex; align-items: center; gap: 10px; }
-    nav a {
+    nav { display: flex; align-items: center; gap: 14px; }
+    nav .nav-link {
+      color: var(--fg);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    nav .nav-link:hover { color: var(--accent); }
+    nav .cta {
       display: inline-block;
       padding: 8px 20px;
       background: var(--accent);
@@ -45,7 +137,7 @@
       font-size: 14px;
       text-decoration: none;
     }
-    nav a:hover { background: var(--accent-dark); }
+    nav .cta:hover { background: var(--accent-dark); }
     .signin-wrap { position: relative; }
     .signin-btn {
       padding: 8px 20px;
@@ -117,18 +209,23 @@
       transition: background .15s;
     }
     .signin-go:hover { background: var(--accent-dark); }
-    main {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 64px 24px;
-    }
-    .hero { max-width: 640px; text-align: center; }
-    .hero h1 { font-size: 42px; font-weight: 800; line-height: 1.15; margin-bottom: 20px; }
+    main { flex: 1; }
+    .container { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+    .hero { padding: 80px 24px 40px; text-align: center; }
+    .hero h1 { font-size: 48px; font-weight: 800; line-height: 1.1; margin-bottom: 20px; letter-spacing: -.02em; }
     .hero h1 em { color: var(--accent); font-style: normal; }
-    .hero p { font-size: 18px; color: var(--muted); margin-bottom: 36px; }
-    .cta-group { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .hero .lede { font-size: 20px; color: var(--muted); margin: 0 auto 36px; max-width: 720px; }
+    .hero .pill {
+      display: inline-block;
+      background: #e9efff;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 18px;
+    }
+    .cta-group { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 16px; }
     .btn-primary {
       padding: 14px 32px;
       background: var(--accent);
@@ -139,7 +236,7 @@
       text-decoration: none;
       transition: background .15s;
     }
-    .btn-primary:hover { background: var(--accent-dark); text-decoration: none; color: #fff; }
+    .btn-primary:hover { background: var(--accent-dark); }
     .btn-secondary {
       padding: 14px 32px;
       background: #fff;
@@ -151,37 +248,82 @@
       text-decoration: none;
       transition: border-color .15s;
     }
-    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .micro-trust { font-size: 13px; color: var(--muted); }
+    .section { padding: 64px 0; }
+    .section-title { text-align: center; margin-bottom: 40px; }
+    .section-title h2 { font-size: 32px; font-weight: 800; margin-bottom: 10px; letter-spacing: -.01em; }
+    .section-title p { color: var(--muted); font-size: 16px; max-width: 640px; margin: 0 auto; }
     .features {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
       gap: 20px;
-      margin-top: 64px;
-      text-align: left;
     }
     .feature {
       background: #fff;
       border: 1px solid var(--line);
       border-radius: 10px;
-      padding: 20px;
+      padding: 24px;
       box-shadow: var(--shadow);
     }
-    .feature-icon { font-size: 24px; margin-bottom: 10px; }
-    .feature h3 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
-    .feature p { font-size: 13px; color: var(--muted); }
+    .feature-icon { font-size: 28px; margin-bottom: 12px; }
+    .feature h3 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+    .feature p { font-size: 14px; color: var(--muted); }
+    .compare {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .compare table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .compare th, .compare td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+    .compare th { background: #f6f7f9; font-weight: 700; }
+    .compare td.check { color: #16a34a; font-weight: 700; }
+    .compare td.cross { color: #b42318; }
+    .faq-item {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 12px;
+    }
+    .faq-item h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+    .faq-item p { font-size: 14px; color: var(--muted); }
+    .cta-band {
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: #fff;
+      text-align: center;
+      padding: 64px 24px;
+      border-radius: 12px;
+      margin: 32px 0;
+    }
+    .cta-band h2 { font-size: 28px; font-weight: 800; margin-bottom: 12px; }
+    .cta-band p { font-size: 16px; opacity: .9; margin-bottom: 28px; }
+    .cta-band .btn-primary { background: #fff; color: var(--accent); }
+    .cta-band .btn-primary:hover { background: #f6f7f9; }
     footer {
       text-align: center;
-      padding: 24px;
+      padding: 32px 24px;
       font-size: 13px;
       color: var(--muted);
       border-top: 1px solid var(--line);
+      background: #fff;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+    @media (max-width: 640px) {
+      .hero h1 { font-size: 34px; }
+      .hero .lede { font-size: 17px; }
+      header { padding: 12px 16px; }
     }
   </style>
 </head>
 <body>
   <header>
-    <div class="brand">D<span>ERP</span></div>
+    <a class="brand" href="/">D<span>ERP</span></a>
     <nav>
+      <a class="nav-link" href="/features/">Features</a>
+      <a class="nav-link" href="https://github.com/DevanMetz/DERP" target="_blank" rel="noopener">GitHub</a>
       <div class="signin-wrap">
         <button class="signin-btn" id="signinBtn">Sign in</button>
         <div class="signin-popover" id="signinPopover">
@@ -193,59 +335,155 @@
           <button class="signin-go" id="signinGo">Go to workspace</button>
         </div>
       </div>
-      <a href="/signup/">Get started free</a>
+      <a class="cta" href="/signup/">Get started free</a>
     </nav>
   </header>
 
   <main>
-    <div>
-      <div class="hero">
-        <h1>Your business, <em>fully managed</em></h1>
-        <p>DERP is an open-source ERP for small and medium businesses — double-entry accounting, inventory, manufacturing, and more, in one place.</p>
+    <section class="hero">
+      <div class="container">
+        <span class="pill">MIT Licensed · Free Forever</span>
+        <h1>Open source <em>ERP software</em><br>for small business</h1>
+        <p class="lede">DERP is a free, self-hostable ERP with double-entry accounting, inventory, manufacturing, sales, and purchasing — built on Django and PostgreSQL. Sign up and get your own private workspace in seconds, or run it on your own server.</p>
         <div class="cta-group">
-          <a class="btn-primary" href="/signup/">Create your workspace</a>
-          <a class="btn-secondary" href="https://github.com/DevanMetz/DERP" target="_blank">View on GitHub</a>
+          <a class="btn-primary" href="/signup/">Create your workspace free</a>
+          <a class="btn-secondary" href="https://github.com/DevanMetz/DERP" target="_blank" rel="noopener">Star on GitHub</a>
         </div>
+        <p class="micro-trust">No credit card required · Your data lives in an isolated PostgreSQL schema</p>
       </div>
+    </section>
 
-      <div class="features">
-        <div class="feature">
-          <div class="feature-icon">📒</div>
-          <h3>Double-entry accounting</h3>
-          <p>Immutable journals, trial balance, P&amp;L, balance sheet, and GL drill-downs.</p>
+    <section class="section">
+      <div class="container">
+        <div class="section-title">
+          <h2>Everything you need to run your business</h2>
+          <p>A complete ERP — accounting, inventory, sales, purchasing, and manufacturing — in one open source codebase.</p>
         </div>
-        <div class="feature">
-          <div class="feature-icon">📦</div>
-          <h3>Inventory &amp; costing</h3>
-          <p>Weighted average costing, stock movements, and low-stock alerts.</p>
+        <div class="features">
+          <div class="feature">
+            <div class="feature-icon">📒</div>
+            <h3>Double-entry accounting</h3>
+            <p>Immutable journal entries, automatic reversing voids, Trial Balance, P&amp;L, Balance Sheet, and General Ledger with drill-downs.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">📦</div>
+            <h3>Inventory management</h3>
+            <p>Weighted average costing, stock movements, low-stock alerts, and live inventory valuation reconciled against your GL.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">🛒</div>
+            <h3>Sales &amp; invoicing</h3>
+            <p>Customers, sales orders, invoices with automatic COGS postings, AR tracking, and one-click PDF downloads.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">🧾</div>
+            <h3>Purchasing &amp; bills</h3>
+            <p>Vendors, purchase orders, goods receipts, and vendor bills — full procure-to-pay loop with AP tracking.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">🏭</div>
+            <h3>Manufacturing &amp; BOMs</h3>
+            <p>Bills of materials with cost rollups, production orders, shortage visualizer, and atomic completion with GL postings.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">📊</div>
+            <h3>Analytics dashboard</h3>
+            <p>YTD revenue, net profit, outstanding AR/AP, cash flow charts, and warehouse value breakdowns — all in real time.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">🔒</div>
+            <h3>Schema isolation</h3>
+            <p>Each workspace is a private PostgreSQL schema. No data bleed between tenants, ever. Enterprise security on day one.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">📄</div>
+            <h3>Branded PDF documents</h3>
+            <p>Generate professional PDF invoices, sales orders, and purchase orders on demand with consistent corporate styling.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">⬇️</div>
+            <h3>Data export &amp; import</h3>
+            <p>One-click CSV ZIP exports, Django JSON backups, CSV bulk upload with atomic rollback. Your data is never trapped.</p>
+          </div>
         </div>
-        <div class="feature">
-          <div class="feature-icon">🛒</div>
-          <h3>Sales &amp; purchasing</h3>
-          <p>Full O2C and P2P flows — orders, invoices, receipts, and bills.</p>
-        </div>
-        <div class="feature">
-          <div class="feature-icon">🏭</div>
-          <h3>Manufacturing</h3>
-          <p>BOMs, production orders, and atomic completion with GL postings.</p>
-        </div>
-        <div class="feature">
-          <div class="feature-icon">🔒</div>
-          <h3>Isolated per-company</h3>
-          <p>Each workspace is a private PostgreSQL schema — your data stays yours.</p>
-        </div>
-        <div class="feature">
-          <div class="feature-icon">📊</div>
-          <h3>Analytics dashboard</h3>
-          <p>Real-time KPIs, Chart.js revenue charts, and inventory valuation.</p>
+        <div style="text-align:center; margin-top:32px;">
+          <a class="btn-secondary" href="/features/">See all features →</a>
         </div>
       </div>
-    </div>
+    </section>
+
+    <section class="section" style="background:#fff;">
+      <div class="container">
+        <div class="section-title">
+          <h2>Why open source ERP?</h2>
+          <p>Most ERPs lock you into expensive seats, opaque pricing, and proprietary data formats. DERP is the opposite.</p>
+        </div>
+        <div class="compare">
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <th>DERP</th>
+                <th>Proprietary ERPs</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>License</td><td class="check">MIT · Free forever</td><td class="cross">Commercial, per-seat</td></tr>
+              <tr><td>Self-host</td><td class="check">Yes, full source on GitHub</td><td class="cross">Vendor cloud only</td></tr>
+              <tr><td>Per-user fees</td><td class="check">None</td><td class="cross">$30–$200/user/mo</td></tr>
+              <tr><td>Data ownership</td><td class="check">Standard PostgreSQL — export anytime</td><td class="cross">Proprietary formats</td></tr>
+              <tr><td>Customizable</td><td class="check">Fork it, change anything</td><td class="cross">Vendor lock-in</td></tr>
+              <tr><td>Audit trail</td><td class="check">django-simple-history on every record</td><td>Varies</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="section-title">
+          <h2>Frequently asked questions</h2>
+        </div>
+        <div class="faq-item">
+          <h3>Is DERP really free and open source?</h3>
+          <p>Yes. DERP is released under the MIT License — one of the most permissive open source licenses. You can use it for any purpose, including commercial use, with no fees and no contributor agreement to sign.</p>
+        </div>
+        <div class="faq-item">
+          <h3>Can I self-host DERP on my own server?</h3>
+          <p>Absolutely. The full source is on <a href="https://github.com/DevanMetz/DERP">GitHub</a>. You'll need Python 3.13+ and PostgreSQL 15+. The README has step-by-step instructions for getting it running locally or on a VPS like DigitalOcean, Hetzner, or Railway.</p>
+        </div>
+        <div class="faq-item">
+          <h3>How does DERP compare to Odoo, ERPNext, or Dolibarr?</h3>
+          <p>DERP is intentionally lightweight. It focuses on the core ERP loop — accounting, inventory, sales, purchasing, manufacturing — without the enterprise plugin sprawl. It's a single Django app with a clean codebase that a single developer can read in an afternoon.</p>
+        </div>
+        <div class="faq-item">
+          <h3>What kind of business is DERP for?</h3>
+          <p>Small and medium businesses that buy, sell, and possibly manufacture physical goods. Distributors, light manufacturers, retailers, ecommerce shops, and consultants who need real accounting plus inventory in one place.</p>
+        </div>
+        <div class="faq-item">
+          <h3>Is my data safe on the hosted version?</h3>
+          <p>Each workspace runs in its own isolated PostgreSQL schema — there is no shared table where tenant data lives together. HTTPS is enforced, passwords are hashed with Argon2, and you can export everything to CSV or JSON at any time.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="container">
+        <div class="cta-band">
+          <h2>Start managing your business in 60 seconds</h2>
+          <p>Free, no credit card, your own private workspace.</p>
+          <a class="btn-primary" href="/signup/">Create your workspace free</a>
+        </div>
+      </div>
+    </section>
   </main>
 
   <footer>
-    &copy; 2026 DERP &mdash; MIT License &mdash; <a href="https://github.com/DevanMetz/DERP">GitHub</a>
+    <p>&copy; 2026 DERP &middot; <a href="https://opensource.org/licenses/MIT">MIT License</a> &middot; <a href="https://github.com/DevanMetz/DERP">GitHub</a> &middot; <a href="/features/">Features</a></p>
+    <p style="margin-top:8px;">Open source ERP software for small and medium business.</p>
   </footer>
+
   <script>
     const btn = document.getElementById('signinBtn');
     const popover = document.getElementById('signinPopover');

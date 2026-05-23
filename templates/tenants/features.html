@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Features — DERP Open Source ERP Software | Accounting, Inventory, Manufacturing</title>
+  <meta name="description" content="Complete feature list for DERP open source ERP: double-entry accounting, weighted average inventory costing, sales orders, purchase orders, manufacturing BOMs, financial reports, PDF generation, and more. Free, MIT licensed.">
+  <meta name="keywords" content="open source ERP features, free accounting software, open source inventory management, open source manufacturing software, BOM software, weighted average costing, double-entry accounting, Django ERP">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://inventorymanager.xyz/features/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Features — DERP Open Source ERP Software">
+  <meta property="og:description" content="Complete feature list: accounting, inventory, sales, purchasing, manufacturing, reporting. Free and MIT licensed.">
+  <meta property="og:url" content="https://inventorymanager.xyz/features/">
+
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --fg: #101828;
+      --muted: #667085;
+      --accent: #2453b3;
+      --accent-dark: #1d438f;
+      --line: #d9dee7;
+      --shadow: 0 1px 3px rgba(16,24,40,.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font: 15px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand { font-size: 18px; font-weight: 800; letter-spacing: .02em; color: var(--fg); text-decoration: none; }
+    .brand span { color: var(--accent); }
+    nav { display: flex; align-items: center; gap: 14px; }
+    nav .nav-link {
+      color: var(--fg);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    nav .nav-link.active { color: var(--accent); }
+    nav .nav-link:hover { color: var(--accent); }
+    nav .cta {
+      display: inline-block;
+      padding: 8px 20px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 14px;
+      text-decoration: none;
+    }
+    nav .cta:hover { background: var(--accent-dark); }
+    main { flex: 1; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+    .page-hero { padding: 64px 24px 24px; text-align: center; }
+    .page-hero h1 { font-size: 40px; font-weight: 800; letter-spacing: -.02em; margin-bottom: 14px; }
+    .page-hero p { font-size: 18px; color: var(--muted); max-width: 700px; margin: 0 auto; }
+    .toc {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin: 24px auto 0;
+      max-width: 800px;
+    }
+    .toc a {
+      font-size: 13px;
+      padding: 6px 12px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--fg);
+      text-decoration: none;
+    }
+    .toc a:hover { border-color: var(--accent); color: var(--accent); }
+    .feature-section { padding: 56px 0; border-top: 1px solid var(--line); }
+    .feature-section:first-of-type { border-top: none; }
+    .feature-section h2 {
+      font-size: 28px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      letter-spacing: -.01em;
+      scroll-margin-top: 20px;
+    }
+    .feature-section > .container > .lede { font-size: 16px; color: var(--muted); margin-bottom: 32px; max-width: 720px; }
+    .feature-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+    .feature-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+    .feature-card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .feature-card p { font-size: 14px; color: var(--muted); }
+    .feature-card .badge {
+      font-size: 11px;
+      color: #16a34a;
+      background: #e8f7ee;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+    .tech-stack { background: #fff; }
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .tech-item {
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .tech-item strong { display: block; font-size: 14px; margin-bottom: 4px; }
+    .tech-item span { font-size: 13px; color: var(--muted); }
+    .cta-band {
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: #fff;
+      text-align: center;
+      padding: 56px 24px;
+      border-radius: 12px;
+      margin: 40px auto;
+    }
+    .cta-band h2 { font-size: 26px; font-weight: 800; margin-bottom: 12px; color: #fff; }
+    .cta-band p { font-size: 15px; opacity: .9; margin-bottom: 24px; }
+    .cta-band a {
+      display: inline-block;
+      padding: 14px 32px;
+      background: #fff;
+      color: var(--accent);
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 15px;
+      text-decoration: none;
+    }
+    .cta-band a:hover { background: var(--bg); }
+    footer {
+      text-align: center;
+      padding: 32px 24px;
+      font-size: 13px;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      background: #fff;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    @media (max-width: 640px) {
+      .page-hero h1 { font-size: 30px; }
+      header { padding: 12px 16px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="brand" href="/">D<span>ERP</span></a>
+    <nav>
+      <a class="nav-link active" href="/features/">Features</a>
+      <a class="nav-link" href="https://github.com/DevanMetz/DERP" target="_blank" rel="noopener">GitHub</a>
+      <a class="cta" href="/signup/">Get started free</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="page-hero">
+      <div class="container">
+        <h1>Every feature in DERP</h1>
+        <p>A complete, free, open source ERP — built for small and medium businesses that need real accounting, inventory, and operations in one place.</p>
+        <div class="toc">
+          <a href="#accounting">Accounting</a>
+          <a href="#inventory">Inventory</a>
+          <a href="#sales">Sales</a>
+          <a href="#purchasing">Purchasing</a>
+          <a href="#manufacturing">Manufacturing</a>
+          <a href="#reports">Reports</a>
+          <a href="#platform">Platform &amp; Security</a>
+          <a href="#data">Data &amp; PDFs</a>
+          <a href="#tech">Tech Stack</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature-section" id="accounting">
+      <div class="container">
+        <h2>📒 Accounting</h2>
+        <p class="lede">A real double-entry general ledger — not a glorified spreadsheet. Every transaction is balanced, immutable, and auditable.</p>
+        <div class="feature-list">
+          <div class="feature-card">
+            <h3>Double-entry journal</h3>
+            <p>Every business event posts a balanced DR/CR transaction through a single posting service. No way to create unbalanced entries.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Immutable history</h3>
+            <p>Voiding an invoice, bill, or journal generates a reversing entry instead of mutating the original. Historical records never change.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Chart of Accounts</h3>
+            <p>Pre-seeded with a sensible default CoA on tenant creation. Add, rename, and reorganize accounts as needed.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Payments &amp; applications</h3>
+            <p>Record customer payments against invoices and vendor payments against bills with partial-allocation support.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Full audit trail</h3>
+            <p>Every record carries a history via django-simple-history — who changed what, when, and why.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Source document linking</h3>
+            <p>Posted journal entries link directly back to the originating invoice, bill, MO, or stock movement.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature-section" id="inventory">
+      <div class="container">
+        <h2>📦 Inventory Management</h2>
+        <p class="lede">Open source inventory management with proper costing — not just quantity tracking.</p>
+        <div class="feature-list">
+          <div class="feature-card">
+            <h3>Weighted average costing</h3>
+            <p>Every receipt automatically recalculates the moving average cost: <code>((qty × cost) + (recv × recv_cost)) / (qty + recv)</code>.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Stock movements ledger</h3>
+            <p>Every quantity change is a Receipt, Issue, or Adjustment row — a complete history of every unit that ever moved.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Low-stock alerts</h3>
+            <p>Set thresholds per product. Items below threshold show red warning badges in the catalog and on the dashboard.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Product images</h3>
+            <p>Upload JPG, PNG, GIF, or WebP up to 5 MB. Automatic SKU-letter fallback avatars when no image is uploaded.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Book vs physical reconciliation</h3>
+            <p>Dashboard widget matches GL inventory value against physical stock value to surface variances instantly.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Stock-on-hand views</h3>
+            <p>Live quantity views per product with location-ready architecture for future multi-warehouse expansion.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature-section" id="sales">
+      <div class="container">
+        <h2>🛒 Sales &amp; Order-to-Cash</h2>
+        <p class="lede">The full O2C cycle from quote to cash, with automatic GL postings and COGS recognition.</p>
+        <div class="feature-list">
+          <div class="feature-card">
+            <h3>Customer profiles</h3>
+            <p>Contact info, billing &amp; shipping addresses, lifetime revenue, outstanding AR, and full SO/invoice history.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Sales orders</h3>
+            <p>Multi-line orders with quantity, unit price, and per-line GL account. Confirm to issue stock and draft an invoice in one click.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Customer invoices</h3>
+            <p>Draft → Sent → Paid workflow with automatic COGS and inventory postings on send. Void posts a reversing entry.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Atomic confirm</h3>
+            <p>If stock is insufficient, the entire confirmation rolls back. No partial state, no orphaned movements.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Accounts receivable</h3>
+            <p>Open AR balance per customer, payment application, and aging visibility through the GL.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Branded PDFs <span class="badge">PDF</span></h3>
+            <p>One-click ReportLab PDF generation for sales orders and invoices with consistent corporate styling.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature-section" id="purchasing">
+      <div class="container">
+        <h2>🧾 Purchasing &amp; Procure-to-Pay</h2>
+        <p class="lede">PO → Receipt → Bill — a complete P2P loop with automatic inventory and GL updates.</p>
+        <div class="feature-list">
+          <div class="feature-card">
+            <h3>Vendor profiles</h3>
+            <p>Contact info, default expense account, lifetime spend, outstanding AP, and full PO/bill history.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Purchase orders</h3>
+            <p>Multi-line POs with quantity, unit cost, and expected delivery. Approve and track status to receipt and billing.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Goods receipts</h3>
+            <p>Receive partial or full quantities. Each receipt posts inventory movements at the received unit cost.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Auto-generated bills</h3>
+            <p>Generate a draft vendor bill directly from a goods receipt — lines pre-populated, duplicate-bill protection built in.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Vendor bills</h3>
+            <p>Bills post AP and expense (or inventory) accounts. Void posts a reversing entry. AP aging visible through GL.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Branded PDFs <span class="badge">PDF</span></h3>
+            <p>One-click PDF generation for purchase orders.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature-section" id="manufacturing">
+      <div class="container">
+        <h2>🏭 Manufacturing</h2>
+        <p class="lede">Open source manufacturing software with bills of materials, cost rollups, and production tracking.</p>
+        <div class="feature-list">
+          <div class="feature-card">
+            <h3>Bills of materials</h3>
+            <p>Multi-component BOMs with quantity and unit-of-measure per component. Easy to clone and version.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Dynamic cost rollups</h3>
+            <p>Finished-good standard cost computed live from current component costs. Always reflects real-time material pricing.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Manufacturing orders</h3>
+            <p>Create production orders against a BOM with target quantity. System computes total component needs.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Shortage visualizer</h3>
+            <p>Order detail page shows green/red badges for each component — instantly see what's available vs short.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Atomic completion</h3>
+            <p>Completing an MO atomically issues raw materials, receives finished goods, and posts the GL transaction.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Balanced GL postings</h3>
+            <p>Every production run posts balanced DR Finished Goods / CR Raw Materials inventory journal entries.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature-section" id="reports">
+      <div class="container">
+        <h2>📊 Reports &amp; Analytics</h2>
+        <p class="lede">Real-time financial reports plus an interactive dashboard for ops visibility.</p>
+        <div class="feature-list">
+          <div class="feature-card">
+            <h3>Trial Balance</h3>
+            <p>All accounts with DR/CR totals at any date. Click any account to drill into the GL.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Profit &amp; Loss</h3>
+            <p>Revenue, COGS, gross profit, expenses, and net income for any date range.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Balance Sheet</h3>
+            <p>Assets, liabilities, and equity at any point in time. Balances every time, by design.</p>
+          </div>
+          <div class="feature-card">
+            <h3>General Ledger</h3>
+            <p>Full transactional GL with drill-downs to source documents and historical edit trail.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Live KPIs</h3>
+            <p>YTD revenue, cost base, net profit, AR/AP outstanding — refreshed every page load.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Chart.js dashboards</h3>
+            <p>Monthly cash flow line charts and inventory value doughnut charts with top-N aggregation.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature-section" id="platform">
+      <div class="container">
+        <h2>🔒 Platform &amp; Security</h2>
+        <p class="lede">Multi-tenant architecture with real isolation, modern auth, and abuse protection.</p>
+        <div class="feature-list">
+          <div class="feature-card">
+            <h3>Schema-per-tenant</h3>
+            <p>Each workspace is a separate PostgreSQL schema via django-tenants. Physical isolation, not just row-level.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Self-serve signup</h3>
+            <p>Email-verified workspace provisioning. Pick a subdomain, confirm via email, get a private ERP in seconds.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Argon2 passwords</h3>
+            <p>Modern, memory-hard password hashing — the current best-practice algorithm.</p>
+          </div>
+          <div class="feature-card">
+            <h3>HTTPS &amp; HSTS</h3>
+            <p>Enforced TLS in production with 1-year HSTS including all subdomains. CSRF protection on every form.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Rate limiting</h3>
+            <p>Signup attempts capped per IP. Login attempts capped per account. Write rate-limited per user inside each workspace.</p>
+          </div>
+          <div class="feature-card">
+            <h3>CAPTCHA on signup</h3>
+            <p>Cloudflare Turnstile blocks bot signups while staying invisible to humans.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature-section" id="data">
+      <div class="container">
+        <h2>⬇️ Data, Documents &amp; UI</h2>
+        <p class="lede">Everything exportable, every record linked, all in a modern personalized UI.</p>
+        <div class="feature-list">
+          <div class="feature-card">
+            <h3>CSV ZIP exports</h3>
+            <p>One-click export of any combination of tables as Excel-ready CSV files in a ZIP archive.</p>
+          </div>
+          <div class="feature-card">
+            <h3>JSON backups</h3>
+            <p>Full database snapshots in standard Django fixture format. Restore with <code>manage.py loaddata</code>.</p>
+          </div>
+          <div class="feature-card">
+            <h3>CSV bulk import</h3>
+            <p>Map columns to fields with create-or-update logic and full transactional rollback on any validation error.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Drag-and-drop dashboard</h3>
+            <p>Rearrange app tiles on the homepage. Layout persists per-user in browser localStorage.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Star &amp; pin shortcuts</h3>
+            <p>Star any module to pin it as a quick-access badge in the global navbar.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Deep linking everywhere</h3>
+            <p>Every document reference in the UI is a clickable link — customers, vendors, SKUs, invoices, journals, MOs, everything.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature-section tech-stack" id="tech">
+      <div class="container">
+        <h2>🛠️ Built on a modern stack</h2>
+        <p class="lede">Open standards, no obscure dependencies, no vendor lock-in. Run it anywhere Python and Postgres run.</p>
+        <div class="tech-grid">
+          <div class="tech-item"><strong>Python 3.13 + Django 5.1</strong><span>Battle-tested web framework, long-term support.</span></div>
+          <div class="tech-item"><strong>PostgreSQL 15+</strong><span>Industry-standard relational database, ACID-compliant.</span></div>
+          <div class="tech-item"><strong>django-tenants</strong><span>Schema-per-tenant multi-tenancy.</span></div>
+          <div class="tech-item"><strong>django-allauth</strong><span>Email auth with optional TOTP 2FA.</span></div>
+          <div class="tech-item"><strong>Argon2 (via argon2-cffi)</strong><span>Modern password hashing.</span></div>
+          <div class="tech-item"><strong>ReportLab</strong><span>Vector PDF document generation.</span></div>
+          <div class="tech-item"><strong>Pillow</strong><span>Product image handling.</span></div>
+          <div class="tech-item"><strong>django-simple-history</strong><span>Per-record audit trails.</span></div>
+          <div class="tech-item"><strong>Chart.js</strong><span>Interactive dashboard charts.</span></div>
+          <div class="tech-item"><strong>htmx</strong><span>Snappy server-rendered interactivity, no SPA bloat.</span></div>
+          <div class="tech-item"><strong>WhiteNoise + Gunicorn</strong><span>Production static and WSGI serving.</span></div>
+          <div class="tech-item"><strong>MIT License</strong><span>Free for any use, including commercial.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="container">
+        <div class="cta-band">
+          <h2>Try it free in your browser</h2>
+          <p>No credit card. No setup. Your own private ERP workspace in 60 seconds.</p>
+          <a href="/signup/">Create your workspace</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2026 DERP &middot; <a href="https://opensource.org/licenses/MIT">MIT License</a> &middot; <a href="https://github.com/DevanMetz/DERP">GitHub</a> &middot; <a href="/">Home</a></p>
+    <p style="margin-top:8px;">Open source ERP software for small and medium business — accounting, inventory, manufacturing, sales, and purchasing.</p>
+  </footer>
+</body>
+</html>

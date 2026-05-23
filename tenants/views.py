@@ -66,6 +66,36 @@ def landing(request):
     return render(request, "tenants/landing.html")
 
 
+def features(request):
+    return render(request, "tenants/features.html")
+
+
+def robots_txt(request):
+    from django.http import HttpResponse
+    content = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /signup/confirm/\n"
+        "Sitemap: https://inventorymanager.xyz/sitemap.xml\n"
+    )
+    return HttpResponse(content, content_type="text/plain")
+
+
+def sitemap_xml(request):
+    from django.http import HttpResponse
+    urls = [
+        ("https://inventorymanager.xyz/", "1.0"),
+        ("https://inventorymanager.xyz/features/", "0.9"),
+        ("https://inventorymanager.xyz/signup/", "0.8"),
+    ]
+    body = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    body += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    for loc, priority in urls:
+        body += f"  <url><loc>{loc}</loc><priority>{priority}</priority></url>\n"
+    body += "</urlset>\n"
+    return HttpResponse(body, content_type="application/xml")
+
+
 def signup(request):
     ip = request.META.get("HTTP_X_FORWARDED_FOR", request.META.get("REMOTE_ADDR", "")).split(",")[0].strip()
 

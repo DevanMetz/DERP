@@ -1,8 +1,22 @@
-# DERP — Devan's Enterprise Resource Planner
+# DERP — Open Source ERP Software for Small Business
 
-An open-source, multi-tenant Enterprise Resource Planner (ERP) for small-to-medium businesses. Fully licensed under the **MIT License**.
+**DERP** (Devan's Enterprise Resource Planner) is a **free, open source ERP** for small and medium businesses. It bundles **double-entry accounting**, **inventory management with weighted average costing**, **sales orders & invoicing**, **purchase orders & bills**, and **manufacturing with bills of materials (BOMs)** into a single, lightweight Django application. **MIT licensed** — self-host it on your own server, or use the hosted version free.
 
-Live at **[inventorymanager.xyz](https://inventorymanager.xyz)** — sign up and get your own isolated workspace at `yourcompany.inventorymanager.xyz` in seconds.
+> **Open source ERP · Free ERP software · Self-hosted ERP · Multi-tenant SaaS · Django ERP**
+
+🌐 **Hosted version:** **[inventorymanager.xyz](https://inventorymanager.xyz)** — sign up and get a private workspace at `yourcompany.inventorymanager.xyz` in under a minute.
+📂 **Source code:** [github.com/DevanMetz/DERP](https://github.com/DevanMetz/DERP)
+📜 **License:** MIT — use it for anything, including commercial projects.
+
+## Why DERP?
+
+Most ERPs are either prohibitively expensive (per-seat SaaS) or sprawling enterprise platforms that take a team of consultants to deploy. DERP is the opposite:
+
+- **Truly free** — MIT license, no per-seat fees, no contributor agreement, no "open core" upsell
+- **Lightweight** — one Django codebase, no microservices, no plugin marketplace
+- **Self-host or hosted** — run it yourself on a $5 VPS, or use the free hosted version
+- **Your data is yours** — standard PostgreSQL, export to CSV or JSON anytime
+- **Production-ready** — schema-per-tenant isolation, Argon2 password hashing, HTTPS+HSTS, rate limiting, CAPTCHA
 
 ---
 

@@ -1,22 +1,25 @@
 from django.conf import settings
-from django.contrib import messages
+from django.http import HttpResponseForbidden
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_http_methods
-from django_ratelimit.decorators import ratelimit
 from django_tenants.utils import schema_context
 
 from .forms import TenantSignupForm
-from .models import Domain, TenantCompany
+from .models import Domain, SignupAttempt, TenantCompany
 
 
 def landing(request):
     return render(request, "tenants/landing.html")
 
 
-@ratelimit(key="ip", rate="5/h", method="POST", block=True)
 def signup(request):
+    ip = request.META.get("HTTP_X_FORWARDED_FOR", request.META.get("REMOTE_ADDR", "")).split(",")[0].strip()
+
+    if request.method == "POST" and SignupAttempt.is_limited(ip):
+        return HttpResponseForbidden("Too many signup attempts. Please try again in an hour.")
+
     form = TenantSignupForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
+        SignupAttempt.record(ip)
         data = form.cleaned_data
         slug = data["subdomain"]
         base = settings.BASE_DOMAIN

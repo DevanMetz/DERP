@@ -46,7 +46,6 @@ SHARED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.staticfiles",
     "django.contrib.sites",
-    "django_ratelimit",
 ]
 
 TENANT_APPS = [
@@ -144,13 +143,6 @@ ACCOUNT_ALLOW_REGISTRATION = False  # tenant users created at signup or via admi
 ACCOUNT_RATE_LIMITS = {"login_failed": "5/5m"}
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
-
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
-        "LOCATION": "django_cache",
-    }
-}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 USE_TZ = True

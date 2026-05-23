@@ -765,16 +765,20 @@ def _autofill_preview(state: dict, *, user) -> dict | None:
 
 
 def _audit(*, event_type, user=None, message="", tool_names=None, metadata=None, object_type="", object_id=None) -> None:
+    """Best-effort audit log. Wrapped in its own savepoint so a failure here
+    (e.g. missing table in an un-migrated tenant) can't poison an outer
+    transaction.atomic and roll back legitimate work like a PO creation."""
     try:
-        CopilotAuditEvent.objects.create(
-            user=user if getattr(user, "is_authenticated", False) else None,
-            event_type=event_type,
-            message=message,
-            tool_names=tool_names or [],
-            metadata=metadata or {},
-            object_type=object_type,
-            object_id=object_id,
-        )
+        with transaction.atomic():
+            CopilotAuditEvent.objects.create(
+                user=user if getattr(user, "is_authenticated", False) else None,
+                event_type=event_type,
+                message=message,
+                tool_names=tool_names or [],
+                metadata=metadata or {},
+                object_type=object_type,
+                object_id=object_id,
+            )
     except Exception:
         pass
 

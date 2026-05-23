@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Product, StockMovement, StockOnHand
+from .models import Product, StockMovement, StockOnHand, Location, LocationStock
 
 
 @admin.register(Product)
@@ -21,4 +21,19 @@ class StockMovementAdmin(admin.ModelAdmin):
 class StockOnHandAdmin(admin.ModelAdmin):
     list_display = ("product", "qty", "updated_at")
     search_fields = ("product__sku", "product__name")
+    readonly_fields = ("updated_at",)
+
+
+@admin.register(Location)
+class LocationAdmin(admin.ModelAdmin):
+    list_display = ("name", "description", "is_active", "created_at")
+    list_filter = ("is_active",)
+    search_fields = ("name", "description")
+
+
+@admin.register(LocationStock)
+class LocationStockAdmin(admin.ModelAdmin):
+    list_display = ("product", "location", "qty", "updated_at")
+    list_filter = ("location",)
+    search_fields = ("product__sku", "product__name", "location__name")
     readonly_fields = ("updated_at",)

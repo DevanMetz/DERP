@@ -104,7 +104,7 @@
     body {
       background: var(--bg);
       color: var(--fg);
-      font: 15px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+      font: 17px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -210,11 +210,11 @@
     }
     .signin-go:hover { background: var(--accent-dark); }
     main { flex: 1; }
-    .container { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
-    .hero { padding: 80px 24px 40px; text-align: center; }
-    .hero h1 { font-size: 48px; font-weight: 800; line-height: 1.1; margin-bottom: 20px; letter-spacing: -.02em; }
+    .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+    .hero { padding: 96px 24px 56px; text-align: center; }
+    .hero h1 { font-size: 64px; font-weight: 800; line-height: 1.05; margin-bottom: 24px; letter-spacing: -.025em; }
     .hero h1 em { color: var(--accent); font-style: normal; }
-    .hero .lede { font-size: 20px; color: var(--muted); margin: 0 auto 36px; max-width: 720px; }
+    .hero .lede { font-size: 22px; line-height: 1.5; color: var(--muted); margin: 0 auto 40px; max-width: 720px; }
     .hero .pill {
       display: inline-block;
       background: #e9efff;
@@ -250,10 +250,10 @@
     }
     .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
     .micro-trust { font-size: 13px; color: var(--muted); }
-    .section { padding: 64px 0; }
-    .section-title { text-align: center; margin-bottom: 40px; }
-    .section-title h2 { font-size: 32px; font-weight: 800; margin-bottom: 10px; letter-spacing: -.01em; }
-    .section-title p { color: var(--muted); font-size: 16px; max-width: 640px; margin: 0 auto; }
+    .section { padding: 80px 0; }
+    .section-title { text-align: center; margin-bottom: 48px; }
+    .section-title h2 { font-size: 40px; font-weight: 800; margin-bottom: 14px; letter-spacing: -.02em; }
+    .section-title p { color: var(--muted); font-size: 18px; max-width: 640px; margin: 0 auto; }
     .features {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -266,17 +266,17 @@
       padding: 24px;
       box-shadow: var(--shadow);
     }
-    .feature-icon { font-size: 28px; margin-bottom: 12px; }
-    .feature h3 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
-    .feature p { font-size: 14px; color: var(--muted); }
+    .feature-icon { font-size: 32px; margin-bottom: 14px; }
+    .feature h3 { font-size: 19px; font-weight: 700; margin-bottom: 8px; }
+    .feature p { font-size: 15px; color: var(--muted); }
     .compare {
       background: #fff;
       border: 1px solid var(--line);
       border-radius: 12px;
       overflow: hidden;
     }
-    .compare table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    .compare th, .compare td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+    .compare table { width: 100%; border-collapse: collapse; font-size: 15px; }
+    .compare th, .compare td { text-align: left; padding: 14px 18px; border-bottom: 1px solid var(--line); }
     .compare th { background: #f6f7f9; font-weight: 700; }
     .compare td.check { color: #16a34a; font-weight: 700; }
     .compare td.cross { color: #b42318; }
@@ -287,18 +287,18 @@
       padding: 20px 24px;
       margin-bottom: 12px;
     }
-    .faq-item h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
-    .faq-item p { font-size: 14px; color: var(--muted); }
+    .faq-item h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .faq-item p { font-size: 15px; color: var(--muted); }
     .cta-band {
       background: linear-gradient(135deg, var(--accent), var(--accent-dark));
       color: #fff;
       text-align: center;
-      padding: 64px 24px;
+      padding: 72px 24px;
       border-radius: 12px;
       margin: 32px 0;
     }
-    .cta-band h2 { font-size: 28px; font-weight: 800; margin-bottom: 12px; }
-    .cta-band p { font-size: 16px; opacity: .9; margin-bottom: 28px; }
+    .cta-band h2 { font-size: 34px; font-weight: 800; margin-bottom: 14px; letter-spacing: -.01em; }
+    .cta-band p { font-size: 18px; opacity: .9; margin-bottom: 32px; }
     .cta-band .btn-primary { background: #fff; color: var(--accent); }
     .cta-band .btn-primary:hover { background: #f6f7f9; }
     footer {
@@ -312,8 +312,10 @@
     footer a { color: var(--accent); text-decoration: none; }
     footer a:hover { text-decoration: underline; }
     @media (max-width: 640px) {
-      .hero h1 { font-size: 34px; }
-      .hero .lede { font-size: 17px; }
+      .hero h1 { font-size: 40px; }
+      .hero .lede { font-size: 18px; }
+      .section-title h2 { font-size: 30px; }
+      .cta-band h2 { font-size: 26px; }
       header { padding: 12px 16px; }
     }
   </style>

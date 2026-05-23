@@ -29,7 +29,7 @@
     body {
       background: var(--bg);
       color: var(--fg);
-      font: 15px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+      font: 17px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -65,10 +65,10 @@
     }
     nav .cta:hover { background: var(--accent-dark); }
     main { flex: 1; }
-    .container { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
-    .page-hero { padding: 64px 24px 24px; text-align: center; }
-    .page-hero h1 { font-size: 40px; font-weight: 800; letter-spacing: -.02em; margin-bottom: 14px; }
-    .page-hero p { font-size: 18px; color: var(--muted); max-width: 700px; margin: 0 auto; }
+    .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+    .page-hero { padding: 80px 24px 32px; text-align: center; }
+    .page-hero h1 { font-size: 56px; font-weight: 800; letter-spacing: -.025em; line-height: 1.05; margin-bottom: 18px; }
+    .page-hero p { font-size: 20px; line-height: 1.5; color: var(--muted); max-width: 720px; margin: 0 auto; }
     .toc {
       display: flex;
       flex-wrap: wrap;
@@ -87,16 +87,16 @@
       text-decoration: none;
     }
     .toc a:hover { border-color: var(--accent); color: var(--accent); }
-    .feature-section { padding: 56px 0; border-top: 1px solid var(--line); }
+    .feature-section { padding: 72px 0; border-top: 1px solid var(--line); }
     .feature-section:first-of-type { border-top: none; }
     .feature-section h2 {
-      font-size: 28px;
+      font-size: 36px;
       font-weight: 800;
-      margin-bottom: 8px;
-      letter-spacing: -.01em;
+      margin-bottom: 12px;
+      letter-spacing: -.02em;
       scroll-margin-top: 20px;
     }
-    .feature-section > .container > .lede { font-size: 16px; color: var(--muted); margin-bottom: 32px; max-width: 720px; }
+    .feature-section > .container > .lede { font-size: 18px; color: var(--muted); margin-bottom: 36px; max-width: 720px; }
     .feature-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
     .feature-card {
       background: #fff;
@@ -106,14 +106,14 @@
       box-shadow: var(--shadow);
     }
     .feature-card h3 {
-      font-size: 16px;
+      font-size: 18px;
       font-weight: 700;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
       display: flex;
       align-items: center;
       gap: 8px;
     }
-    .feature-card p { font-size: 14px; color: var(--muted); }
+    .feature-card p { font-size: 15px; color: var(--muted); }
     .feature-card .badge {
       font-size: 11px;
       color: #16a34a;
@@ -134,18 +134,18 @@
       border-radius: 8px;
       padding: 16px;
     }
-    .tech-item strong { display: block; font-size: 14px; margin-bottom: 4px; }
-    .tech-item span { font-size: 13px; color: var(--muted); }
+    .tech-item strong { display: block; font-size: 16px; margin-bottom: 4px; }
+    .tech-item span { font-size: 14px; color: var(--muted); }
     .cta-band {
       background: linear-gradient(135deg, var(--accent), var(--accent-dark));
       color: #fff;
       text-align: center;
-      padding: 56px 24px;
+      padding: 72px 24px;
       border-radius: 12px;
       margin: 40px auto;
     }
-    .cta-band h2 { font-size: 26px; font-weight: 800; margin-bottom: 12px; color: #fff; }
-    .cta-band p { font-size: 15px; opacity: .9; margin-bottom: 24px; }
+    .cta-band h2 { font-size: 32px; font-weight: 800; margin-bottom: 14px; letter-spacing: -.01em; color: #fff; }
+    .cta-band p { font-size: 17px; opacity: .9; margin-bottom: 28px; }
     .cta-band a {
       display: inline-block;
       padding: 14px 32px;
@@ -167,7 +167,10 @@
     }
     footer a { color: var(--accent); text-decoration: none; }
     @media (max-width: 640px) {
-      .page-hero h1 { font-size: 30px; }
+      .page-hero h1 { font-size: 36px; }
+      .page-hero p { font-size: 17px; }
+      .feature-section h2 { font-size: 28px; }
+      .cta-band h2 { font-size: 24px; }
       header { padding: 12px 16px; }
     }
   </style>

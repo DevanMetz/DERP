@@ -30,13 +30,28 @@ def run_copilot_turn(message: str, *, api_key: str = "", user=None, session=None
     state = _load_state(session)
     page_context = page_context or {}
     context = _domain_context(user=user, page_context=page_context)
+
+    # Slot-fill from the message itself before we plan — captures qty/cost the user
+    # mentioned in passing so the next turn can use them as defaults.
+    _absorb_message_into_pending(message, state)
+
     plan = _plan_with_ai(message, state, context, api_key) if api_key else _plan_without_ai(message, state)
     tools = _execute_tool_plan(plan, state, user=user)
+
+    # Update pending PO state from anything the searches just found.
+    _absorb_tools_into_pending(tools, state)
+
+    # If the user asked us to "try our best" and we have enough state, auto-draft.
+    if _user_wants_best_effort(message) and not _tool_result(tools, "draft_purchase_order_preview"):
+        auto = _autofill_preview(state, user=user)
+        if auto is not None:
+            tools.append({"name": "draft_purchase_order_preview", "arguments": {"auto": True}, "result": auto})
 
     response = _build_reply(message, plan, tools, state, user=user)
     response["state"] = {
         "last_vendor": state.get("last_vendor_name", ""),
         "last_product": state.get("last_product_label", ""),
+        "pending_po": _public_pending_po(state),
     }
     _save_state(session, state)
     _audit(
@@ -181,9 +196,18 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
             {
                 "role": "system",
                 "content": (
-                    "You are an ERP copilot. Choose backend tools to read DERP data or build an explicit preview. "
-                    "Never claim a document was created. Use draft_purchase_order_preview only when vendor, product or "
-                    "description, quantity, and unit cost are known. Ask for missing or ambiguous details."
+                    "You are an ERP copilot for DERP. Choose backend tools to read DERP data or build a "
+                    "purchase-order preview the user can confirm.\n"
+                    "State tracks a partial PO across turns (state.pending_po with vendor_name, product_label, "
+                    "qty, unit_cost, product_cost). Carry slots forward — if the previous turn established a "
+                    "vendor or product, you do NOT need to re-search them.\n"
+                    "When the user provides only one slot per turn (e.g. just a vendor name), call the relevant "
+                    "search tool with that name and store it. Reply with what was found and what's still missing.\n"
+                    "When the user says 'try your best', 'just do it', 'go ahead', or 'whatever works', call "
+                    "draft_purchase_order_preview filling missing slots with defaults: qty=1, unit_cost from "
+                    "product_cost. If the user mentioned a name that didn't match exactly, the search tool also "
+                    "does fuzzy matching — trust its first result.\n"
+                    "Never claim a document was created — preview only."
                 ),
             },
             {"role": "user", "content": json.dumps({"context": context, "state": state, "message": message})},
@@ -264,6 +288,33 @@ def _build_reply(message: str, plan: dict, tools: list[dict], state: dict, *, us
     if open_pos is not None and open_pos.get("matches"):
         lines.append("Open POs: " + "; ".join(f"{item['number']} with {item['vendor']} ({item['status']})" for item in open_pos["matches"]))
     reply = " ".join(line for line in lines if line)
+
+    # If we have partial PO state, append a nudge so the user can see we've remembered it.
+    pending = state.get("pending_po") or {}
+    if pending.get("vendor_name") or pending.get("product_label"):
+        missing = []
+        if not pending.get("vendor_name"):
+            missing.append("vendor")
+        if not pending.get("product_label"):
+            missing.append("product")
+        if not pending.get("qty"):
+            missing.append("quantity")
+        if not pending.get("unit_cost"):
+            missing.append("unit cost")
+        have_bits = []
+        if pending.get("vendor_name"):
+            have_bits.append(f"vendor: {pending['vendor_name']}")
+        if pending.get("product_label"):
+            have_bits.append(f"product: {pending['product_label']}")
+        if pending.get("qty"):
+            have_bits.append(f"qty: {pending['qty']}")
+        if pending.get("unit_cost"):
+            have_bits.append(f"unit cost: ${pending['unit_cost']}")
+        if have_bits:
+            reply = (reply + " " if reply else "") + "Pending PO so far — " + ", ".join(have_bits) + "."
+        if missing:
+            reply += " Still need: " + ", ".join(missing) + ". (Say 'try your best' and I'll use defaults.)"
+
     return {
         "reply": reply or plan.get("reply") or "I checked the available tools, but need a little more detail.",
         "preview": None,
@@ -271,20 +322,55 @@ def _build_reply(message: str, plan: dict, tools: list[dict], state: dict, *, us
     }
 
 
+def _normalize_for_match(value: str) -> str:
+    """Lowercase, strip non-alphanumerics — so 'Bambu Lab' and 'bambulab' both become 'bambulab'."""
+    return re.sub(r"[^a-z0-9]+", "", (value or "").lower())
+
+
+def _fuzzy_post_filter(objects, query: str, name_fields: list[str]):
+    """When DB icontains found nothing, retry by normalizing whitespace/punct on both sides."""
+    nq = _normalize_for_match(query)
+    if not nq or len(nq) < 2:
+        return []
+    scored = []
+    for obj in objects:
+        best = 0.0
+        for field in name_fields:
+            haystack = _normalize_for_match(getattr(obj, field, "") or "")
+            if not haystack:
+                continue
+            if nq in haystack or haystack in nq:
+                # closer-in-size matches rank higher
+                ratio = min(len(nq), len(haystack)) / max(len(nq), len(haystack))
+                best = max(best, ratio)
+        if best > 0:
+            scored.append((best, obj))
+    scored.sort(key=lambda item: item[0], reverse=True)
+    return [obj for _, obj in scored[:5]]
+
+
 def _tool_search_vendors(query: str) -> dict:
-    qs = Vendor.objects.filter(is_active=True)
+    base = Vendor.objects.filter(is_active=True)
+    qs = base
     if query:
-        qs = qs.filter(Q(name__icontains=query) | Q(email__icontains=query) | Q(phone__icontains=query))
-    matches = [{"id": v.pk, "name": v.name, "email": v.email, "phone": v.phone} for v in qs.order_by("name")[:5]]
+        qs = base.filter(Q(name__icontains=query) | Q(email__icontains=query) | Q(phone__icontains=query))
+    vendors = list(qs.order_by("name")[:5])
+    if query and not vendors:
+        vendors = _fuzzy_post_filter(list(base), query, ["name", "email"])
+    matches = [{"id": v.pk, "name": v.name, "email": v.email, "phone": v.phone} for v in vendors]
     return {"matches": matches, "count": len(matches)}
 
 
 def _tool_search_products(query: str) -> dict:
-    qs = Product.objects.filter(is_active=True)
+    base = Product.objects.filter(is_active=True)
+    qs = base
     if query:
-        qs = qs.filter(Q(sku__icontains=query) | Q(name__icontains=query) | Q(description__icontains=query))
+        qs = base.filter(Q(sku__icontains=query) | Q(name__icontains=query) | Q(description__icontains=query))
+    products = list(qs.order_by("sku")[:5])
+    if query and not products:
+        products = _fuzzy_post_filter(list(base), query, ["sku", "name", "description"])
     matches = []
-    for product in qs.order_by("sku")[:5]:
+    for product in products:
         matches.append({
             "id": product.pk,
             "sku": product.sku,
@@ -528,8 +614,116 @@ def _save_state(session, state: dict) -> None:
         "last_product_label": state.get("last_product_label", ""),
         "last_po_lines": state.get("last_po_lines", [])[:3],
         "last_expected_date": state.get("last_expected_date", ""),
+        "pending_po": state.get("pending_po", {}),
     }
     session.modified = True
+
+
+# --- Multi-turn slot filling ----------------------------------------------------
+
+_BEST_EFFORT_PHRASES = (
+    "try your best", "your best", "best effort", "just make", "just do",
+    "go ahead", "make one", "make it", "any vendor", "any product",
+    "available products", "available vendors", "default", "whatever",
+)
+
+
+def _user_wants_best_effort(message: str) -> bool:
+    lower = (message or "").lower()
+    return any(phrase in lower for phrase in _BEST_EFFORT_PHRASES)
+
+
+def _pending(state: dict) -> dict:
+    state.setdefault("pending_po", {})
+    return state["pending_po"]
+
+
+def _public_pending_po(state: dict) -> dict:
+    p = state.get("pending_po") or {}
+    return {
+        "vendor": p.get("vendor_name", ""),
+        "product": p.get("product_label", ""),
+        "qty": p.get("qty", ""),
+        "unit_cost": p.get("unit_cost", ""),
+    }
+
+
+def _absorb_message_into_pending(message: str, state: dict) -> None:
+    """Pick up loose qty/cost mentions from the user message and stash them."""
+    pending = _pending(state)
+    qty_match = re.search(r"\b(\d+(?:\.\d+)?)\s*(?:units?|pcs?|pieces?|ea|each|x)\b", message, re.IGNORECASE)
+    if qty_match:
+        pending["qty"] = qty_match.group(1)
+    cost_match = re.search(r"\$\s*(\d+(?:\.\d+)?)|\b(\d+(?:\.\d+)?)\s*(?:dollars|usd|each|per unit|/unit)\b", message, re.IGNORECASE)
+    if cost_match:
+        pending["unit_cost"] = next(g for g in cost_match.groups() if g)
+
+
+def _absorb_tools_into_pending(tools: list[dict], state: dict) -> None:
+    """If a search came back with exactly one match, remember it as the user's choice."""
+    pending = _pending(state)
+
+    vendors = _tool_result(tools, "search_vendors")
+    if vendors and vendors.get("matches"):
+        # take the top result whenever there's any match — fuzzy already ranks best first
+        top = vendors["matches"][0]
+        pending["vendor_id"] = top["id"]
+        pending["vendor_name"] = top["name"]
+        state["last_vendor_id"] = top["id"]
+        state["last_vendor_name"] = top["name"]
+
+    products = _tool_result(tools, "search_products")
+    if products and products.get("matches"):
+        top = products["matches"][0]
+        pending["product_id"] = top["id"]
+        pending["product_label"] = top["label"]
+        pending["product_sku"] = top["sku"]
+        pending["product_cost"] = top.get("cost", "0")
+        state["last_product_label"] = top["label"]
+
+
+def _autofill_preview(state: dict, *, user) -> dict | None:
+    """Best-effort draft: use pending state + sensible defaults to build a preview."""
+    pending = _pending(state)
+
+    # Default vendor: pending → first active
+    vendor_name = pending.get("vendor_name") or ""
+    if not vendor_name:
+        first_vendor = Vendor.objects.filter(is_active=True).order_by("name").first()
+        if not first_vendor:
+            return {"reply": "There are no active vendors in this workspace yet. Add a vendor first.", "preview": None}
+        vendor_name = first_vendor.name
+        pending["vendor_id"] = first_vendor.pk
+        pending["vendor_name"] = first_vendor.name
+
+    # Default product: pending → first active
+    product_label = pending.get("product_label") or ""
+    product_cost = pending.get("product_cost") or "0"
+    if not product_label:
+        first_product = Product.objects.filter(is_active=True).order_by("sku").first()
+        if not first_product:
+            return {"reply": "There are no active products yet. Add one to draft a purchase order.", "preview": None}
+        product_label = f"{first_product.sku} - {first_product.name}"
+        pending["product_id"] = first_product.pk
+        pending["product_label"] = product_label
+        pending["product_sku"] = first_product.sku
+        pending["product_cost"] = str(first_product.cost)
+        product_cost = str(first_product.cost)
+
+    qty = pending.get("qty") or "1"
+    unit_cost = pending.get("unit_cost") or product_cost or "0"
+
+    args = {
+        "vendor": vendor_name,
+        "lines": [{
+            "product": pending.get("product_sku", "") or product_label,
+            "description": product_label,
+            "qty": qty,
+            "unit_cost": unit_cost,
+        }],
+        "expected_date": "",
+    }
+    return _tool_draft_purchase_order_preview(args, state, user=user)
 
 
 def _audit(*, event_type, user=None, message="", tool_names=None, metadata=None, object_type="", object_id=None) -> None:
@@ -572,7 +766,12 @@ def _find_one(queryset, value: str, fields: list[str]):
     for field in fields:
         exact_qs = exact_qs | queryset.filter(**{f"{field}__iexact": value})
         contains_qs = contains_qs | queryset.filter(**{f"{field}__icontains": value})
-    return exact_qs.first() or contains_qs.first()
+    hit = exact_qs.first() or contains_qs.first()
+    if hit is not None:
+        return hit
+    # Fuzzy fallback: normalize whitespace/punct on both sides
+    fuzzy = _fuzzy_post_filter(list(queryset), value, fields)
+    return fuzzy[0] if fuzzy else None
 
 
 def _decimal_or_none(value, *, scale: str):
@@ -598,9 +797,14 @@ def _format_matches(label: str, matches: list[dict], key: str) -> str:
 
 
 def _query_after_keyword(text: str, keyword: str) -> str:
+    """Pull the name out of phrases like 'vendor X', 'X vendor', or 'find X'."""
     lower = text.lower()
     idx = lower.find(keyword)
-    return text[idx + len(keyword):].strip(" :") if idx >= 0 else text
+    if idx < 0:
+        return text
+    before = text[:idx].strip(" ,:")
+    after = text[idx + len(keyword):].strip(" ,:")
+    return after or before
 
 
 def _extract_response_text(data: dict) -> str:

@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Inventory Transfers — DERP{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <div>
+      <h1>Inventory Transfers</h1>
+      <p class="text-subtle">Track and review physical stock movements shifting between warehouse locations.</p>
+    </div>
+  </div>
+
+  <!-- Filters Section -->
+  <div class="card" style="margin-bottom: 24px; padding: 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow-sm);">
+    <form method="get" action="{% url 'stock_transfer_list' %}" class="filter-form" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;">
+      
+      <div class="filter-field" style="flex: 1 1 200px; min-width: 150px;">
+        <label for="id_product" style="display: block; font-size: 12px; font-weight: 700; color: #475467; margin-bottom: 6px;">Product</label>
+        <select id="id_product" name="product" style="width: 100%; height: 38px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; background-color: var(--surface);">
+          <option value="">-- All Products --</option>
+          {% for p in products %}
+            <option value="{{ p.pk }}" {% if filters.product == p.pk %}selected{% endif %}>{{ p.sku }} — {{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="filter-field" style="flex: 1 1 160px; min-width: 130px;">
+        <label for="id_from" style="display: block; font-size: 12px; font-weight: 700; color: #475467; margin-bottom: 6px;">From Location</label>
+        <select id="id_from" name="from_location" style="width: 100%; height: 38px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; background-color: var(--surface);">
+          <option value="">-- All Locations --</option>
+          {% for loc in locations %}
+            <option value="{{ loc.pk }}" {% if filters.from_location == loc.pk %}selected{% endif %}>{{ loc.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="filter-field" style="flex: 1 1 160px; min-width: 130px;">
+        <label for="id_to" style="display: block; font-size: 12px; font-weight: 700; color: #475467; margin-bottom: 6px;">To Location</label>
+        <select id="id_to" name="to_location" style="width: 100%; height: 38px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; background-color: var(--surface);">
+          <option value="">-- All Locations --</option>
+          {% for loc in locations %}
+            <option value="{{ loc.pk }}" {% if filters.to_location == loc.pk %}selected{% endif %}>{{ loc.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="filter-field" style="flex: 1 1 140px; min-width: 120px;">
+        <label for="id_start" style="display: block; font-size: 12px; font-weight: 700; color: #475467; margin-bottom: 6px;">Start Date</label>
+        <input type="date" id="id_start" name="start_date" value="{{ filters.start_date }}" style="width: 100%; height: 38px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; background-color: var(--surface);">
+      </div>
+
+      <div class="filter-field" style="flex: 1 1 140px; min-width: 120px;">
+        <label for="id_end" style="display: block; font-size: 12px; font-weight: 700; color: #475467; margin-bottom: 6px;">End Date</label>
+        <input type="date" id="id_end" name="end_date" value="{{ filters.end_date }}" style="width: 100%; height: 38px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; background-color: var(--surface);">
+      </div>
+
+      <div class="filter-actions" style="display: flex; gap: 8px;">
+        <a href="{% url 'stock_transfer_list' %}" class="btn secondary" style="height: 38px; display: inline-flex; align-items: center; justify-content: center; padding: 0 16px; font-size: 13px; font-weight: 600; border-radius: 6px;">Clear</a>
+        <button type="submit" class="btn" style="height: 38px; display: inline-flex; align-items: center; justify-content: center; padding: 0 18px; font-size: 13px; font-weight: 600; border-radius: 6px; background-color: var(--accent); color: #fff;">Apply Filters</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Transfers Table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date &amp; Time</th>
+          <th>Product</th>
+          <th>Source Location</th>
+          <th style="text-align: center; width: 40px;"></th>
+          <th>Destination Location</th>
+          <th class="num">Qty</th>
+          <th>Serial Number</th>
+          <th>Memo</th>
+          <th>Performed By</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in transfers %}
+          <tr>
+            <td style="white-space: nowrap;">{{ t.posted_at|date:"Y-m-d H:i:s" }}</td>
+            <td>
+              <a href="{% url 'product_detail' t.product.pk %}" style="font-weight: 700;">
+                {{ t.product.sku }}
+              </a>
+              <span class="muted" style="display: block; font-size: 12px;">{{ t.product.name }}</span>
+            </td>
+            <td>
+              <span class="badge" style="background: #f3f4f6; color: #374151; padding: 4px 10px; border-radius: 6px; border: 1px solid #e5e7eb; font-weight: 600; font-size: 12px;">
+                {{ t.location.name|default:"—" }}
+              </span>
+            </td>
+            <td style="text-align: center; vertical-align: middle; color: var(--accent); font-weight: bold;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </td>
+            <td>
+              <span class="badge" style="background: #eff6ff; color: #1e40af; padding: 4px 10px; border-radius: 6px; border: 1px solid #dbeafe; font-weight: 600; font-size: 12px;">
+                {{ t.to_location.name|default:"—" }}
+              </span>
+            </td>
+            <td class="num" style="font-weight: 700; color: var(--accent);">
+              {{ t.qty }}
+            </td>
+            <td>
+              {% if t.serial_no %}
+                <code style="background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">{{ t.serial_no }}</code>
+              {% else %}
+                <span class="muted">—</span>
+              {% endif %}
+            </td>
+            <td>{{ t.memo }}</td>
+            <td class="muted">
+              {% if t.created_by %}
+                {{ t.created_by.email|default:t.created_by.username }}
+              {% else %}
+                System
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="9" class="empty-state">No stock transfers found matching the filter criteria.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

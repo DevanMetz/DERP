@@ -91,3 +91,46 @@ def product_detail(request, pk):
 def stock_movement_list(request):
     movements = StockMovement.objects.select_related("product", "created_by").order_by("-posted_at", "-id")[:200]
     return render(request, "inventory/stock_movement_list.html", {"movements": movements})
+
+
+@login_required
+def stock_transfer_list(request):
+    from inventory.models import Location, Product, ProductType
+    qs = StockMovement.objects.select_related("product", "location", "to_location", "created_by").filter(
+        movement_type=StockMovement.MovementType.TRANSFER
+    )
+    
+    product_id = request.GET.get("product", "")
+    from_loc_id = request.GET.get("from_location", "")
+    to_loc_id = request.GET.get("to_location", "")
+    start_date = request.GET.get("start_date", "")
+    end_date = request.GET.get("end_date", "")
+    
+    if product_id:
+        qs = qs.filter(product_id=product_id)
+    if from_loc_id:
+        qs = qs.filter(location_id=from_loc_id)
+    if to_loc_id:
+        qs = qs.filter(to_location_id=to_loc_id)
+    if start_date:
+        qs = qs.filter(posted_at__date__gte=start_date)
+    if end_date:
+        qs = qs.filter(posted_at__date__lte=end_date)
+        
+    transfers = qs.order_by("-posted_at", "-id")[:200]
+    
+    products = Product.objects.filter(is_active=True, type=ProductType.STOCK).order_by("sku")
+    locations = Location.objects.filter(is_active=True).order_by("name")
+    
+    return render(request, "inventory/stock_transfer_list.html", {
+        "transfers": transfers,
+        "products": products,
+        "locations": locations,
+        "filters": {
+            "product": int(product_id) if product_id.isdigit() else "",
+            "from_location": int(from_loc_id) if from_loc_id.isdigit() else "",
+            "to_location": int(to_loc_id) if to_loc_id.isdigit() else "",
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+    })

@@ -55,3 +55,9 @@ DERP supports multi-warehouse inventory tracking and stock transfers:
   - Source and destination locations must be different.
   - The source location must have sufficient stock for the transfer to succeed.
   - Serialized items being transferred must currently be `IN_STOCK` and located at the source location. Successful transfers update the serial number's location to the destination.
+
+### Transfers User Interface
+A dedicated **Transfers** module is accessible under the Operations group in the main sidebar navigation (routing to `/products/transfers/`). Key features:
+- **Interactive Filtering**: Refine transfers by Product catalog, Source Location (From), Destination Location (To), and Date ranges.
+- **Directional Traceability**: Columns display the transaction timestamp, direction arrow indicators between warehouses, transfer quantities, custom memos, and the operating user for audits.
+- **Serial Tracking Visibility**: High-value serialized items display their exact unique serial numbers inline.

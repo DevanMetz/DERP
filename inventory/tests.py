@@ -464,3 +464,43 @@ class WarehouseAndTransferTests(TestCase):
         )
         sn.refresh_from_db()
         self.assertEqual(sn.location, wh_b)
+
+    def test_stock_transfer_list_view(self):
+        from django.urls import reverse
+        from core.models import User, Role
+        user = User.objects.create_user(
+            username="transfer_operator",
+            email="transfers@example.com",
+            password="password",
+            role=Role.ADMIN,
+        )
+        self.client.login(username="transfer_operator", password="password")
+        
+        # Create transfer
+        from inventory.models import Location
+        wh_a, _ = Location.objects.get_or_create(name="Warehouse A")
+        wh_b, _ = Location.objects.get_or_create(name="Warehouse B")
+        
+        post_stock_movement(
+            product=self.product,
+            movement_type=StockMovement.MovementType.RECEIPT,
+            qty=Decimal("10.0000"),
+            location=wh_a,
+        )
+        
+        post_stock_movement(
+            product=self.product,
+            movement_type=StockMovement.MovementType.TRANSFER,
+            qty=Decimal("4.0000"),
+            location=wh_a,
+            to_location=wh_b,
+            memo="Inter-wh transfer 01",
+        )
+        
+        # Test view resolution & rendering
+        response = self.client.get(reverse("stock_transfer_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Inventory Transfers")
+        self.assertContains(response, "Inter-wh transfer 01")
+        self.assertContains(response, "Warehouse A")
+        self.assertContains(response, "Warehouse B")

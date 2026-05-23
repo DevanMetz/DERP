@@ -964,6 +964,7 @@
       <a href="{% url 'dashboard' %}">Dashboard</a>
       <a href="{% url 'product_list' %}">Products</a>
       <a href="{% url 'stock_movement_list' %}">Stock Ledger</a>
+      <a href="{% url 'stock_transfer_list' %}">Transfers</a>
       <a href="{% url 'bom_list' %}">BOMs</a>
       <a href="{% url 'mo_list' %}">Manufacturing</a>
       <a href="{% url 'docs_index' %}">Docs</a>
@@ -1094,6 +1095,7 @@
       "company": { name: "Company", url: "{% url 'company_setup' %}", group: "workspace", icon: ICONS.company },
       "products": { name: "Products", url: "{% url 'product_list' %}", group: "operations", icon: ICONS.product },
       "stock_ledger": { name: "Stock Ledger", url: "{% url 'stock_movement_list' %}", group: "operations", icon: ICONS.list },
+      "transfers": { name: "Transfers", url: "{% url 'stock_transfer_list' %}", group: "operations", icon: ICONS.list },
       "boms": { name: "BOMs", url: "{% url 'bom_list' %}", group: "operations", icon: ICONS.docs },
       "manufacturing": { name: "Production", url: "{% url 'mo_list' %}", group: "operations", icon: ICONS.product },
       "customers": { name: "Customers", url: "{% url 'customer_list' %}", group: "sales", icon: ICONS.user },

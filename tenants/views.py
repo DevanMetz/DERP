@@ -75,7 +75,9 @@ def signup(request):
                 recipient_list=[data["email"]],
                 fail_silently=False,
             )
-        except Exception:
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).exception("send_mail failed: %s", exc)
             pending.delete()
             return render(request, "tenants/signup.html", {
                 "form": form,

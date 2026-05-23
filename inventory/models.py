@@ -134,3 +134,41 @@ class StockOnHand(models.Model):
 
     def __str__(self):
         return f"{self.product.sku}: {self.qty}"
+
+
+class Lot(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name="lots")
+    lot_number = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expiry_date = models.DateField(null=True, blank=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["product", "lot_number"]
+        constraints = [
+            models.UniqueConstraint(fields=["product", "lot_number"], name="unique_product_lot"),
+        ]
+
+    def __str__(self):
+        return f"{self.product.sku} - Lot {self.lot_number}"
+
+
+class SerialNumber(models.Model):
+    class Status(models.TextChoices):
+        IN_STOCK = "in_stock", "In Stock"
+        ISSUED = "issued", "Issued"
+
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name="serial_numbers")
+    serial_number = models.CharField(max_length=100)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.IN_STOCK)
+    lot = models.ForeignKey(Lot, null=True, blank=True, on_delete=models.SET_NULL, related_name="serial_numbers")
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["product", "serial_number"]
+        constraints = [
+            models.UniqueConstraint(fields=["product", "serial_number"], name="unique_product_serial"),
+        ]
+
+    def __str__(self):
+        return f"{self.product.sku} - S/N {self.serial_number} ({self.get_status_display()})"

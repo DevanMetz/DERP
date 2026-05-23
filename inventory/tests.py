@@ -256,3 +256,92 @@ class ProductViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         # Verify the movement list links to Invoice #456
         self.assertContains(response, '/invoices/456/')
+
+
+class LotAndSerialTests(TestCase):
+    def setUp(self):
+        self.product = Product.objects.create(sku="SERIALPROD", name="Serial Product")
+
+    def test_serial_qty_must_be_one(self):
+        with self.assertRaises(ValidationError):
+            post_stock_movement(
+                product=self.product,
+                movement_type=StockMovement.MovementType.RECEIPT,
+                qty=Decimal("2.0000"),
+                serial_no="SN1001",
+            )
+
+    def test_lot_auto_creation_and_linking(self):
+        from inventory.models import Lot, SerialNumber
+        move = post_stock_movement(
+            product=self.product,
+            movement_type=StockMovement.MovementType.RECEIPT,
+            qty=Decimal("1.0000"),
+            lot_id="LOT-ABC",
+            serial_no="SN1001",
+        )
+        self.assertEqual(move.lot_id, "LOT-ABC")
+        self.assertEqual(move.serial_no, "SN1001")
+        
+        lot = Lot.objects.get(product=self.product, lot_number="LOT-ABC")
+        self.assertIsNotNone(lot)
+        
+        sn = SerialNumber.objects.get(product=self.product, serial_number="SN1001")
+        self.assertEqual(sn.status, SerialNumber.Status.IN_STOCK)
+        self.assertEqual(sn.lot, lot)
+
+    def test_duplicate_serial_receipt_fails(self):
+        post_stock_movement(
+            product=self.product,
+            movement_type=StockMovement.MovementType.RECEIPT,
+            qty=Decimal("1.0000"),
+            serial_no="SN-DUPE",
+        )
+        with self.assertRaises(ValidationError):
+            post_stock_movement(
+                product=self.product,
+                movement_type=StockMovement.MovementType.RECEIPT,
+                qty=Decimal("1.0000"),
+                serial_no="SN-DUPE",
+            )
+
+    def test_issue_missing_serial_fails(self):
+        with self.assertRaises(ValidationError):
+            post_stock_movement(
+                product=self.product,
+                movement_type=StockMovement.MovementType.ISSUE,
+                qty=Decimal("1.0000"),
+                serial_no="SN-MISSING",
+            )
+
+    def test_successful_issue_and_rereceipt(self):
+        from inventory.models import SerialNumber
+        # 1. Receive SN-123
+        post_stock_movement(
+            product=self.product,
+            movement_type=StockMovement.MovementType.RECEIPT,
+            qty=Decimal("1.0000"),
+            serial_no="SN-123",
+        )
+        sn = SerialNumber.objects.get(product=self.product, serial_number="SN-123")
+        self.assertEqual(sn.status, SerialNumber.Status.IN_STOCK)
+
+        # 2. Issue SN-123
+        post_stock_movement(
+            product=self.product,
+            movement_type=StockMovement.MovementType.ISSUE,
+            qty=Decimal("1.0000"),
+            serial_no="SN-123",
+        )
+        sn.refresh_from_db()
+        self.assertEqual(sn.status, SerialNumber.Status.ISSUED)
+
+        # 3. Receive SN-123 again (rereceipt/return)
+        post_stock_movement(
+            product=self.product,
+            movement_type=StockMovement.MovementType.RECEIPT,
+            qty=Decimal("1.0000"),
+            serial_no="SN-123",
+        )
+        sn.refresh_from_db()
+        self.assertEqual(sn.status, SerialNumber.Status.IN_STOCK)

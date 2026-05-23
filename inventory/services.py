@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
-from .models import Product, ProductType, StockMovement, StockOnHand
+from .models import Product, ProductType, StockMovement, StockOnHand, Lot, SerialNumber
 
 
 @transaction.atomic
@@ -16,6 +16,8 @@ def post_stock_movement(
     ref_doc_type: str = "",
     ref_doc_id: int | None = None,
     memo: str = "",
+    lot_id: str = "",
+    serial_no: str = "",
     user=None,
 ) -> StockMovement:
     if product.type != ProductType.STOCK:
@@ -24,6 +26,42 @@ def post_stock_movement(
         raise ValidationError("Stock movement quantity must be positive.")
     if unit_cost < 0:
         raise ValidationError("Stock movement unit cost cannot be negative.")
+
+    # Validate quantity for serial numbers
+    if serial_no and qty != Decimal("1.0000"):
+        raise ValidationError("Serial-tracked stock movements must have a quantity of exactly 1.")
+
+    # Resolve Lot
+    lot = None
+    if lot_id:
+        lot, _ = Lot.objects.get_or_create(product=product, lot_number=lot_id)
+
+    # Validate and update SerialNumber status
+    if serial_no:
+        if movement_type in (StockMovement.MovementType.RECEIPT, StockMovement.MovementType.ADJUSTMENT):
+            sn_record, created = SerialNumber.objects.get_or_create(
+                product=product,
+                serial_number=serial_no,
+                defaults={"status": SerialNumber.Status.IN_STOCK, "lot": lot}
+            )
+            if not created:
+                if sn_record.status == SerialNumber.Status.IN_STOCK:
+                    raise ValidationError(f"Serial number '{serial_no}' for product {product.sku} is already in stock.")
+                sn_record.status = SerialNumber.Status.IN_STOCK
+                if lot:
+                    sn_record.lot = lot
+                sn_record.save(update_fields=["status", "lot"])
+        elif movement_type == StockMovement.MovementType.ISSUE:
+            try:
+                sn_record = SerialNumber.objects.get(product=product, serial_number=serial_no)
+            except SerialNumber.DoesNotExist:
+                raise ValidationError(f"Serial number '{serial_no}' for product {product.sku} is not in stock.")
+            
+            if sn_record.status != SerialNumber.Status.IN_STOCK:
+                raise ValidationError(f"Serial number '{serial_no}' for product {product.sku} is not in stock.")
+            
+            sn_record.status = SerialNumber.Status.ISSUED
+            sn_record.save(update_fields=["status"])
 
     on_hand, _ = StockOnHand.objects.select_for_update().get_or_create(product=product)
     if movement_type == StockMovement.MovementType.RECEIPT:
@@ -68,6 +106,8 @@ def post_stock_movement(
         ref_doc_type=ref_doc_type,
         ref_doc_id=ref_doc_id,
         memo=memo,
+        lot_id=lot_id,
+        serial_no=serial_no,
         created_by=user,
     )
     on_hand.save(update_fields=["qty", "updated_at"])

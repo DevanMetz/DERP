@@ -35,4 +35,8 @@ The `StockMovement` model includes `lot_id` and `serial_no` fields to support gr
 - **Lot ID**: Used to group stock items produced or received together (e.g., for batch tracking, expiration tracking, or quality controls).
 - **Serial Number**: Used to track unique individual units (e.g., for high-value electronics, warranty management, or customer returns).
 
-*Note: In the current version, `lot_id` and `serial_no` are captured as free-text tracking fields on movement records. Future updates will introduce dedicated master tables for Lot and Serial records to enforce uniqueness, prevent double-assigning serial numbers, and support end-to-end trace history across manufacturing and returns.*
+*Note: Lot and Serial Number entries are backed by dedicated `Lot` and `SerialNumber` database tables. When a `lot_id` or `serial_no` is provided to `post_stock_movement()`, the system dynamically executes validation checks:
+- **Quantity limits**: Serial-tracked movements must have a quantity of exactly `1.0000`.
+- **Double-assignment checks**: Receiving or adjusting-in a serial number will fail if that serial number is already `IN_STOCK` for the product.
+- **Traceability checks**: Issuing a serial number will fail if the serial number is not currently `IN_STOCK` for the product.
+- **Lot auto-resolution**: Providing a `lot_id` automatically resolves or creates the `Lot` record and links any associated serial numbers to it for full batch traceability.*

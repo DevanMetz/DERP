@@ -10,6 +10,8 @@ DERP keeps accounting and inventory synchronized by routing business actions thr
 4. Post the invoice to create AR, revenue, tax, COGS, and inventory GL lines.
 5. Void the invoice with a reversing journal entry if needed.
 
+Sales order and invoice line pickers only show active products with the product's **Sellable** toggle enabled.
+
 Sales confirmation rolls back if stock is insufficient.
 
 ## Purchase order to bill
@@ -21,6 +23,8 @@ Sales confirmation rolls back if stock is insufficient.
 5. Post the bill to accounts payable and expense or inventory-related accounts.
 6. Reverse goods receipts or void bills through service-layer actions.
 
+Purchase order and vendor bill line pickers only show active products with the product's **Purchasable** toggle enabled.
+
 Goods receipt billing prevents duplicate bills from the same receipt.
 
 ## Manufacturing order completion
@@ -29,6 +33,8 @@ Goods receipt billing prevents duplicate bills from the same receipt.
 2. Create and confirm a manufacturing order.
 3. Complete the order.
 4. DERP issues raw materials, receives finished goods, updates finished-good cost, and posts a balanced GL entry.
+
+BOM finished-product and manufacturing order pickers only show active stock products with the product's **Manufacturable** toggle enabled. BOM components remain active stock products consumed by the build.
 
 Completion is atomic. If raw materials are short, stock and accounting remain unchanged.
 

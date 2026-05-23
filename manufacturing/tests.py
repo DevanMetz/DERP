@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 
 from core.models import User, Role, Company
 from inventory.models import Product, ProductType, StockOnHand, StockMovement
+from manufacturing.forms import ManufacturingOrderForm
 from accounting.models import Account, AccountType, JournalEntry, JournalLine
 from .models import BillOfMaterials, BOMComponent, ManufacturingOrder
 from .services import confirm_manufacturing_order, complete_manufacturing_order, cancel_manufacturing_order
@@ -99,6 +100,24 @@ class ManufacturingModuleTests(TestCase):
         self.assertEqual(mo.status, ManufacturingOrder.Status.CONFIRMED)
         self.assertIsNotNone(mo.number)
         self.assertTrue(mo.number.startswith("MO-"))
+
+    def test_mo_product_choices_only_include_manufacturable_products(self):
+        blocked_fp = Product.objects.create(
+            sku="FP-NOMFG",
+            name="Disabled Assembly",
+            type=ProductType.STOCK,
+            is_manufacturable=False,
+        )
+        BillOfMaterials.objects.create(
+            product=blocked_fp,
+            name="Disabled Assembly Recipe",
+            created_by=self.user,
+        )
+
+        choices = ManufacturingOrderForm().fields["product"].queryset
+
+        self.assertIn(self.fp, choices)
+        self.assertNotIn(blocked_fp, choices)
 
     def test_mo_completion_successfully_adjusts_stock_and_posts_gl(self):
         mo = ManufacturingOrder.objects.create(
@@ -239,4 +258,3 @@ class ManufacturingModuleTests(TestCase):
         # Verify finished good was received at custom_loc
         fp_stock = LocationStock.objects.get(product=self.fp, location=custom_loc)
         self.assertEqual(fp_stock.qty, Decimal("10.0000"))
-

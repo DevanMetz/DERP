@@ -9,7 +9,7 @@ class ProductForm(forms.ModelForm):
             "sku", "name", "description", "type", "uom", "image",
             "cost", "price", "low_stock_threshold",
             "default_revenue_account", "default_expense_account",
-            "is_active",
+            "is_purchasable", "is_sellable", "is_manufacturable", "is_active",
         ]
 
 

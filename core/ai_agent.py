@@ -843,6 +843,9 @@ def _tool_search_products(query: str) -> dict:
             "cost": str(product.cost),
             "price": str(product.price),
             "type": product.get_type_display(),
+            "is_purchasable": product.is_purchasable,
+            "is_sellable": product.is_sellable,
+            "is_manufacturable": product.is_manufacturable,
         })
     return {"matches": matches, "count": len(matches)}
 
@@ -1045,7 +1048,11 @@ def _tool_get_record_details(kind: str, record_id) -> dict:
 
 def _tool_search_boms(query: str) -> dict:
     """Find BOMs by name, product SKU, or product name."""
-    base = BillOfMaterials.objects.filter(is_active=True).select_related("product")
+    base = BillOfMaterials.objects.filter(
+        is_active=True,
+        product__is_active=True,
+        product__is_manufacturable=True,
+    ).select_related("product")
     if query:
         qs = base.filter(
             Q(name__icontains=query)
@@ -1178,7 +1185,11 @@ def _tool_draft_purchase_order_preview(args: dict, state: dict, *, user=None) ->
     for line in raw_lines:
         product_name = (line.get("product") or "").strip()
         description = (line.get("description") or product_name).strip()
-        product = _find_one(Product.objects.filter(is_active=True), product_name, ["sku", "name"]) if product_name else None
+        product = _find_one(
+            Product.objects.filter(is_active=True, is_purchasable=True),
+            product_name,
+            ["sku", "name"],
+        ) if product_name else None
         qty = _decimal_or_none(line.get("qty"), scale="0.0001")
         unit_cost = _decimal_or_none(line.get("unit_cost"), scale="0.01")
         if product_name and product is None:
@@ -1254,7 +1265,11 @@ def _tool_draft_sales_order_preview(args: dict, state: dict, *, user=None) -> di
     for line in raw_lines:
         product_name = (line.get("product") or "").strip()
         description = (line.get("description") or product_name).strip()
-        product = _find_one(Product.objects.filter(is_active=True), product_name, ["sku", "name"]) if product_name else None
+        product = _find_one(
+            Product.objects.filter(is_active=True, is_sellable=True),
+            product_name,
+            ["sku", "name"],
+        ) if product_name else None
         qty = _decimal_or_none(line.get("qty"), scale="0.0001")
         unit_price = _decimal_or_none(line.get("unit_price") or line.get("unit_cost"), scale="0.01")
         if product_name and product is None:
@@ -1318,7 +1333,12 @@ def _tool_draft_manufacturing_order_preview(args: dict, state: dict, *, user=Non
     # Resolve BOM. If user gave the finished product, find a BOM whose product matches.
     bom = None
     if pending.get("bom_id"):
-        bom = BillOfMaterials.objects.filter(pk=pending["bom_id"], is_active=True).select_related("product").first()
+        bom = BillOfMaterials.objects.filter(
+            pk=pending["bom_id"],
+            is_active=True,
+            product__is_active=True,
+            product__is_manufacturable=True,
+        ).select_related("product").first()
     if bom is None and bom_query:
         bom_matches = _tool_search_boms(bom_query)["matches"]
         if not bom_matches:
@@ -1955,9 +1975,18 @@ def _autofill_manufacturing_preview(state: dict, *, user) -> dict | None:
         if product_hint:
             bom_matches = _tool_search_boms(product_hint)["matches"]
             if bom_matches:
-                bom = BillOfMaterials.objects.filter(pk=bom_matches[0]["id"], is_active=True).select_related("product").first()
+                bom = BillOfMaterials.objects.filter(
+                    pk=bom_matches[0]["id"],
+                    is_active=True,
+                    product__is_active=True,
+                    product__is_manufacturable=True,
+                ).select_related("product").first()
         if bom is None:
-            bom = BillOfMaterials.objects.filter(is_active=True).select_related("product").order_by("product__sku").first()
+            bom = BillOfMaterials.objects.filter(
+                is_active=True,
+                product__is_active=True,
+                product__is_manufacturable=True,
+            ).select_related("product").order_by("product__sku").first()
         if bom is None:
             return {"reply": "There are no active BOMs in this workspace yet. Create a BOM before drafting an MO.", "preview": None}
         pending["bom_id"] = bom.pk
@@ -1989,9 +2018,9 @@ def _autofill_purchase_preview(state: dict, *, user) -> dict | None:
     product_label = pending.get("product_label") or ""
     product_cost = pending.get("product_cost") or "0"
     if not product_label:
-        first_product = Product.objects.filter(is_active=True).order_by("sku").first()
+        first_product = Product.objects.filter(is_active=True, is_purchasable=True).order_by("sku").first()
         if not first_product:
-            return {"reply": "There are no active products yet. Add one to draft a purchase order.", "preview": None}
+            return {"reply": "There are no purchasable active products yet. Add one or enable purchasing on a product to draft a purchase order.", "preview": None}
         product_label = f"{first_product.sku} - {first_product.name}"
         pending["product_id"] = first_product.pk
         pending["product_label"] = product_label
@@ -2030,9 +2059,9 @@ def _autofill_sales_preview(state: dict, *, user) -> dict | None:
     product_label = pending.get("product_label") or ""
     product_price = pending.get("product_price") or "0"
     if not product_label:
-        first_product = Product.objects.filter(is_active=True).order_by("sku").first()
+        first_product = Product.objects.filter(is_active=True, is_sellable=True).order_by("sku").first()
         if not first_product:
-            return {"reply": "There are no active products yet. Add one to draft a sales order.", "preview": None}
+            return {"reply": "There are no sellable active products yet. Add one or enable sales on a product to draft a sales order.", "preview": None}
         product_label = f"{first_product.sku} - {first_product.name}"
         pending["product_id"] = first_product.pk
         pending["product_label"] = product_label

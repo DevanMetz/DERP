@@ -7,11 +7,21 @@ from django.core.exceptions import ValidationError
 from django.test import override_settings
 from core.test_utils import DERPTenantTestCase as TestCase
 
+from inventory.forms import ProductForm
 from inventory.models import Product, ProductType, StockMovement, StockOnHand
 from inventory.services import post_stock_movement
 
 
 D = Decimal
+
+
+class ProductFormTests(TestCase):
+    def test_product_form_exposes_order_availability_toggles(self):
+        form = ProductForm()
+
+        self.assertIn("is_purchasable", form.fields)
+        self.assertIn("is_sellable", form.fields)
+        self.assertIn("is_manufacturable", form.fields)
 
 
 class StockMovementTests(TestCase):
@@ -578,4 +588,3 @@ class LocationViewsTests(TestCase):
         self.assertEqual(self.location.name, "North Facility - Updated")
         self.assertEqual(self.location.description, "Updated description")
         self.assertFalse(self.location.is_active)
-

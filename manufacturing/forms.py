@@ -15,7 +15,7 @@ class BOMForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Limit product selection to active stock products that don't already have a BOM
-        qs = Product.objects.filter(type=ProductType.STOCK, is_active=True)
+        qs = Product.objects.filter(type=ProductType.STOCK, is_active=True, is_manufacturable=True)
         if self.instance.pk:
             # If editing, allow the current product
             qs = qs.filter(Q(bom__isnull=True) | Q(pk=self.instance.product_id))
@@ -61,7 +61,8 @@ class ManufacturingOrderForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Only allow products that have an active BOM
         self.fields["product"].queryset = Product.objects.filter(
-            type=ProductType.STOCK, is_active=True, bom__isnull=False, bom__is_active=True
+            type=ProductType.STOCK, is_active=True, is_manufacturable=True,
+            bom__isnull=False, bom__is_active=True
         )
         from inventory.models import Location
         self.fields["production_location"].queryset = Location.objects.filter(is_active=True)

@@ -7,6 +7,16 @@ Inventory tracks products, stock-on-hand quantities, stock movements, and produc
 - Stock products carry inventory quantities and average cost.
 - Service products do not create stock-on-hand records.
 
+## Product availability
+
+Each product has workflow availability toggles that control where it can be selected:
+
+- **Purchasable** products appear on purchase orders and vendor bills.
+- **Sellable** products appear on sales orders and invoices.
+- **Manufacturable** products can be assigned BOMs and selected for manufacturing orders.
+
+Inactive products remain hidden from active transaction pickers regardless of these availability settings. Existing products default to enabled for all three workflows so upgrades preserve current behavior until a product is intentionally restricted.
+
 ## Stock movements
 
 Use `inventory.services.post_stock_movement()` for all stock updates. It validates item type, quantity direction, and over-issue rules before writing movement records.
@@ -73,5 +83,4 @@ DERP supports localized warehouse assignment across your transactional flows:
 - **Manufacturing Orders**: Select a specific assembly warehouse when planning production. Stock shortages are calculated against that warehouse's inventory balances, components are consumed from it, and finished assemblies are deposited directly into it.
 - **Sales Invoices**: Allocate a fulfillment warehouse on a line-item basis when drafting invoices. Stock issue movements are completed at the allocated warehouses, reducing their localized balances.
 - **Goods Receipts**: Assign a target receiving warehouse for each item line on a purchase order receipt. Stock receipt movements are generated and stored at those specific locations.
-
 

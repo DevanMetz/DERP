@@ -21,18 +21,17 @@
   </div>
 
   <style>
-    /* Premium Square Icons Drag & Drop Workspace */
     .app-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
+      gap: 16px;
       margin-bottom: 32px;
     }
     .app-card {
       aspect-ratio: 1 / 1;
       background: var(--surface);
       border: 1px solid var(--line);
-      border-radius: 16px;
+      border-radius: 8px;
       padding: 20px 14px;
       display: flex;
       flex-direction: column;
@@ -43,10 +42,11 @@
       cursor: grab;
       text-decoration: none;
       color: inherit;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+      box-shadow: var(--shadow);
       transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), 
                   border-color 0.22s ease, 
-                  box-shadow 0.22s ease;
+                  box-shadow 0.22s ease,
+                  background 0.22s ease;
       position: relative;
       user-select: none;
       -webkit-user-drag: element;
@@ -55,14 +55,15 @@
       cursor: grabbing;
     }
     .app-card:hover {
-      transform: scale(1.06) translateY(-2px);
+      transform: translateY(-3px);
+      background: linear-gradient(180deg, #ffffff 0%, var(--theme-bg-color) 160%);
       border-color: var(--theme-color);
-      box-shadow: 0 10px 20px -6px var(--theme-shadow-color);
+      box-shadow: 0 14px 28px -18px var(--theme-color), var(--shadow);
       text-decoration: none;
     }
     .app-card.drag-over {
-      border: 2px dashed var(--theme-color);
-      transform: scale(0.95);
+      border: 1px dashed var(--theme-color);
+      transform: translateY(0);
       background: var(--theme-bg-color);
       box-shadow: none;
     }
@@ -70,10 +71,11 @@
       position: absolute;
       top: 8px;
       right: 8px;
-      background: transparent;
-      border: 0;
+      background: rgba(255, 255, 255, .82);
+      border: 1px solid transparent;
+      border-radius: 999px;
       color: var(--muted);
-      font-size: 16px;
+      font-size: 15px;
       cursor: pointer;
       padding: 4px;
       line-height: 1;
@@ -81,7 +83,9 @@
       z-index: 5;
     }
     .fav-star-btn:hover {
-      transform: scale(1.25);
+      transform: translateY(-1px);
+      border-color: #fde68a;
+      background: #fffbeb;
       color: #eab308;
     }
     @keyframes starBounce {
@@ -96,7 +100,8 @@
     .app-icon-wrap {
       width: 46px;
       height: 46px;
-      border-radius: 12px;
+      border: 1px solid var(--theme-shadow-color);
+      border-radius: 8px;
       display: grid;
       place-items: center;
       background: var(--theme-bg-color);
@@ -104,7 +109,7 @@
       transition: all 0.22s ease;
     }
     .app-card:hover .app-icon-wrap {
-      transform: scale(1.1);
+      transform: translateY(-1px);
     }
     .app-card-title {
       font-size: 13.5px;
@@ -120,7 +125,7 @@
         margin-bottom: 24px;
       }
       .app-card {
-        border-radius: 10px;
+        border-radius: 8px;
         padding: 16px 10px;
         gap: 10px;
       }
@@ -130,7 +135,7 @@
       .app-icon-wrap {
         width: 40px;
         height: 40px;
-        border-radius: 10px;
+        border-radius: 8px;
       }
       .app-card-title {
         font-size: 12.5px;

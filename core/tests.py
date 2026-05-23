@@ -177,6 +177,16 @@ class DocsViewTests(TestCase):
         self.assertEqual(response.status_code, 404)
 
 
+class AuthViewTests(TestCase):
+    def test_login_page_uses_derp_auth_shell(self):
+        response = self.client.get(reverse("account_login"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="app-header"')
+        self.assertContains(response, 'class="auth-card"')
+        self.assertContains(response, "Access your DERP workspace.")
+
+
 class AiCopilotTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
@@ -411,6 +421,21 @@ class DataImportTests(TestCase):
         response = self.client.get(reverse("data_import"))
         self.assertEqual(response.status_code, 302)
 
+    def test_import_view_requires_admin_role(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        readonly = User.objects.create_user(
+            username="readonly",
+            email="readonly@example.com",
+            password="password",
+            role=Role.READONLY,
+        )
+        self.client.force_login(readonly)
+
+        response = self.client.get(reverse("data_import"))
+
+        self.assertEqual(response.status_code, 403)
+
     def test_import_view_renders_correctly(self):
         self.client.login(username="testuser", password="password")
         response = self.client.get(reverse("data_import"))
@@ -458,6 +483,41 @@ class DataImportTests(TestCase):
         c = Customer.objects.get(pk=999)
         self.assertEqual(c.name, "Imported Customer Inc")
         self.assertEqual(c.email, "imported@customer.com")
+
+    def test_json_backup_import_rejects_unsupported_models(self):
+        self.client.login(username="testuser", password="password")
+
+        user_data = [
+            {
+                "model": "core.user",
+                "pk": 999,
+                "fields": {
+                    "password": "!",
+                    "last_login": None,
+                    "is_superuser": True,
+                    "username": "evil",
+                    "first_name": "",
+                    "last_name": "",
+                    "email": "evil@example.com",
+                    "is_staff": True,
+                    "is_active": True,
+                    "date_joined": "2026-05-23T00:00:00Z",
+                    "role": Role.ADMIN,
+                    "groups": [],
+                    "user_permissions": [],
+                },
+            }
+        ]
+        import json
+        from django.contrib.auth import get_user_model
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        User = get_user_model()
+        json_file = SimpleUploadedFile("backup.json", json.dumps(user_data).encode("utf-8"), content_type="application/json")
+
+        response = self.client.post(reverse("data_import"), {"json_file": json_file})
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(User.objects.filter(username="evil").exists())
 
     def test_json_backup_import_rollback_on_failure(self):
         self.client.login(username="testuser", password="password")

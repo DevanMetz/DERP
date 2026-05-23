@@ -24,6 +24,8 @@ The copilot drafts three document types. After confirmation, they are created in
 
 Documents are always created in `DRAFT` status. Confirming, posting, completing, or voiding still happens through the regular UI workflows so the irreversible steps stay deliberate.
 
+Drafting respects product workflow availability. Products must be active and **Purchasable** for purchase orders, active and **Sellable** for sales orders, and active and **Manufacturable** with an active BOM for manufacturing orders.
+
 ### Post stock movements
 
 Unlike drafts (PO/SO/MO), the copilot can post stock movements (receipts, issues, and adjustments) immediately upon confirmation. These calls run through the atomic inventory service (`inventory.services.post_stock_movement`), which updates stock-on-hand and recalculates the weighted-average cost (WAC).
@@ -66,6 +68,8 @@ Say *"try your best"*, *"just do it"*, *"go ahead"*, or *"whatever works"* and t
 - **SO**: qty=1, unit_price from `product.price`, first active customer if none specified
 - **MO**: qty=1, first active BOM if none specified
 - **Stock Movement**: qty=1, unit_cost from `product.cost` (for receipts), first active stock product if none specified, default type is "receipt"
+
+Default product selection follows the same availability rules as manual drafting: purchasable products for POs, sellable products for SOs, and manufacturable BOM products for MOs.
 
 ## Multi-turn slot filling
 

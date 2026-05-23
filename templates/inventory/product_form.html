@@ -95,6 +95,26 @@
         </div>
       </div>
 
+      <!-- Workflow Availability -->
+      <h3 style="margin-bottom: 15px; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 6px;">Workflow Availability</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 25px;">
+        <div class="form-group toggle-option">
+          {{ form.is_purchasable }}
+          <label for="{{ form.is_purchasable.id_for_label }}">Purchase orders and vendor bills</label>
+          {% if form.is_purchasable.errors %}<span style="color: var(--err); font-size: 11px;">{{ form.is_purchasable.errors }}</span>{% endif %}
+        </div>
+        <div class="form-group toggle-option">
+          {{ form.is_sellable }}
+          <label for="{{ form.is_sellable.id_for_label }}">Sales orders and invoices</label>
+          {% if form.is_sellable.errors %}<span style="color: var(--err); font-size: 11px;">{{ form.is_sellable.errors }}</span>{% endif %}
+        </div>
+        <div class="form-group toggle-option">
+          {{ form.is_manufacturable }}
+          <label for="{{ form.is_manufacturable.id_for_label }}">Manufacturing orders</label>
+          {% if form.is_manufacturable.errors %}<span style="color: var(--err); font-size: 11px;">{{ form.is_manufacturable.errors }}</span>{% endif %}
+        </div>
+      </div>
+
       <!-- Active Toggle -->
       <div class="form-group" style="margin-bottom: 30px; display: flex; align-items: center; gap: 8px;">
         {{ form.is_active }}
@@ -143,6 +163,21 @@
       width: 16px;
       height: 16px;
       accent-color: var(--btn-bg);
+      cursor: pointer;
+    }
+    .toggle-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+    .toggle-option label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
       cursor: pointer;
     }
   </style>

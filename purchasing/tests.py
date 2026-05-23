@@ -5,6 +5,7 @@ from core.test_utils import DERPTenantTestCase as TestCase
 
 from accounting.models import Account, AccountType
 from inventory.models import Product
+from purchasing.forms import BillLineForm
 from purchasing.models import Bill, PurchaseOrder, PurchaseOrderLine, Vendor
 from purchasing.services import (
     create_bill_from_purchase_order, issue_purchase_order, receive_purchase_order,
@@ -151,6 +152,17 @@ class PurchaseOrderWorkflowTests(TestCase):
         receipt.refresh_from_db()
         self.assertTrue(receipt.is_reversed)
         self.assertEqual(StockOnHand.objects.get(product=self.product).qty, D("0.0000"))
+
+
+class PurchasingProductAvailabilityFormTests(TestCase):
+    def test_bill_line_product_choices_only_include_purchasable_products(self):
+        purchasable = Product.objects.create(sku="BUY", name="Purchasable", is_purchasable=True)
+        blocked = Product.objects.create(sku="NOBUY", name="Not for Purchase", is_purchasable=False)
+
+        choices = BillLineForm().fields["product"].queryset
+
+        self.assertIn(purchasable, choices)
+        self.assertNotIn(blocked, choices)
 
 
 class BillVoidTests(TestCase):
@@ -385,6 +397,5 @@ class LocalizedGoodsReceiptTests(TestCase):
         # Verify default location is empty
         wh_stock_exists = LocationStock.objects.filter(product=self.product, location__name="Main Warehouse").exists()
         self.assertFalse(wh_stock_exists)
-
 
 

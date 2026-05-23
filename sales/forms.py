@@ -42,7 +42,7 @@ class SalesOrderHeaderForm(forms.ModelForm):
 
 class InvoiceLineForm(forms.Form):
     product = forms.ModelChoiceField(
-        queryset=Product.objects.filter(is_active=True).order_by("sku"),
+        queryset=Product.objects.filter(is_active=True, is_sellable=True).order_by("sku"),
         required=False,
     )
     description = forms.CharField(max_length=500, required=False)

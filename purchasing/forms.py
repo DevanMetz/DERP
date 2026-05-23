@@ -41,7 +41,7 @@ class PurchaseOrderHeaderForm(forms.ModelForm):
 
 class BillLineForm(forms.Form):
     product = forms.ModelChoiceField(
-        queryset=Product.objects.filter(is_active=True).order_by("sku"),
+        queryset=Product.objects.filter(is_active=True, is_purchasable=True).order_by("sku"),
         required=False,
     )
     description = forms.CharField(max_length=500, required=False)

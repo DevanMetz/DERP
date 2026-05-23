@@ -67,6 +67,18 @@ class Product(models.Model):
         limit_choices_to={"type": "expense", "is_postable": True},
     )
 
+    is_purchasable = models.BooleanField(
+        default=True,
+        help_text="Can be selected on purchase orders and vendor bills.",
+    )
+    is_sellable = models.BooleanField(
+        default=True,
+        help_text="Can be selected on sales orders and invoices.",
+    )
+    is_manufacturable = models.BooleanField(
+        default=True,
+        help_text="Can be built on manufacturing orders.",
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     history = HistoricalRecords()

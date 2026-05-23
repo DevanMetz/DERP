@@ -5,6 +5,7 @@ from core.test_utils import DERPTenantTestCase as TestCase
 from accounting.models import Account, AccountType
 from inventory.models import Product, StockOnHand, StockMovement
 from inventory.services import post_stock_movement
+from sales.forms import InvoiceLineForm
 from sales.models import Customer, Invoice, SalesOrder, SalesOrderLine
 from sales.services import (
     confirm_sales_order, create_invoice_from_sales_order,
@@ -157,6 +158,17 @@ class SalesOrderWorkflowTests(TestCase):
         cogs_lines = JournalLine.objects.filter(account=self.cogs)
         self.assertEqual(cogs_lines.count(), 1)
         self.assertEqual(cogs_lines.first().debit, D("20.00"))  # 2 * cost (10.00) = 20.00
+
+
+class SalesProductAvailabilityFormTests(TestCase):
+    def test_sales_line_product_choices_only_include_sellable_products(self):
+        sellable = Product.objects.create(sku="SELL", name="Sellable", is_sellable=True)
+        blocked = Product.objects.create(sku="NOSALE", name="Not for Sale", is_sellable=False)
+
+        choices = InvoiceLineForm().fields["product"].queryset
+
+        self.assertIn(sellable, choices)
+        self.assertNotIn(blocked, choices)
 
 
 class InvoiceVoidTests(TestCase):
@@ -364,5 +376,4 @@ class LocalizedInvoiceTests(TestCase):
         # Verify that default location has no stock
         wh_stock_exists = LocationStock.objects.filter(product=self.product, location__name="Main Warehouse").exists()
         self.assertFalse(wh_stock_exists)
-
 

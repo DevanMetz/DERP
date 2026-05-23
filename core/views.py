@@ -3,7 +3,7 @@ from django.contrib import messages
 import json
 
 from django.core.exceptions import ValidationError
-from django.http import Http404, JsonResponse
+from django.http import Http404, HttpResponseForbidden, JsonResponse
 from django.shortcuts import redirect, render
 from django import forms
 from django.utils import timezone
@@ -11,7 +11,7 @@ from datetime import date
 from decimal import Decimal
 from django.db.models import Sum, Q
 
-from .models import Company
+from .models import Company, Role
 from accounting.models import Account, AccountType, JournalEntry, JournalLine
 from inventory.models import Product, ProductType
 from purchasing.models import Vendor
@@ -382,6 +382,9 @@ def import_view(request):
     import csv
     import io
 
+    if request.user.role != Role.ADMIN:
+        return HttpResponseForbidden("Only administrators can import data.")
+
     IMPORTABLE_MODELS = {
         "accounting.account": "GL Accounts",
         "inventory.product": "Products",
@@ -395,8 +398,18 @@ def import_view(request):
             json_file = request.FILES["json_file"]
             try:
                 data = json_file.read()
-                # Deserialize to validate structure before applying transaction
+                # Deserialize and validate structure before applying transaction.
                 deserialized_objects = list(serializers.deserialize("json", data))
+                blocked_models = sorted({
+                    obj.object._meta.label_lower
+                    for obj in deserialized_objects
+                    if obj.object._meta.label_lower not in IMPORTABLE_MODELS
+                })
+                if blocked_models:
+                    raise ValidationError(
+                        "JSON restore includes unsupported model(s): "
+                        + ", ".join(blocked_models)
+                    )
                 
                 with transaction.atomic():
                     count = 0

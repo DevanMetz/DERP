@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.http import Http404
 from django.shortcuts import redirect, render
 from django import forms
 from django.utils import timezone
@@ -10,6 +11,7 @@ from django.db.models import Sum, Q
 from .models import Company
 from accounting.models import Account, AccountType, JournalEntry, JournalLine
 from inventory.models import Product, ProductType
+from .docs import get_doc_page, list_doc_pages, render_doc_markdown
 
 ZERO = Decimal("0.00")
 
@@ -52,6 +54,26 @@ def home(request):
     return render(request, "core/home.html", {
         "company": company,
         "low_stock_products": low_stock_products,
+    })
+
+
+@login_required
+def docs_index(request):
+    return render(request, "core/docs_index.html", {
+        "pages": list_doc_pages(),
+    })
+
+
+@login_required
+def docs_page(request, slug):
+    page = get_doc_page(slug)
+    if page is None:
+        raise Http404("Documentation page not found")
+
+    return render(request, "core/docs_page.html", {
+        "page": page,
+        "pages": list_doc_pages(),
+        "content": render_doc_markdown(page),
     })
 
 

@@ -139,6 +139,40 @@ class DashboardViewTests(TestCase):
         self.assertIn(155.0, response.context["doughnut_data_json"])
 
 
+class DocsViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="docsuser",
+            email="docs@example.com",
+            password="password",
+            role=Role.ADMIN,
+        )
+
+    def test_docs_index_requires_login(self):
+        response = self.client.get(reverse("docs_index"))
+        self.assertEqual(response.status_code, 302)
+
+    def test_docs_index_lists_repo_backed_pages(self):
+        self.client.login(username="docsuser", password="password")
+        response = self.client.get(reverse("docs_index"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "DERP Documentation")
+        self.assertContains(response, "Getting Started")
+        self.assertContains(response, reverse("docs_page", args=["getting-started"]))
+
+    def test_docs_page_renders_markdown(self):
+        self.client.login(username="docsuser", password="password")
+        response = self.client.get(reverse("docs_page", args=["accounting"]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Accounting")
+        self.assertContains(response, "post_transaction")
+
+    def test_unknown_docs_page_404s(self):
+        self.client.login(username="docsuser", password="password")
+        response = self.client.get(reverse("docs_page", args=["missing-page"]))
+        self.assertEqual(response.status_code, 404)
+
+
 class DataExportTests(TestCase):
     def setUp(self):
         from django.contrib.auth import get_user_model
@@ -315,5 +349,4 @@ class DataImportTests(TestCase):
         c = Customer.objects.get(pk=777)
         self.assertEqual(c.name, "CSV Ingested Co")
         self.assertEqual(c.payment_terms_days, 45)
-
 

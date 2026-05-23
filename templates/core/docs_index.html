@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Docs - DERP{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <div>
+      <h1>DERP Documentation</h1>
+      <p class="text-subtle">Repo-backed product and maintainer docs for the current application.</p>
+    </div>
+  </div>
+
+  <style>
+    .docs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }
+    .doc-card {
+      display: block;
+      min-height: 150px;
+      color: inherit;
+    }
+    .doc-card:hover {
+      border-color: var(--accent);
+      text-decoration: none;
+    }
+    .doc-card h2 {
+      margin-top: 0;
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+    .doc-card p {
+      margin-bottom: 0;
+    }
+  </style>
+
+  <div class="docs-grid">
+    {% for page in pages %}
+      <a class="card doc-card" href="{% url 'docs_page' page.slug %}">
+        <h2>{{ page.title }}</h2>
+        <p class="text-subtle">{{ page.summary|default:"Open this documentation page." }}</p>
+      </a>
+    {% empty %}
+      <div class="card">
+        <p class="muted">No documentation pages have been added yet.</p>
+      </div>
+    {% endfor %}
+  </div>
+{% endblock %}

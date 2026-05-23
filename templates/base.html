@@ -623,6 +623,7 @@
       <a href="{% url 'stock_movement_list' %}">Stock Ledger</a>
       <a href="{% url 'bom_list' %}">BOMs</a>
       <a href="{% url 'mo_list' %}">Manufacturing</a>
+      <a href="{% url 'docs_index' %}">Docs</a>
       
     {% elif '/customers/' in request.path or '/sales-orders/' in request.path or '/invoices/' in request.path %}
       <!-- Sales & Customers Module -->
@@ -630,6 +631,7 @@
       <a href="{% url 'customer_list' %}">Customers</a>
       <a href="{% url 'sales_order_list' %}">Sales orders</a>
       <a href="{% url 'invoice_list' %}">Invoices</a>
+      <a href="{% url 'docs_index' %}">Docs</a>
       
     {% elif '/vendors/' in request.path or '/purchase-orders/' in request.path or '/bills/' in request.path %}
       <!-- Purchasing & Vendors Module -->
@@ -637,6 +639,7 @@
       <a href="{% url 'vendor_list' %}">Vendors</a>
       <a href="{% url 'purchase_order_list' %}">Purchase orders</a>
       <a href="{% url 'bill_list' %}">Bills</a>
+      <a href="{% url 'docs_index' %}">Docs</a>
       
     {% elif '/journal/' in request.path or '/trial-balance/' in request.path or '/income-statement/' in request.path or '/balance-sheet/' in request.path or '/general-ledger/' in request.path %}
       <!-- Finance & Accounting Module -->
@@ -646,6 +649,7 @@
       <a href="{% url 'income_statement' %}">P&amp;L</a>
       <a href="{% url 'balance_sheet' %}">Balance sheet</a>
       <a href="{% url 'general_ledger' %}">GL</a>
+      <a href="{% url 'docs_index' %}">Docs</a>
       
     {% else %}
       <!-- General Module (Dashboard/Setup) -->
@@ -653,6 +657,7 @@
       <a href="{% url 'company_setup' %}">Company</a>
       <a href="{% url 'data_export' %}">Data Export</a>
       <a href="{% url 'data_import' %}">Data Import</a>
+      <a href="{% url 'docs_index' %}">Docs</a>
     {% endif %}
     </nav>
     <div class="account">
@@ -692,7 +697,8 @@
       "balance_sheet": { name: "Balance Sheet", url: "{% url 'balance_sheet' %}" },
       "general_ledger": { name: "GL", url: "{% url 'general_ledger' %}" },
       "data_export": { name: "Data Export", url: "{% url 'data_export' %}" },
-      "data_import": { name: "Data Import", url: "{% url 'data_import' %}" }
+      "data_import": { name: "Data Import", url: "{% url 'data_import' %}" },
+      "docs": { name: "Docs", url: "{% url 'docs_index' %}" }
     };
 
     window.updateFavNavbar = function() {

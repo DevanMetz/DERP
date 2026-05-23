@@ -44,7 +44,7 @@ def run_copilot_turn(message: str, *, api_key: str = "", user=None, session=None
     # don't require re-typing the name.
     _absorb_page_record_into_pending(context.get("page", {}).get("record"), state)
 
-    plan = _plan_with_ai(message, state, context, api_key) if api_key else _plan_without_ai(message, state)
+    plan = _plan_with_ai(message, state, context, api_key) if api_key else _plan_without_ai(message, state, context=context)
     tools = _execute_tool_plan(plan, state, user=user)
 
     # Update pending PO state from anything the searches just found.
@@ -322,11 +322,21 @@ def build_purchase_order_preview(message: str, api_key: str = "") -> dict:
     return run_copilot_turn(message, api_key=api_key)
 
 
-def _plan_without_ai(message: str, state: dict) -> dict:
+def _plan_without_ai(message: str, state: dict, context: dict = None) -> dict:
     text = message.strip()
     lower = text.lower()
     if any(term in lower for term in ["doc", "docs", "how do i", "how to", "reverse", "explain"]):
         return {"intent": "answer_docs", "tool_calls": [{"name": "search_docs", "arguments": {"query": text}}]}
+    if context and context.get("page", {}).get("record"):
+        record = context["page"]["record"]
+        if any(term in lower for term in ["this", "them", "it", "here", "detail", "tell me about"]):
+            return {
+                "intent": "lookup",
+                "tool_calls": [{"name": "get_record_details", "arguments": {"type": record.get("type"), "id": record.get("id")}}]
+            }
+    if "warehouse" in lower or "location" in lower:
+        query = _query_after_keyword(text, "warehouse") if "warehouse" in lower else _query_after_keyword(text, "location")
+        return {"intent": "lookup", "tool_calls": [{"name": "search_locations", "arguments": {"query": query}}]}
     if "vendor" in lower or lower.startswith("find "):
         return {"intent": "lookup", "tool_calls": [{"name": "search_vendors", "arguments": {"query": _query_after_keyword(text, "vendor")}}]}
     if any(term in lower for term in ["product", "sku", "stock"]):
@@ -378,7 +388,7 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
                             "get_recent_purchase_prices", "search_accounts", "search_docs",
                             "draft_purchase_order_preview", "draft_sales_order_preview",
                             "draft_manufacturing_order_preview", "get_record_details",
-                            "draft_stock_movement_preview",
+                            "draft_stock_movement_preview", "search_locations",
                         ]},
                         "arguments": {"type": "object"},
                     },
@@ -396,6 +406,7 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
         '  search_vendors({"query": "<name>"}) — fuzzy match; tolerates misspellings and missing spaces.\n'
         '  search_customers({"query": "<name>"}) — fuzzy match.\n'
         '  search_products({"query": "<sku-or-name>"}) — fuzzy match. Returns product.cost (purchase) and product.price (sell).\n'
+        '  search_locations({"query": "<name>"}) — fuzzy match; returns active warehouses/locations.\n'
         '  get_stock_levels({"query": "<product>"})\n'
         '  get_open_purchase_orders({"vendor": "<name>"})\n'
         '  get_recent_purchase_prices({"product": "<name>", "vendor": "<name>"})\n'
@@ -413,7 +424,7 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
         '  }) — preview of a sale. Use for "sold", "selling", "ship to <customer>", "make an SO".\n'
         '  search_boms({"query": "<product-or-bom-name>"}) — fuzzy search BOMs.\n'
         '  get_record_details({"type": "<customer|vendor|product|sales_order|invoice|purchase_order|'
-        'manufacturing_order|bom>", "id": <int>}) — return full info on a specific record, including '
+        'manufacturing_order|bom|location>", "id": <int>}) — return full info on a specific record, including '
         'recent sales orders/invoices for a customer, recent POs/bills for a vendor, or lines for a doc. '
         'Call this when the user references "this", "them", "it" while the context.page.record is set, '
         'or asks for activity history.\n'
@@ -539,6 +550,8 @@ def _execute_tool_plan(plan: dict, state: dict, *, user=None) -> list[dict]:
         args = call.get("arguments") or {}
         if name == "search_vendors":
             result = _tool_search_vendors(args.get("query", ""))
+        elif name == "search_locations":
+            result = _tool_search_locations(args.get("query", ""))
         elif name == "search_products":
             result = _tool_search_products(args.get("query", ""))
         elif name == "get_stock_levels":
@@ -595,12 +608,15 @@ def _build_reply(message: str, plan: dict, tools: list[dict], state: dict, *, us
     stock = _tool_result(tools, "get_stock_levels")
     recent = _tool_result(tools, "get_recent_purchase_prices")
     open_pos = _tool_result(tools, "get_open_purchase_orders")
+    locations = _tool_result(tools, "search_locations")
 
     lines = []
     if vendors is not None:
         lines.append(_format_matches("vendors", vendors.get("matches", []), "name"))
     if customers is not None:
         lines.append(_format_matches("customers", customers.get("matches", []), "name"))
+    if locations is not None:
+        lines.append(_format_matches("warehouses", locations.get("matches", []), "name"))
     if products is not None:
         lines.append(_format_matches("products", products.get("matches", []), "label"))
     if boms is not None:
@@ -730,6 +746,11 @@ def _format_record_details(d: dict) -> str:
     if t == "bom":
         comps = "; ".join(f"{c['qty']} x {c['product']}" for c in d.get("components", []))
         return f"{d['name']} (rollup ${d['rollup_cost']}). Components: {comps or 'none'}."
+    if t == "location":
+        stock_str = "; ".join(f"{s['qty']} x {s['product']}" for s in d.get("stocks", []))
+        active_str = "Active" if d.get("is_active") else "Inactive"
+        desc_str = f" ({d['description']})" if d.get("description") else ""
+        return f"{d['name']}{desc_str} - {active_str} warehouse. Stock: {stock_str or 'no items in stock'}."
     return ""
 
 
@@ -823,6 +844,19 @@ def _tool_search_products(query: str) -> dict:
             "price": str(product.price),
             "type": product.get_type_display(),
         })
+    return {"matches": matches, "count": len(matches)}
+
+
+def _tool_search_locations(query: str) -> dict:
+    from inventory.models import Location
+    base = Location.objects.filter(is_active=True)
+    qs = base
+    if query:
+        qs = base.filter(Q(name__icontains=query) | Q(description__icontains=query))
+    locations = list(qs.order_by("name")[:5])
+    if query and not locations:
+        locations = _fuzzy_post_filter(list(base), query, ["name", "description"])
+    matches = [{"id": loc.pk, "name": loc.name, "description": loc.description} for loc in locations]
     return {"matches": matches, "count": len(matches)}
 
 
@@ -985,6 +1019,24 @@ def _tool_get_record_details(kind: str, record_id) -> dict:
                 {"product": f"{c.product.sku} - {c.product.name}",
                  "qty": str(c.qty), "extended_cost": str(c.extended_cost)}
                 for c in obj.components.all()
+            ],
+        }
+
+    if kind == "location":
+        from inventory.models import Location, LocationStock
+        obj = Location.objects.filter(pk=pk).first()
+        if not obj:
+            return {"error": f"location {pk} not found"}
+        stocks = list(LocationStock.objects.filter(location=obj, qty__gt=0).select_related("product")[:10])
+        return {
+            "type": "location",
+            "id": obj.pk,
+            "name": obj.name,
+            "description": obj.description,
+            "is_active": obj.is_active,
+            "stocks": [
+                {"product": s.product.sku, "name": s.product.name, "qty": str(s.qty)}
+                for s in stocks
             ],
         }
 

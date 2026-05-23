@@ -286,6 +286,45 @@ class AiCopilotTests(TestCase):
         self.assertIsNone(payload["preview"])
         self.assertIn("tool_results", payload)
 
+    def test_ai_chat_can_search_locations(self):
+        from inventory.models import Location
+        Location.objects.create(name="East Warehouse", description="The eastern main warehouse")
+        self.client.login(username="aiuser", password="password")
+        response = self.client.post(
+            reverse("ai_chat"),
+            data=json.dumps({"message": "Find warehouse East"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn("East Warehouse", payload["reply"])
+
+    def test_ai_chat_can_get_location_details(self):
+        from inventory.models import Location, LocationStock
+        loc = Location.objects.create(name="North Bin", description="Northern storage bin")
+        # Give it some stock
+        from inventory.models import Product, ProductType
+        prod = Product.objects.create(sku="BOLT", name="Bolt", type=ProductType.STOCK)
+        LocationStock.objects.create(product=prod, location=loc, qty=Decimal("45.0000"))
+        
+        self.client.login(username="aiuser", password="password")
+        response = self.client.post(
+            reverse("ai_chat"),
+            data=json.dumps({
+                "message": "tell me about this location",
+                "page_context": {
+                    "record": {"type": "location", "id": loc.pk, "label": loc.name}
+                }
+            }),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn("North Bin", payload["reply"])
+        self.assertIn("BOLT", payload["reply"])
+        self.assertIn("45.0000", payload["reply"])
+
+
 
 class DataExportTests(TestCase):
     def setUp(self):

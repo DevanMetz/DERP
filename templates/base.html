@@ -1453,6 +1453,7 @@
       let docLabel = "PO";
       if (preview.customer) docLabel = "SO";
       else if (preview.bom || preview.qty_target) docLabel = "MO";
+      else if (preview.movement_type) docLabel = "Movement";
 
       const wrapper = document.createElement("div");
       wrapper.className = "ai-preview";
@@ -1463,7 +1464,7 @@
       const party = document.createElement("div");
       if (docLabel === "SO") {
         party.textContent = `Customer: ${preview.customer}`;
-      } else if (docLabel === "MO") {
+      } else if (docLabel === "MO" || docLabel === "Movement") {
         party.textContent = `Product: ${preview.product}`;
       } else {
         party.textContent = `Vendor: ${preview.vendor}`;
@@ -1474,6 +1475,24 @@
         const bomDiv = document.createElement("div");
         bomDiv.textContent = `BOM: ${preview.bom}`;
         wrapper.appendChild(bomDiv);
+      }
+      if (docLabel === "Movement") {
+        const typeDiv = document.createElement("div");
+        typeDiv.textContent = `Type: ${preview.movement_type}`;
+        wrapper.appendChild(typeDiv);
+        const qtyDiv = document.createElement("div");
+        qtyDiv.textContent = `Qty: ${preview.qty}${preview.unit_cost && preview.unit_cost !== "0.00" ? ` at $${preview.unit_cost} each` : ""}`;
+        wrapper.appendChild(qtyDiv);
+        if (preview.on_hand_before !== undefined) {
+          const ohDiv = document.createElement("div");
+          ohDiv.textContent = `On hand before: ${preview.on_hand_before}`;
+          wrapper.appendChild(ohDiv);
+        }
+        if (preview.memo) {
+          const memoDiv = document.createElement("div");
+          memoDiv.textContent = `Memo: ${preview.memo}`;
+          wrapper.appendChild(memoDiv);
+        }
       }
 
       const dateValue = preview.date_planned || preview.requested_date || preview.expected_date;

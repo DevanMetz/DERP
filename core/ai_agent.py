@@ -13,7 +13,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounting.models import Account, JournalEntry
-from inventory.models import Product
+from inventory.models import Product, ProductType, StockMovement
+from inventory.services import post_stock_movement
 from purchasing.models import Bill, GoodsReceipt, PurchaseOrder, PurchaseOrderLine, Vendor
 from purchasing.services import resolve_expense_account
 from sales.models import Customer, Invoice, SalesOrder, SalesOrderLine
@@ -69,6 +70,8 @@ def run_copilot_turn(message: str, *, api_key: str = "", user=None, session=None
         )
     elif doc_intent == "mo":
         has_enough = bool(pending.get("bom_id") and pending.get("qty_target"))
+    elif doc_intent == "sm":
+        has_enough = bool(pending.get("product_id") and pending.get("movement_type") and pending.get("qty"))
     else:
         has_enough = False
 
@@ -79,6 +82,7 @@ def run_copilot_turn(message: str, *, api_key: str = "", user=None, session=None
             "po": "draft_purchase_order_preview",
             "so": "draft_sales_order_preview",
             "mo": "draft_manufacturing_order_preview",
+            "sm": "draft_stock_movement_preview",
         }[doc_intent]
         existing = _tool_result(tools, tool_name)
         if not existing or not existing.get("preview"):
@@ -135,6 +139,10 @@ def confirm_action_token(action_token: str, user, session=None) -> dict:
     if action == "create_manufacturing_order_draft":
         result = _confirm_create_manufacturing_order(payload, user)
         _clear_pending(session, "pending_mo")
+        return result
+    if action == "post_stock_movement":
+        result = _confirm_post_stock_movement(payload, user)
+        _clear_pending(session, "pending_sm")
         return result
     raise ValidationError("Unsupported AI action.")
 
@@ -272,6 +280,44 @@ def _confirm_create_manufacturing_order(payload: dict, user) -> dict:
     }
 
 
+def _confirm_post_stock_movement(payload: dict, user) -> dict:
+    """Post a stock movement immediately. Unlike PO/SO/MO/invoice this is not a
+    draft — the movement service is itself atomic and the result is a single
+    posted row plus an updated stock-on-hand balance."""
+    if not _can_post_stock_movements(user):
+        raise ValidationError("Your role can review AI previews, but cannot post stock movements.")
+
+    product = Product.objects.get(pk=payload["product_id"], is_active=True)
+    movement_type = payload["movement_type"]
+    qty = Decimal(str(payload["qty"]))
+    unit_cost = Decimal(str(payload.get("unit_cost") or "0"))
+    memo = payload.get("memo", "") or "Posted from AI copilot."
+
+    movement = post_stock_movement(
+        product=product,
+        movement_type=movement_type,
+        qty=qty,
+        unit_cost=unit_cost,
+        memo=memo,
+        user=user if getattr(user, "is_authenticated", False) else None,
+    )
+
+    _audit(
+        user=user,
+        event_type=CopilotAuditEvent.EventType.CONFIRM,
+        tool_names=["post_stock_movement"],
+        metadata={"product": product.sku, "movement_type": movement_type, "qty": str(qty)},
+        object_type="inventory.StockMovement",
+        object_id=movement.pk,
+    )
+    label = movement.get_movement_type_display()
+    return {
+        "reply": f"Posted {label} of {qty} x {product.sku}.",
+        "stock_movement_id": movement.pk,
+        "url": reverse("stock_movement_list"),
+    }
+
+
 def build_purchase_order_preview(message: str, api_key: str = "") -> dict:
     return run_copilot_turn(message, api_key=api_key)
 
@@ -332,6 +378,7 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
                             "get_recent_purchase_prices", "search_accounts", "search_docs",
                             "draft_purchase_order_preview", "draft_sales_order_preview",
                             "draft_manufacturing_order_preview", "get_record_details",
+                            "draft_stock_movement_preview",
                         ]},
                         "arguments": {"type": "object"},
                     },
@@ -375,6 +422,15 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
         '     "qty": "<number to produce>",\n'
         '     "date_planned": "<YYYY-MM-DD or empty>"\n'
         '  }) — preview of a production run. Use for "manufacture", "produce", "build N of X", "make an MO".\n'
+        '  draft_stock_movement_preview({\n'
+        '     "product": "<product as user said it>",\n'
+        '     "movement_type": "receipt|issue|adjustment",\n'
+        '     "qty": "<number>",\n'
+        '     "unit_cost": "<number or empty for receipts>",\n'
+        '     "memo": "<short reason>"\n'
+        '  }) — post a stock change. Use for "received N of X", "wrote off N damaged X", '
+        '"shipped N to demo", "found N extra X". Map verbs: received/got/restock → receipt; '
+        'wrote off/damaged/scrap/lost/shipped/used → issue; found extra/count adjustment → adjustment.\n'
         "\n"
         "RULES:\n"
         "  • Pick the right tool from the user's verb. 'bought / purchased / order from <vendor>' → "
@@ -420,6 +476,14 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
         "\n"
         "  User: 'build 50 widgets'\n"
         "  → tool_calls: [{name: 'draft_manufacturing_order_preview', arguments: {bom: 'widgets', qty: '50'}}]\n"
+        "\n"
+        "  User: 'received 100 of WIDGET at $5 each'\n"
+        "  → tool_calls: [{name: 'draft_stock_movement_preview', arguments: {product: 'WIDGET', "
+        "movement_type: 'receipt', qty: '100', unit_cost: '5'}}]\n"
+        "\n"
+        "  User: 'wrote off 5 damaged widgets'\n"
+        "  → tool_calls: [{name: 'draft_stock_movement_preview', arguments: {product: 'widgets', "
+        "movement_type: 'issue', qty: '5', memo: 'damaged'}}]\n"
         "\n"
         "  User: 'do any BOMs use pla filament?' or 'what BOMs use pla filament?'\n"
         "  → tool_calls: [{name: 'search_boms', arguments: {query: 'pla filament'}}]\n"
@@ -499,6 +563,8 @@ def _execute_tool_plan(plan: dict, state: dict, *, user=None) -> list[dict]:
             result = _tool_draft_manufacturing_order_preview(args, state, user=user)
         elif name == "get_record_details":
             result = _tool_get_record_details(args.get("type", ""), args.get("id"))
+        elif name == "draft_stock_movement_preview":
+            result = _tool_draft_stock_movement_preview(args, state, user=user)
         else:
             result = {"error": f"Unknown tool: {name}"}
         results.append({"name": name, "arguments": args, "result": result})
@@ -511,6 +577,7 @@ def _build_reply(message: str, plan: dict, tools: list[dict], state: dict, *, us
         "draft_purchase_order_preview",
         "draft_sales_order_preview",
         "draft_manufacturing_order_preview",
+        "draft_stock_movement_preview",
     ):
         preview_tool = _tool_result(tools, tool_name)
         if preview_tool:
@@ -1260,6 +1327,115 @@ def _tool_draft_manufacturing_order_preview(args: dict, state: dict, *, user=Non
     }
 
 
+_STOCK_MOVEMENT_TYPES = {
+    "receipt", "issue", "adjustment",
+    # Friendly aliases that LLM might use; mapped in the resolver below.
+    "in", "out", "increase", "decrease", "writeoff", "write-off", "scrap",
+}
+
+
+def _resolve_movement_type(raw: str, message: str = "") -> str | None:
+    """Map a free-form movement type hint to one of receipt|issue|adjustment."""
+    if not raw:
+        # Fall back to inferring from message verbs.
+        lower = (message or "").lower()
+        if re.search(r"\b(receiv|got|incoming|restock|delivered|stock\s*in)\b", lower):
+            return "receipt"
+        if re.search(r"\b(wrote?\s*off|write[\s-]?off|damaged?|scrap|destroy|lost|issued?|used|consumed|shipped\s+to)\b", lower):
+            return "issue"
+        if re.search(r"\b(found|extra|count(?:ed)?\s+(?:up|extra)|adjustment|adjust)\b", lower):
+            return "adjustment"
+        return None
+    r = raw.strip().lower()
+    if r in ("receipt", "in", "increase"):
+        return "receipt"
+    if r in ("issue", "out", "writeoff", "write-off", "scrap", "decrease"):
+        return "issue"
+    if r == "adjustment":
+        return "adjustment"
+    return None
+
+
+def _tool_draft_stock_movement_preview(args: dict, state: dict, *, user=None) -> dict:
+    """Build a preview of a stock movement (receipt, issue, adjustment) the user
+    must confirm. Unlike PO/SO/MO this posts to inventory immediately on confirm —
+    there is no DRAFT intermediate state for movements."""
+    if not _can_post_stock_movements(user):
+        return {"reply": "Your role can search and review ERP data, but cannot post stock movements.", "preview": None}
+
+    pending = state.setdefault("pending_sm", {})
+    product_hint = (args.get("product") or pending.get("product_label") or pending.get("product_sku") or "").strip()
+    qty = _decimal_or_none(args.get("qty") or pending.get("qty"), scale="0.0001")
+    unit_cost = _decimal_or_none(args.get("unit_cost") or pending.get("unit_cost"), scale="0.01")
+    memo = (args.get("memo") or pending.get("memo") or "").strip()
+    movement_type = _resolve_movement_type(args.get("movement_type", ""), args.get("_user_message", ""))
+
+    if not product_hint:
+        return {"reply": "Which product is moving?", "preview": None}
+    if not movement_type:
+        return {"reply": "Is this a receipt (stock in), issue (stock out), or adjustment?", "preview": None}
+    if qty is None or qty <= 0:
+        return {"reply": "How many units?", "preview": None}
+
+    product = _find_one(Product.objects.filter(is_active=True), product_hint, ["sku", "name", "description"])
+    if product is None:
+        return {"reply": f"I could not find a product matching \"{product_hint}\".", "preview": None}
+    if product.type != ProductType.STOCK:
+        return {"reply": f"{product.sku} is not a stock-tracked product — only stock items can have movements.", "preview": None}
+
+    # For RECEIPT, default unit_cost to the current product cost if not given.
+    if unit_cost is None:
+        unit_cost = Decimal(str(product.cost))
+
+    # For ISSUE, surface a stock-shortage warning early (the service also validates).
+    on_hand = getattr(product, "stock_on_hand", None)
+    on_hand_qty = on_hand.qty if on_hand else Decimal("0")
+    if movement_type == "issue" and qty > on_hand_qty:
+        return {
+            "reply": (f"Cannot issue {qty} x {product.sku}: only {on_hand_qty} on hand. "
+                      "Adjust the quantity or receive more first."),
+            "preview": None,
+        }
+
+    payload = {
+        "action": "post_stock_movement",
+        "product_id": product.pk,
+        "product_sku": product.sku,
+        "product_label": f"{product.sku} - {product.name}",
+        "movement_type": movement_type,
+        "qty": str(qty),
+        "unit_cost": str(unit_cost),
+        "memo": memo,
+    }
+    pending["product_id"] = product.pk
+    pending["product_sku"] = product.sku
+    pending["product_label"] = payload["product_label"]
+    pending["movement_type"] = movement_type
+    pending["qty"] = str(qty)
+    pending["unit_cost"] = str(unit_cost)
+    pending["memo"] = memo
+
+    type_label = movement_type.capitalize()
+    extended = (qty * unit_cost).quantize(Decimal("0.01"))
+    preview = {
+        "title": f"Post {type_label}",
+        "product": payload["product_label"],
+        "movement_type": type_label,
+        "qty": str(qty),
+        "unit_cost": str(unit_cost),
+        "memo": memo,
+        "on_hand_before": str(on_hand_qty),
+        "extended": str(extended),
+        "action_token": signing.dumps(payload, salt=ACTION_SALT),
+    }
+    cost_phrase = f" at ${unit_cost} each" if movement_type == "receipt" else ""
+    memo_phrase = f" — {memo}" if memo else ""
+    return {
+        "reply": f"Ready to post {type_label} of {qty} x {product.sku}{cost_phrase}{memo_phrase}.",
+        "preview": preview,
+    }
+
+
 def _parse_purchase_request(message: str) -> dict | None:
     match = re.search(
         r"(?:purchased|bought|buy|order(?:ed)?)?\s*(?P<qty>\d+(?:\.\d+)?)\s*(?:units?|pcs?|pieces?|ea|each)?\s+(?:of\s+)?(?P<product>.+?)\s+from\s+(?P<vendor>.+?)(?:\s+(?:at|for)\s+\$?(?P<cost>\d+(?:\.\d+)?))?(?:\s*(?:each|ea|per unit))?$",
@@ -1467,6 +1643,10 @@ def _can_create_manufacturing_documents(user) -> bool:
     return getattr(user, "is_authenticated", False) and getattr(user, "role", None) in {Role.ADMIN, Role.MANAGER, Role.STAFF}
 
 
+def _can_post_stock_movements(user) -> bool:
+    return getattr(user, "is_authenticated", False) and getattr(user, "role", None) in {Role.ADMIN, Role.MANAGER, Role.STAFF}
+
+
 def _load_state(session) -> dict:
     if session is None:
         return {}
@@ -1487,6 +1667,7 @@ def _save_state(session, state: dict) -> None:
         "pending_po": state.get("pending_po", {}),
         "pending_so": state.get("pending_so", {}),
         "pending_mo": state.get("pending_mo", {}),
+        "pending_sm": state.get("pending_sm", {}),
     }
     session.modified = True
 
@@ -1650,22 +1831,30 @@ def _absorb_tools_into_pending(tools: list[dict], state: dict) -> None:
 
 
 def _detect_doc_intent(message: str, state: dict) -> str:
-    """Return 'po', 'so', 'mo', or '' depending on what the user seems to want."""
+    """Return 'po', 'so', 'mo', 'sm', or '' depending on what the user seems to want."""
     lower = (message or "").lower()
+    # Stock movements (receipt/issue/adjustment) — these are NOT POs even though
+    # 'received' is involved, so check first.
+    sm_signals = re.search(
+        r"\b(receiv\w+|stock\s*in|restock|wrote?\s*off|write[\s-]?off|damaged?|scrap|"
+        r"destroy|lost|found\s+\d|adjust\s+stock|inventory\s+count)\b",
+        lower,
+    )
     mo_signals = re.search(r"\b(manufacture|manufacturing|produce|production|assemble|build|mo\b|m\.?o\.?|work\s*order|bom)\b", lower)
     so_signals = re.search(r"\b(sold|sale|selling|sells|customer|invoice|ship\s+to|so\b|sales\s*order)\b", lower)
     po_signals = re.search(r"\b(bought|buy|buying|buys|purchase|purchased|vendor|supplier|po\b|order\s+from)\b", lower)
 
-    # Exclusive signals win.
-    signals = [(s, name) for s, name in [(mo_signals, "mo"), (so_signals, "so"), (po_signals, "po")] if s]
+    signals = [(s, name) for s, name in [
+        (sm_signals, "sm"), (mo_signals, "mo"), (so_signals, "so"), (po_signals, "po"),
+    ] if s]
     if len(signals) == 1:
         return signals[0][1]
 
-    # Fall back to whichever pending_* has the most filled slots.
     po_slots = sum(1 for k in ("vendor_name", "product_label", "qty", "unit_cost") if (state.get("pending_po") or {}).get(k))
     so_slots = sum(1 for k in ("customer_name", "product_label", "qty", "unit_price") if (state.get("pending_so") or {}).get(k))
     mo_slots = sum(1 for k in ("bom_id", "product_label", "qty_target") if (state.get("pending_mo") or {}).get(k))
-    best = max((po_slots, "po"), (so_slots, "so"), (mo_slots, "mo"), key=lambda x: x[0])
+    sm_slots = sum(1 for k in ("product_id", "movement_type", "qty") if (state.get("pending_sm") or {}).get(k))
+    best = max((po_slots, "po"), (so_slots, "so"), (mo_slots, "mo"), (sm_slots, "sm"), key=lambda x: x[0])
     if best[0] > 0:
         return best[1]
     return signals[0][1] if signals else ""
@@ -1677,7 +1866,30 @@ def _autofill_preview(state: dict, *, user, doc_type: str = "po") -> dict | None
         return _autofill_sales_preview(state, user=user)
     if doc_type == "mo":
         return _autofill_manufacturing_preview(state, user=user)
+    if doc_type == "sm":
+        return _autofill_stock_movement_preview(state, user=user)
     return _autofill_purchase_preview(state, user=user)
+
+
+def _autofill_stock_movement_preview(state: dict, *, user) -> dict | None:
+    pending = state.setdefault("pending_sm", {})
+    # Default to a receipt of qty=1 of the pending product (or first stock product).
+    if not pending.get("product_id"):
+        first = Product.objects.filter(is_active=True, type=ProductType.STOCK).order_by("sku").first()
+        if not first:
+            return {"reply": "There are no stock-tracked products in this workspace yet.", "preview": None}
+        pending["product_id"] = first.pk
+        pending["product_sku"] = first.sku
+        pending["product_label"] = f"{first.sku} - {first.name}"
+        pending["unit_cost"] = str(first.cost)
+
+    return _tool_draft_stock_movement_preview({
+        "product": pending.get("product_sku") or pending.get("product_label", ""),
+        "movement_type": pending.get("movement_type") or "receipt",
+        "qty": pending.get("qty") or "1",
+        "unit_cost": pending.get("unit_cost") or "",
+        "memo": pending.get("memo") or "",
+    }, state, user=user)
 
 
 def _autofill_manufacturing_preview(state: dict, *, user) -> dict | None:

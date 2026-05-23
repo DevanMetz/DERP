@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Warehouses — DERP{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Warehouses</h1>
+  <div class="page-actions">
+    <a class="btn" href="{% url 'location_create' %}">New Warehouse</a>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Description</th>
+        <th>Status</th>
+        <th style="text-align: right; padding-right: 20px;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for loc in locations %}
+        <tr>
+          <td>
+            <a href="{% url 'location_edit' loc.pk %}" style="font-weight: 700; color: var(--text);">{{ loc.name }}</a>
+          </td>
+          <td>{{ loc.description|default:"—" }}</td>
+          <td>
+            {% if loc.is_active %}
+              <span class="badge success">Active</span>
+            {% else %}
+              <span class="badge secondary">Inactive</span>
+            {% endif %}
+          </td>
+          <td style="text-align: right; padding-right: 20px;">
+            <a href="{% url 'location_edit' loc.pk %}" class="btn secondary" style="padding: 4px 8px; font-size: 12px; border-radius: 4px;">Edit</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="4" class="empty-state" style="text-align: center; padding: 40px; color: var(--text-mut); font-style: italic;">
+            No warehouses found.
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

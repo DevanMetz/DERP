@@ -504,3 +504,78 @@ class WarehouseAndTransferTests(TestCase):
         self.assertContains(response, "Inter-wh transfer 01")
         self.assertContains(response, "Warehouse A")
         self.assertContains(response, "Warehouse B")
+
+
+class LocationViewsTests(TestCase):
+    def setUp(self):
+        from core.models import User, Role
+        self.user = User.objects.create_user(
+            username="loc_admin",
+            email="loc@example.com",
+            password="password",
+            role=Role.ADMIN,
+        )
+        from inventory.models import Location
+        self.location = Location.objects.create(
+            name="North Facility",
+            description="Our primary Northern hub",
+            is_active=True
+        )
+
+    def test_location_list_view(self):
+        from django.urls import reverse
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("location_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Warehouses")
+        self.assertContains(response, "North Facility")
+        self.assertContains(response, "Our primary Northern hub")
+
+    def test_location_create_view_get(self):
+        from django.urls import reverse
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("location_create"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "New Warehouse")
+
+    def test_location_create_view_post(self):
+        from django.urls import reverse
+        from inventory.models import Location
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("location_create"),
+            data={
+                "name": "East Facility",
+                "description": "Secondary Eastern depot",
+                "is_active": True,
+            }
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Location.objects.filter(name="East Facility").exists())
+
+    def test_location_edit_view_get(self):
+        from django.urls import reverse
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("location_edit", args=[self.location.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Edit Warehouse")
+        self.assertContains(response, "North Facility")
+
+    def test_location_edit_view_post(self):
+        from django.urls import reverse
+        from inventory.models import Location
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("location_edit", args=[self.location.pk]),
+            data={
+                "name": "North Facility - Updated",
+                "description": "Updated description",
+                "is_active": False,
+            }
+        )
+        self.assertEqual(response.status_code, 302)
+        self.location.refresh_from_db()
+        self.assertEqual(self.location.name, "North Facility - Updated")
+        self.assertEqual(self.location.description, "Updated description")
+        self.assertFalse(self.location.is_active)
+

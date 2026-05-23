@@ -61,3 +61,10 @@ A dedicated **Transfers** module is accessible under the Operations group in the
 - **Interactive Filtering**: Refine transfers by Product catalog, Source Location (From), Destination Location (To), and Date ranges.
 - **Directional Traceability**: Columns display the transaction timestamp, direction arrow indicators between warehouses, transfer quantities, custom memos, and the operating user for audits.
 - **Serial Tracking Visibility**: High-value serialized items display their exact unique serial numbers inline.
+
+### Warehouse Configuration
+Users can view and manage their physical warehouse locations from the **Warehouses** configuration module:
+- **Navigation**: Access the **Warehouses** option under the **Operations** section in the main sidebar (routing to `/products/locations/`).
+- **Create and Edit**: Create new warehouse locations or update existing ones (Name, Description, and Active Status) through a dedicated card form.
+- **Active/Inactive Status**: Toggling a warehouse to inactive hides/prevents it from active transaction selections while preserving all historical stock movement and ledger data for complete compliance and auditing.
+

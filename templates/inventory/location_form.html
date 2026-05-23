@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{% if location %}Edit{% else %}New{% endif %} Warehouse — DERP{% endblock %}
+{% block content %}
+
+<h1>{% if location %}Edit{% else %}New{% endif %} Warehouse</h1>
+
+<div class="card" style="max-width: 600px; margin-top: 20px;">
+  <form method="post" class="modern-form">
+    {% csrf_token %}
+    
+    {% if form.non_field_errors %}
+      <div class="form-errors" style="color: var(--err); background: var(--err-bg); border: 1px solid #fecdca; padding: 10px; border-radius: 6px; margin-bottom: 20px; font-size: 13px;">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <div class="form-group" style="margin-bottom: 20px;">
+      <label for="{{ form.name.id_for_label }}" style="display: block; font-size: 12px; font-weight: 700; color: var(--text-mut); margin-bottom: 5px;">Warehouse Name *</label>
+      {{ form.name }}
+      {% if form.name.errors %}
+        <span style="color: var(--err); font-size: 11px;">{{ form.name.errors }}</span>
+      {% endif %}
+    </div>
+
+    <div class="form-group" style="margin-bottom: 20px;">
+      <label for="{{ form.description.id_for_label }}" style="display: block; font-size: 12px; font-weight: 700; color: var(--text-mut); margin-bottom: 5px;">Description</label>
+      {{ form.description }}
+      {% if form.description.errors %}
+        <span style="color: var(--err); font-size: 11px;">{{ form.description.errors }}</span>
+      {% endif %}
+    </div>
+
+    <div class="form-group" style="margin-bottom: 30px; display: flex; align-items: center; gap: 8px;">
+      {{ form.is_active }}
+      <label for="{{ form.is_active.id_for_label }}" style="font-size: 13px; font-weight: 700; color: var(--text); cursor: pointer; margin-bottom: 0;">This warehouse is active and available for stock movements</label>
+      {% if form.is_active.errors %}
+        <span style="color: var(--err); font-size: 11px; display: block;">{{ form.is_active.errors }}</span>
+      {% endif %}
+    </div>
+
+    <div class="action-row">
+      <button class="btn" type="submit">Save Warehouse</button>
+      <a class="btn secondary" href="{% url 'location_list' %}">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<style>
+  .modern-form input[type="text"],
+  .modern-form textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .modern-form input[type="text"]:focus,
+  .modern-form textarea:focus {
+    border-color: var(--btn-bg);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    outline: none;
+  }
+  .modern-form textarea {
+    min-height: 100px;
+    resize: vertical;
+  }
+  .modern-form input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--btn-bg);
+    cursor: pointer;
+  }
+</style>
+
+{% endblock %}

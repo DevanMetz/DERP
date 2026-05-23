@@ -1,5 +1,5 @@
 from django import forms
-from .models import Product
+from .models import Product, Location
 
 
 class ProductForm(forms.ModelForm):
@@ -11,3 +11,9 @@ class ProductForm(forms.ModelForm):
             "default_revenue_account", "default_expense_account",
             "is_active",
         ]
+
+
+class LocationForm(forms.ModelForm):
+    class Meta:
+        model = Location
+        fields = ["name", "description", "is_active"]

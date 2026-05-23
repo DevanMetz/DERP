@@ -134,3 +134,26 @@ def stock_transfer_list(request):
             "end_date": end_date,
         }
     })
+
+
+@login_required
+def location_list(request):
+    from inventory.models import Location
+    locations = Location.objects.all().order_by("name")
+    return render(request, "inventory/location_list.html", {"locations": locations})
+
+
+@login_required
+def location_edit(request, pk=None):
+    from inventory.models import Location
+    from inventory.forms import LocationForm
+    location = get_object_or_404(Location, pk=pk) if pk else None
+    if request.method == "POST":
+        form = LocationForm(request.POST, instance=location)
+        if form.is_valid():
+            obj = form.save()
+            messages.success(request, f"Saved Warehouse Location: {obj.name}.")
+            return redirect("location_list")
+    else:
+        form = LocationForm(instance=location)
+    return render(request, "inventory/location_form.html", {"form": form, "location": location})

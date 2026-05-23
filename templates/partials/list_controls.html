@@ -136,6 +136,41 @@ Usage: {% include "partials/list_controls.html" %}
     color: var(--accent);
     opacity: 1;
   }
+  @media (max-width: 760px) {
+    .filter-bar-toggle {
+      padding: 10px 12px;
+    }
+    .filter-body {
+      padding: 12px;
+    }
+    .filter-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .filter-field {
+      min-width: 0;
+    }
+    .filter-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      width: 100%;
+    }
+    .filter-actions .btn {
+      width: 100%;
+    }
+    .chips-row {
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      padding-bottom: 2px;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+  @media (max-width: 420px) {
+    .filter-actions {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>
 <script>
   function toggleFilter(id) {

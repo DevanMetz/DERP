@@ -120,6 +120,27 @@
   .no-query .big-icon { font-size: 48px; margin-bottom: 16px; }
   .no-query h2 { color: var(--fg); margin: 0 0 8px; }
   .no-query p { font-size: 13px; margin: 0 0 20px; }
+  @media (max-width: 640px) {
+    .search-big-form {
+      display: grid;
+      grid-template-columns: 1fr;
+      max-width: none;
+    }
+    .search-big-form .btn {
+      width: 100%;
+    }
+    .result-section-header {
+      padding: 10px 12px;
+    }
+    .result-item {
+      align-items: flex-start;
+      flex-wrap: wrap;
+      padding: 10px 12px;
+    }
+    .result-item .r-arrow {
+      display: none;
+    }
+  }
 </style>
 
 <div class="search-hero">

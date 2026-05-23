@@ -21,16 +21,26 @@
       --err-bg: #fff1f0;
       --err: #b42318;
       --shadow: 0 1px 2px rgba(16, 24, 40, .04);
+      --border: var(--line);
+      --text: var(--fg);
+      --text-mut: var(--muted);
+      --btn-bg: var(--accent);
     }
     * { box-sizing: border-box; }
-    html { background: var(--bg); }
+    html {
+      background: var(--bg);
+      -webkit-text-size-adjust: 100%;
+    }
     body {
       margin: 0;
       background: var(--bg);
       color: var(--fg);
       font: 14px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       letter-spacing: 0;
+      overflow-x: hidden;
     }
+    img { max-width: 100%; height: auto; }
+    input, select, textarea, button { max-width: 100%; }
     a { color: var(--accent); text-decoration: none; }
     a:hover { color: var(--accent-dark); text-decoration: underline; }
     .app-header {
@@ -102,17 +112,26 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      min-width: 0;
       white-space: nowrap;
+    }
+    .account > .muted {
+      display: inline-block;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: bottom;
     }
     .spacer { flex: 1; }
     .search-form {
       display: flex;
       align-items: center;
       position: relative;
-      flex-shrink: 0;
+      flex: 0 1 240px;
+      min-width: 180px;
     }
     .search-input {
-      width: 200px;
+      width: clamp(180px, 18vw, 240px);
       min-height: 32px;
       padding: 6px 10px 6px 32px;
       border: 1px solid var(--line);
@@ -125,7 +144,7 @@
       transition: width 0.2s ease, border-color 0.15s ease, box-shadow 0.15s ease;
     }
     .search-input:focus {
-      width: 280px;
+      width: clamp(220px, 24vw, 280px);
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(36,83,179,.12);
       background: var(--surface);
@@ -188,6 +207,10 @@
       align-items: center;
       gap: 8px;
     }
+    .page-actions form {
+      display: flex;
+      margin: 0;
+    }
     .action-row { margin-top: 16px; }
     .card {
       background: var(--surface);
@@ -227,6 +250,7 @@
       border-bottom: 1px solid var(--line-soft);
       text-align: left;
       vertical-align: top;
+      overflow-wrap: anywhere;
     }
     tr:last-child > th, tr:last-child > td { border-bottom: 0; }
     th {
@@ -278,6 +302,45 @@
     .btn:disabled {
       cursor: not-allowed;
       opacity: .55;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #f2f4f7;
+      color: #344054;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.35;
+      white-space: nowrap;
+    }
+    .badge.success {
+      background: var(--success-bg);
+      border-color: #abefc6;
+      color: var(--success);
+    }
+    .badge.danger {
+      background: var(--err-bg);
+      border-color: #fecdca;
+      color: var(--err);
+    }
+    .badge.warning {
+      background: #fffbeb;
+      border-color: #fde68a;
+      color: #b45309;
+    }
+    .badge.info {
+      background: #eff6ff;
+      border-color: #b2ddff;
+      color: #175cd3;
+    }
+    .badge.secondary {
+      background: #f2f4f7;
+      border-color: #d0d5dd;
+      color: #344054;
     }
     form p { margin: 0 0 14px; }
     label {
@@ -391,23 +454,152 @@
     .section-title {
       margin-top: 0;
     }
+    [style*="grid-template-columns"] {
+      min-width: 0;
+    }
+    @media (max-width: 960px) {
+      .topbar {
+        flex-wrap: wrap;
+      }
+      .search-form {
+        flex: 1 1 220px;
+      }
+      .nav {
+        order: 4;
+        width: 100%;
+      }
+      .account {
+        margin-left: auto;
+      }
+      .db-grid {
+        grid-template-columns: 1fr !important;
+      }
+      [style*="grid-template-columns: 2fr 1fr"],
+      [style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+      }
+    }
     @media (max-width: 760px) {
       .topbar {
         align-items: flex-start;
         flex-wrap: wrap;
         padding: 12px 16px;
+        gap: 10px;
+      }
+      .brand {
+        min-height: 36px;
+      }
+      .search-form {
+        order: 3;
+        flex: 1 0 100%;
+        width: 100%;
+        min-width: 0;
+      }
+      .search-input,
+      .search-input:focus {
+        width: 100%;
+        padding-right: 10px;
+      }
+      .search-kbd {
+        display: none;
       }
       .nav {
-        order: 3;
+        order: 4;
         width: 100%;
+        padding-bottom: 2px;
       }
-      .account { margin-left: auto; }
+      #fav-nav-links {
+        display: inline-flex !important;
+        max-width: 100%;
+        overflow-x: auto;
+      }
+      .account {
+        margin-left: auto;
+        max-width: calc(100% - 96px);
+      }
+      .account > .muted {
+        max-width: 120px;
+      }
       main { padding: 22px 16px 36px; }
       .page-header {
-        display: block;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
       }
-      .page-actions { margin-top: 12px; }
+      .page-actions,
+      .action-row,
+      .filter-actions {
+        width: 100%;
+      }
+      .page-actions .btn,
+      .page-actions form,
+      .page-actions form .btn,
+      .action-row .btn,
+      .filter-actions .btn {
+        flex: 1 1 160px;
+      }
+      .page-actions form .btn {
+        width: 100%;
+      }
+      .card {
+        padding: 16px;
+      }
+      .table-wrap {
+        margin-left: -1px;
+        margin-right: -1px;
+        -webkit-overflow-scrolling: touch;
+      }
+      .table-wrap table {
+        min-width: 680px !important;
+      }
+      .filter-form,
+      .filter-form p,
+      .filter-field {
+        min-width: 0;
+        width: 100%;
+      }
       .auth-card { padding: 22px; }
+      .auth-links {
+        flex-direction: column;
+        gap: 8px;
+      }
+    }
+    @media (max-width: 520px) {
+      body {
+        font-size: 13px;
+      }
+      h1 {
+        font-size: 21px;
+      }
+      h2 {
+        font-size: 14px;
+      }
+      .topbar {
+        padding: 10px 12px;
+      }
+      main {
+        padding: 18px 12px 32px;
+      }
+      .account > .muted {
+        display: none;
+      }
+      .btn {
+        min-height: 38px;
+        white-space: normal;
+      }
+      .page-actions .btn,
+      .page-actions form,
+      .page-actions form .btn,
+      .action-row .btn,
+      .filter-actions .btn {
+        flex-basis: 100%;
+      }
+      .card {
+        padding: 14px;
+      }
+      th, td {
+        padding: 10px 12px;
+      }
     }
   </style>
 </head>

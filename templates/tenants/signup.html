@@ -26,6 +26,7 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      overflow-x: hidden;
     }
     header {
       background: #fff;
@@ -119,6 +120,37 @@
     .btn:hover { background: var(--accent-dark); }
     .login-link { text-align: center; margin-top: 18px; font-size: 13px; color: var(--muted); }
     .login-link a { color: var(--accent); font-weight: 600; }
+    @media (max-width: 640px) {
+      header {
+        padding: 12px 16px;
+      }
+      main {
+        align-items: flex-start;
+        padding: 28px 16px;
+      }
+      .card {
+        padding: 28px;
+      }
+    }
+    @media (max-width: 420px) {
+      main {
+        padding: 20px 12px;
+      }
+      .card {
+        padding: 20px 16px;
+      }
+      .subdomain-row {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .subdomain-suffix {
+        border-left: 0;
+        border-top: 1.5px solid var(--line);
+      }
+      .cf-turnstile {
+        overflow: hidden;
+      }
+    }
   </style>
 </head>
 <body>

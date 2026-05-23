@@ -9,7 +9,7 @@
   </div>
 
   <!-- Header Detail Card -->
-  <div class="card" style="margin-bottom: 20px; display: flex; gap: 20px; align-items: center;">
+  <div class="card product-summary-card" style="margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 20px; align-items: center;">
     <div style="flex-shrink: 0;">
       {% if product.image %}
         <img src="{{ product.image.url }}" alt="{{ product.name }}" style="width: 96px; height: 96px; object-fit: cover; border-radius: 12px; border: 1px solid var(--border);" />

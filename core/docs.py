@@ -14,6 +14,7 @@ DOC_ORDER = {
     "workflows": 10,
     "accounting": 20,
     "inventory": 30,
+    "ai-copilot": 35,
     "deployment": 40,
 }
 

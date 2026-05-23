@@ -101,6 +101,22 @@ Most ERP systems are either expensive SaaS products or large enterprise platform
   - Invoices
   - Purchase Orders
 
+### AI Copilot
+
+- Conversational sidebar panel on every page (bring-your-own OpenAI key, browser-only).
+- Drafts Purchase Orders, Sales Orders, and Manufacturing Orders from plain English (`bought 5 PLA filament from BambuLab at $20 each`, `sold 3 widgets to Acme for $50 each`, `build 50 widgets`).
+- Fuzzy vendor / customer / product / BOM search — tolerates misspellings and missing spaces.
+- Multi-turn slot filling: carries vendor, product, qty, unit cost across turns until the draft is complete.
+- "Try your best" defaults: fills missing slots with `product.cost` / `product.price` and the first active counterparty.
+- Page-context awareness: on `/customers/123/`, *"what did they buy last month?"* resolves to that customer automatically; on `/boms/4/`, *"make 100"* uses that BOM.
+- Look-up tools: vendor / customer / product / BOM search, stock levels, recent purchase prices, open POs, record detail with recent activity.
+- Preview-confirm safety: every write is staged behind a signed, 30-minute action token; nothing is created without an explicit click.
+- Audit trail: each chat, preview, and confirm is logged in a per-tenant `CopilotAuditEvent` table.
+- Persistent chat history in browser `localStorage` (per-tenant), with a Clear button.
+- Per-tenant row caps and write rate limits apply — the copilot can't be used to bulk-load junk data.
+
+See [docs/ai-copilot.md](docs/ai-copilot.md) for the full feature list, examples, and safety model.
+
 ## Technology Stack
 
 | Layer | Technology |
@@ -285,6 +301,7 @@ python manage.py test core
 | BOMs | `/boms/`, `/boms/create/`, `/boms/<id>/`, `/boms/<id>/edit/` |
 | Manufacturing orders | `/manufacturing-orders/`, `/manufacturing-orders/create/`, `/manufacturing-orders/<id>/` |
 | Manufacturing actions | `/manufacturing-orders/<id>/confirm/`, `/complete/`, `/cancel/` |
+| AI Copilot | `/ai/chat/` (POST chat turn), `/ai/confirm/` (POST signed action token) |
 
 ## Development Notes
 
@@ -304,6 +321,8 @@ python manage.py test core
 - Security headers include `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: strict-origin-when-cross-origin`.
 - Upload memory limits are capped at 5 MB.
 - Tenant data is separated by PostgreSQL schema.
+- Per-tenant row caps and per-user write rate limits (100/min) prevent a single tenant from filling shared storage with junk data. See `core/limits.py`.
+- AI copilot writes go through a preview → signed action token (30 min TTL) → confirm flow; nothing is created without an explicit second click. Every chat, preview, and confirm is logged in `core_copilotauditevent` per tenant.
 
 ## License
 

@@ -31,3 +31,15 @@ Goods receipt billing prevents duplicate bills from the same receipt.
 4. DERP issues raw materials, receives finished goods, updates finished-good cost, and posts a balanced GL entry.
 
 Completion is atomic. If raw materials are short, stock and accounting remain unchanged.
+
+## AI Copilot drafting
+
+The copilot panel (robot icon at bottom-right) can take any of these workflows from a plain-English sentence to a draft preview the user confirms:
+
+- `bought 5 PLA filament from BambuLab at $20 each` → draft PO
+- `sold 3 widgets to Acme for $50 each` → draft SO
+- `build 50 widgets` → draft MO
+
+It also resolves the record on the page you're viewing. On a customer page, *"what did they buy last month?"* answers itself; on a vendor page, *"draft a PO"* skips the "which vendor?" step.
+
+See [AI Copilot](ai-copilot) for the full feature list, examples, and safety model.

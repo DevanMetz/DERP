@@ -40,3 +40,18 @@ The `StockMovement` model includes `lot_id` and `serial_no` fields to support gr
 - **Double-assignment checks**: Receiving or adjusting-in a serial number will fail if that serial number is already `IN_STOCK` for the product.
 - **Traceability checks**: Issuing a serial number will fail if the serial number is not currently `IN_STOCK` for the product.
 - **Lot auto-resolution**: Providing a `lot_id` automatically resolves or creates the `Lot` record and links any associated serial numbers to it for full batch traceability.*
+
+## Warehouse Locations and Stock Transfers
+
+DERP supports multi-warehouse inventory tracking and stock transfers:
+- **Locations**: Master database entries representing physical storage sites (e.g., `"Warehouse A"`, `"Showroom"`, `"Main Warehouse"`).
+- **Location Stock**: Tracks inventory quantities of each stock product individually per warehouse location.
+- **Stock Transfers**: Shifts stock between locations without affecting global stock on hand or average cost (WAC).
+
+### Key Rules and Validation
+- **Default Location**: To maintain backward compatibility, if a movement (Receipt, Issue, or Adjustment) is posted without a location, it automatically resolves to `"Main Warehouse"`.
+- **Legacy Self-Healing**: Unallocated legacy stock or direct `StockOnHand` seed values are automatically mapped to `"Main Warehouse"` the first time that product is processed by `post_stock_movement()`.
+- **Transfer Constraints**:
+  - Source and destination locations must be different.
+  - The source location must have sufficient stock for the transfer to succeed.
+  - Serialized items being transferred must currently be `IN_STOCK` and located at the source location. Successful transfers update the serial number's location to the destination.

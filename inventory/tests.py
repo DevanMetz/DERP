@@ -345,3 +345,122 @@ class LotAndSerialTests(TestCase):
         )
         sn.refresh_from_db()
         self.assertEqual(sn.status, SerialNumber.Status.IN_STOCK)
+
+
+class WarehouseAndTransferTests(TestCase):
+    def setUp(self):
+        self.product = Product.objects.create(sku="LOCATIONPROD", name="Location Product")
+
+    def test_default_warehouse_creation(self):
+        from inventory.models import Location, LocationStock
+        # 1. Receipt without location automatically creates and resolves "Main Warehouse"
+        move = post_stock_movement(
+            product=self.product,
+            movement_type=StockMovement.MovementType.RECEIPT,
+            qty=Decimal("10.0000"),
+            unit_cost=Decimal("5.00"),
+        )
+        self.assertEqual(move.location.name, "Main Warehouse")
+        
+        loc_stock = LocationStock.objects.get(product=self.product, location=move.location)
+        self.assertEqual(loc_stock.qty, Decimal("10.0000"))
+        
+        on_hand = StockOnHand.objects.get(product=self.product)
+        self.assertEqual(on_hand.qty, Decimal("10.0000"))
+
+    def test_stock_transfers(self):
+        from inventory.models import Location, LocationStock
+        # 1. Seed stock at source location (Warehouse A)
+        wh_a, _ = Location.objects.get_or_create(name="Warehouse A")
+        wh_b, _ = Location.objects.get_or_create(name="Warehouse B")
+        
+        post_stock_movement(
+            product=self.product,
+            movement_type=StockMovement.MovementType.RECEIPT,
+            qty=Decimal("10.0000"),
+            location=wh_a,
+        )
+        
+        # 2. Transfer 4 units to Warehouse B
+        move = post_stock_movement(
+            product=self.product,
+            movement_type=StockMovement.MovementType.TRANSFER,
+            qty=Decimal("4.0000"),
+            location=wh_a,
+            to_location=wh_b,
+        )
+        self.assertEqual(move.location, wh_a)
+        self.assertEqual(move.to_location, wh_b)
+        
+        stock_a = LocationStock.objects.get(product=self.product, location=wh_a)
+        stock_b = LocationStock.objects.get(product=self.product, location=wh_b)
+        self.assertEqual(stock_a.qty, Decimal("6.0000"))
+        self.assertEqual(stock_b.qty, Decimal("4.0000"))
+        
+        # Global StockOnHand remains 10
+        on_hand = StockOnHand.objects.get(product=self.product)
+        self.assertEqual(on_hand.qty, Decimal("10.0000"))
+
+    def test_transfer_validation_failures(self):
+        from inventory.models import Location
+        wh_a, _ = Location.objects.get_or_create(name="Warehouse A")
+        
+        # Fails if locations are identical
+        with self.assertRaises(ValidationError):
+            post_stock_movement(
+                product=self.product,
+                movement_type=StockMovement.MovementType.TRANSFER,
+                qty=Decimal("1.0000"),
+                location=wh_a,
+                to_location=wh_a,
+            )
+
+        # Fails if insufficient stock at source location
+        wh_b, _ = Location.objects.get_or_create(name="Warehouse B")
+        with self.assertRaises(ValidationError):
+            post_stock_movement(
+                product=self.product,
+                movement_type=StockMovement.MovementType.TRANSFER,
+                qty=Decimal("50.0000"),
+                location=wh_a,
+                to_location=wh_b,
+            )
+
+    def test_serialized_transfers(self):
+        from inventory.models import Location, SerialNumber
+        wh_a, _ = Location.objects.get_or_create(name="Warehouse A")
+        wh_b, _ = Location.objects.get_or_create(name="Warehouse B")
+        
+        # Receive serialized item at Warehouse A
+        post_stock_movement(
+            product=self.product,
+            movement_type=StockMovement.MovementType.RECEIPT,
+            qty=Decimal("1.0000"),
+            serial_no="SN-WH",
+            location=wh_a,
+        )
+        sn = SerialNumber.objects.get(product=self.product, serial_number="SN-WH")
+        self.assertEqual(sn.location, wh_a)
+        
+        # Fails if transferring from wrong source location
+        with self.assertRaises(ValidationError):
+            post_stock_movement(
+                product=self.product,
+                movement_type=StockMovement.MovementType.TRANSFER,
+                qty=Decimal("1.0000"),
+                serial_no="SN-WH",
+                location=wh_b,
+                to_location=wh_a,
+            )
+
+        # Succeeds and updates SN location to WH B
+        post_stock_movement(
+            product=self.product,
+            movement_type=StockMovement.MovementType.TRANSFER,
+            qty=Decimal("1.0000"),
+            serial_no="SN-WH",
+            location=wh_a,
+            to_location=wh_b,
+        )
+        sn.refresh_from_db()
+        self.assertEqual(sn.location, wh_b)

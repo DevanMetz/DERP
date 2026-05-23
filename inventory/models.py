@@ -101,6 +101,14 @@ class StockMovement(models.Model):
     memo = models.CharField(max_length=500, blank=True)
     lot_id = models.CharField(max_length=100, blank=True)
     serial_no = models.CharField(max_length=100, blank=True)
+    location = models.ForeignKey(
+        "Location", null=True, blank=True, on_delete=models.PROTECT,
+        related_name="stock_movements"
+    )
+    to_location = models.ForeignKey(
+        "Location", null=True, blank=True, on_delete=models.PROTECT,
+        related_name="transfer_destinations"
+    )
     posted_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
         "core.User", null=True, blank=True, on_delete=models.PROTECT,
@@ -162,6 +170,7 @@ class SerialNumber(models.Model):
     serial_number = models.CharField(max_length=100)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.IN_STOCK)
     lot = models.ForeignKey(Lot, null=True, blank=True, on_delete=models.SET_NULL, related_name="serial_numbers")
+    location = models.ForeignKey("Location", null=True, blank=True, on_delete=models.SET_NULL, related_name="serial_numbers")
     history = HistoricalRecords()
 
     class Meta:
@@ -172,3 +181,34 @@ class SerialNumber(models.Model):
 
     def __str__(self):
         return f"{self.product.sku} - S/N {self.serial_number} ({self.get_status_display()})"
+
+
+class Location(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class LocationStock(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="location_stocks")
+    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name="product_stocks")
+    qty = models.DecimalField(max_digits=14, decimal_places=4, default=Decimal("0.0000"))
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["product", "location"]
+        constraints = [
+            models.UniqueConstraint(fields=["product", "location"], name="unique_product_location_stock"),
+            models.CheckConstraint(name="locationstock_qty_nonneg", check=models.Q(qty__gte=0)),
+        ]
+
+    def __str__(self):
+        return f"{self.product.sku} at {self.location.name}: {self.qty}"

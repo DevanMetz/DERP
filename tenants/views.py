@@ -46,7 +46,7 @@ def _send_email_via_resend(to_email, subject, text_body):
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "User-Agent": "DERP/1.0 (+https://inventorymanager.xyz)",
+            "User-Agent": f"DERP/1.0 (+{_configured_public_base_url()})",
         },
         method="POST",
     )
@@ -61,6 +61,31 @@ def _send_email_via_resend(to_email, subject, text_body):
 
 from .forms import TenantSignupForm
 from .models import Domain, PendingTenant, SignupAttempt, TenantCompany
+
+
+def _external_scheme(request=None):
+    if request is not None and request.is_secure():
+        return "https"
+    if not settings.DEBUG:
+        return "https"
+    return request.scheme if request is not None else "http"
+
+
+def _configured_public_base_url(request=None):
+    return f"{_external_scheme(request)}://{settings.BASE_DOMAIN}".rstrip("/")
+
+
+def _request_public_url(request, path="/"):
+    return request.build_absolute_uri(path)
+
+
+def _public_page_context(request, path="/"):
+    return {
+        "base_domain": settings.BASE_DOMAIN,
+        "canonical_url": _request_public_url(request, path),
+        "public_base_url": _request_public_url(request, "/").rstrip("/"),
+        "workspace_login_base_url": _configured_public_base_url(request),
+    }
 
 
 def _pending_subdomain_from_hostname(hostname):
@@ -81,8 +106,7 @@ def tenant_not_found(request):
     hostname = remove_www(request.get_host().split(":")[0])
     subdomain = _pending_subdomain_from_hostname(hostname)
     pending = PendingTenant.objects.filter(subdomain=subdomain).first() if subdomain else None
-    protocol = "https" if not settings.DEBUG else "http"
-    public_base_url = f"{protocol}://{settings.BASE_DOMAIN}"
+    public_base_url = _configured_public_base_url(request)
 
     if pending:
         return render(request, "tenants/workspace_pending.html", {
@@ -99,11 +123,11 @@ def tenant_not_found(request):
 
 
 def landing(request):
-    return render(request, "tenants/landing.html")
+    return render(request, "tenants/landing.html", _public_page_context(request, "/"))
 
 
 def features(request):
-    return render(request, "tenants/features.html")
+    return render(request, "tenants/features.html", _public_page_context(request, "/features/"))
 
 
 def robots_txt(request):
@@ -112,7 +136,7 @@ def robots_txt(request):
         "User-agent: *\n"
         "Allow: /\n"
         "Disallow: /signup/confirm/\n"
-        "Sitemap: https://inventorymanager.xyz/sitemap.xml\n"
+        f"Sitemap: {_request_public_url(request, '/sitemap.xml')}\n"
     )
     return HttpResponse(content, content_type="text/plain")
 
@@ -120,9 +144,9 @@ def robots_txt(request):
 def sitemap_xml(request):
     from django.http import HttpResponse
     urls = [
-        ("https://inventorymanager.xyz/", "1.0"),
-        ("https://inventorymanager.xyz/features/", "0.9"),
-        ("https://inventorymanager.xyz/signup/", "0.8"),
+        (_request_public_url(request, "/"), "1.0"),
+        (_request_public_url(request, "/features/"), "0.9"),
+        (_request_public_url(request, "/signup/"), "0.8"),
     ]
     body = '<?xml version="1.0" encoding="UTF-8"?>\n'
     body += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
@@ -156,7 +180,7 @@ def signup(request):
             raw_password=data["password1"],
         )
 
-        confirm_url = f"https://{base}/signup/confirm/{pending.token}/"
+        confirm_url = _request_public_url(request, f"/signup/confirm/{pending.token}/")
         try:
             _send_email_via_resend(
                 to_email=data["email"],
@@ -177,6 +201,8 @@ def signup(request):
                 "form": form,
                 "captcha_error": "Failed to send confirmation email. Please try again later or contact support.",
                 "turnstile_site_key": getattr(settings, "TURNSTILE_SITE_KEY", ""),
+                "base_domain": base,
+                "public_base_url": _request_public_url(request, "/").rstrip("/"),
             })
 
         return render(request, "tenants/signup_pending.html", {
@@ -189,6 +215,8 @@ def signup(request):
         "form": form,
         "captcha_error": captcha_error,
         "turnstile_site_key": getattr(settings, "TURNSTILE_SITE_KEY", ""),
+        "base_domain": settings.BASE_DOMAIN,
+        "public_base_url": _request_public_url(request, "/").rstrip("/"),
     })
 
 
@@ -226,8 +254,7 @@ def confirm(request, token):
 
     pending.delete()
 
-    protocol = "https" if not settings.DEBUG else "http"
     return render(request, "tenants/confirm_success.html", {
         "subdomain": tenant.schema_name,
-        "login_url": f"{protocol}://{tenant.schema_name}.{base}/accounts/login/",
+        "login_url": f"{_external_scheme(request)}://{tenant.schema_name}.{base}/accounts/login/",
     })

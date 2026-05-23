@@ -190,7 +190,7 @@
             <input type="text" name="subdomain" id="id_subdomain"
                    value="{{ form.subdomain.value|default:'' }}"
                    placeholder="acme" autocomplete="off" spellcheck="false">
-            <span class="subdomain-suffix">.{{ request.get_host|default:"inventorymanager.xyz" }}</span>
+            <span class="subdomain-suffix">.{{ base_domain }}</span>
           </div>
           <p class="help">Letters, numbers, and hyphens only.</p>
           {% if form.subdomain.errors %}
@@ -232,7 +232,7 @@
         <button type="submit" class="btn">Create workspace</button>
       </form>
 
-      <p class="login-link">Already have a workspace? Go to <a href="/">inventorymanager.xyz</a> and use your subdomain.</p>
+      <p class="login-link">Already have a workspace? Go to <a href="{{ public_base_url }}/">{{ base_domain }}</a> and use your subdomain.</p>
     </div>
   </main>
 </body>

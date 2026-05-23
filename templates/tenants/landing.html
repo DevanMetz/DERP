@@ -8,13 +8,13 @@
   <meta name="keywords" content="open source ERP, open source ERP software, free ERP, free ERP software, self-hosted ERP, ERP for small business, multi-tenant ERP, Django ERP, open source accounting software, open source inventory management, MIT license ERP">
   <meta name="robots" content="index, follow">
   <meta name="author" content="DERP">
-  <link rel="canonical" href="https://inventorymanager.xyz/">
+  <link rel="canonical" href="{{ canonical_url }}">
 
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="DERP — Open Source ERP Software for Small Business">
   <meta property="og:description" content="Free, open source ERP. Double-entry accounting, inventory, manufacturing, sales & purchasing. Self-hosted or cloud. MIT licensed.">
-  <meta property="og:url" content="https://inventorymanager.xyz/">
+  <meta property="og:url" content="{{ canonical_url }}">
   <meta property="og:site_name" content="DERP">
 
   <!-- Twitter Card -->
@@ -33,7 +33,7 @@
     "applicationSubCategory": "ERP",
     "operatingSystem": "Web, Linux, Windows, macOS",
     "description": "Free, open source ERP software for small and medium businesses. Includes double-entry accounting, inventory, manufacturing, sales, and purchasing.",
-    "url": "https://inventorymanager.xyz/",
+    "url": "{{ canonical_url }}",
     "downloadUrl": "https://github.com/DevanMetz/DERP",
     "license": "https://opensource.org/licenses/MIT",
     "offers": {
@@ -394,7 +394,7 @@
           <p>Enter your workspace subdomain to sign in.</p>
           <div class="subdomain-input-row">
             <input type="text" id="subdomainInput" placeholder="yourcompany" autocomplete="off" spellcheck="false">
-            <span>.inventorymanager.xyz</span>
+            <span>.{{ base_domain }}</span>
           </div>
           <button class="signin-go" id="signinGo">Go to workspace</button>
         </div>
@@ -553,6 +553,7 @@
     const popover = document.getElementById('signinPopover');
     const input = document.getElementById('subdomainInput');
     const go = document.getElementById('signinGo');
+    const workspaceLoginBaseUrl = '{{ workspace_login_base_url|escapejs }}/';
 
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -568,7 +569,12 @@
 
     function navigate() {
       const slug = input.value.trim().toLowerCase();
-      if (slug) window.location.href = `https://${slug}.inventorymanager.xyz/accounts/login/`;
+      if (slug) {
+        const url = new URL(workspaceLoginBaseUrl);
+        url.hostname = `${slug}.${url.hostname}`;
+        url.pathname = '/accounts/login/';
+        window.location.href = url.toString();
+      }
     }
 
     go.addEventListener('click', navigate);

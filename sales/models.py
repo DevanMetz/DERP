@@ -195,13 +195,19 @@ class InvoiceLine(models.Model):
     description = models.CharField(max_length=500)
     qty = models.DecimalField(max_digits=14, decimal_places=4, default=Decimal("1"))
     unit_price = models.DecimalField(max_digits=14, decimal_places=2, default=ZERO)
-    # Snapshot of the revenue account at posting time. Defaults pulled from
-    # product or customer at line creation but stored here so the historical
-    # entry is unaffected by master-data edits.
     revenue_account = models.ForeignKey(
         "accounting.Account", on_delete=models.PROTECT, related_name="invoice_lines",
         limit_choices_to={"type": "revenue", "is_postable": True},
     )
+    location = models.ForeignKey(
+        "inventory.Location",
+        on_delete=models.PROTECT,
+        related_name="invoice_lines",
+        null=True,
+        blank=True,
+        help_text="Warehouse from which the stock is issued."
+    )
+
 
     class Meta:
         constraints = [

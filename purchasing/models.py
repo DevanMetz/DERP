@@ -159,6 +159,15 @@ class GoodsReceiptLine(models.Model):
         "inventory.StockMovement", null=True, blank=True, on_delete=models.PROTECT,
         related_name="goods_receipt_lines",
     )
+    location = models.ForeignKey(
+        "inventory.Location",
+        on_delete=models.PROTECT,
+        related_name="goods_receipt_lines",
+        null=True,
+        blank=True,
+        help_text="Warehouse where the stock is received."
+    )
+
 
     class Meta:
         constraints = [

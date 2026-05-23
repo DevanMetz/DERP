@@ -148,8 +148,15 @@ def mo_detail(request, pk):
     for comp in mo.bom.components.all().select_related("product"):
         required_qty = comp.qty * mo.qty_target
         on_hand_qty = Decimal("0.0000")
-        if hasattr(comp.product, "stock_on_hand"):
-            on_hand_qty = comp.product.stock_on_hand.qty
+        if mo.production_location:
+            from inventory.models import LocationStock
+            try:
+                on_hand_qty = LocationStock.objects.get(product=comp.product, location=mo.production_location).qty
+            except LocationStock.DoesNotExist:
+                on_hand_qty = Decimal("0.0000")
+        else:
+            if hasattr(comp.product, "stock_on_hand"):
+                on_hand_qty = comp.product.stock_on_hand.qty
         
         shortage = Decimal("0.0000")
         if on_hand_qty < required_qty:

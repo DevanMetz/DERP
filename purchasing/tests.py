@@ -342,3 +342,49 @@ class VendorDetailViewTests(TestCase):
         self.assertContains(response, "$15.00")
 
 
+class LocalizedGoodsReceiptTests(TestCase):
+    def setUp(self):
+        self.ap = Account.objects.create(code="2110", name="Accounts Payable", type=AccountType.LIABILITY)
+        self.expense = Account.objects.create(code="6900", name="Miscellaneous", type=AccountType.EXPENSE)
+        self.vendor = Vendor.objects.create(name="Supply Co", payment_terms_days=20)
+        self.product = Product.objects.create(
+            sku="PART",
+            name="Part",
+            cost=D("5.00"),
+            default_expense_account=self.expense,
+        )
+
+    def test_receive_po_at_custom_warehouse(self):
+        from inventory.models import Location, LocationStock
+        custom_loc = Location.objects.create(name="Dock 7", is_active=True)
+
+        order = PurchaseOrder.objects.create(
+            vendor=self.vendor,
+            date=date(2026, 5, 1),
+        )
+        line = PurchaseOrderLine.objects.create(
+            order=order,
+            product=self.product,
+            description="Part",
+            qty=D("5.0000"),
+            unit_cost=D("5.00"),
+            expense_account=self.expense,
+        )
+        issue_purchase_order(order)
+
+        receipt = receive_purchase_order(
+            order=order,
+            date=date(2026, 5, 2),
+            receipts=[(line, D("3.0000"), custom_loc)],
+        )
+
+        # Check stock increased at Dock 7
+        loc_stock = LocationStock.objects.get(product=self.product, location=custom_loc)
+        self.assertEqual(loc_stock.qty, D("3.0000"))
+
+        # Verify default location is empty
+        wh_stock_exists = LocationStock.objects.filter(product=self.product, location__name="Main Warehouse").exists()
+        self.assertFalse(wh_stock_exists)
+
+
+

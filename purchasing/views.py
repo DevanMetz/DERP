@@ -228,7 +228,15 @@ def purchase_order_receive(request, pk):
                     messages.error(request, f"Invalid received quantity for {line.description}.")
                     return redirect("purchase_order_receive", pk=pk)
                 if qty > 0:
-                    receipts.append((line, qty))
+                    location = None
+                    loc_id = request.POST.get(f"receive_location_{line.pk}", "").strip()
+                    if loc_id:
+                        from inventory.models import Location
+                        try:
+                            location = Location.objects.get(pk=loc_id, is_active=True)
+                        except Location.DoesNotExist:
+                            pass
+                    receipts.append((line, qty, location))
             try:
                 receipt = receive_purchase_order(
                     order=order,
@@ -245,10 +253,15 @@ def purchase_order_receive(request, pk):
     else:
         header = GoodsReceiptHeaderForm(initial={"date": date_cls.today()})
 
+    from inventory.models import Location
+    locations = Location.objects.filter(is_active=True).order_by("name")
+
     return render(request, "purchasing/goods_receipt_form.html", {
         "header": header,
         "order": order,
+        "locations": locations,
     })
+
 
 
 @login_required

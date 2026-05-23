@@ -75,6 +75,17 @@
           <td class="muted" style="padding: 8px 0; border-bottom: 1px solid var(--line-soft);">Planned Date</td>
           <td style="padding: 8px 0; border-bottom: 1px solid var(--line-soft); font-variant-numeric: tabular-nums;">{{ mo.date_planned|date:"Y-m-d" }}</td>
         </tr>
+        <tr>
+          <td class="muted" style="padding: 8px 0; border-bottom: 1px solid var(--line-soft);">Assembly Warehouse</td>
+          <td style="padding: 8px 0; border-bottom: 1px solid var(--line-soft); font-weight: bold;">
+            {% if mo.production_location %}
+              {{ mo.production_location.name }}
+            {% else %}
+              Main Warehouse (Default)
+            {% endif %}
+          </td>
+        </tr>
+
         {% if mo.status == 'completed' %}
           <tr>
             <td class="muted" style="padding: 8px 0; border-bottom: 1px solid var(--line-soft);">Completion Date</td>

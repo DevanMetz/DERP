@@ -2,9 +2,10 @@ from decimal import Decimal
 from django import forms
 
 from accounting.models import Account
-from inventory.models import Product
+from inventory.models import Product, Location
 
 from .models import Customer, Invoice, SalesOrder
+
 
 
 class CustomerForm(forms.ModelForm):
@@ -51,6 +52,11 @@ class InvoiceLineForm(forms.Form):
         queryset=Account.objects.filter(type="revenue", is_postable=True, is_active=True).order_by("code"),
         required=False,
     )
+    location = forms.ModelChoiceField(
+        queryset=Location.objects.filter(is_active=True).order_by("name"),
+        required=False,
+    )
+
 
     def clean(self):
         c = super().clean()

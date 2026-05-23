@@ -32,6 +32,7 @@
             <th>Description</th>
             <th class="num">Received Qty</th>
             <th class="num">Unit Cost</th>
+            <th>Warehouse</th>
             <th class="num">Line Total</th>
           </tr>
         </thead>
@@ -42,6 +43,7 @@
               <td>{{ line.po_line.description }}</td>
               <td class="num">{{ line.qty_received }}</td>
               <td class="num">${{ line.unit_cost }}</td>
+              <td>{{ line.location.name|default:"Main Warehouse (Default)" }}</td>
               <td class="num">${{ line.line_total }}</td>
             </tr>
           {% endfor %}

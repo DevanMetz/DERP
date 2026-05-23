@@ -51,7 +51,7 @@ BOMComponentFormSet = inlineformset_factory(
 class ManufacturingOrderForm(forms.ModelForm):
     class Meta:
         model = ManufacturingOrder
-        fields = ["product", "qty_target", "date_planned"]
+        fields = ["product", "qty_target", "date_planned", "production_location"]
         widgets = {
             "qty_target": forms.NumberInput(attrs={"step": "any", "placeholder": "0.0000"}),
             "date_planned": forms.DateInput(attrs={"type": "date"}),
@@ -63,6 +63,10 @@ class ManufacturingOrderForm(forms.ModelForm):
         self.fields["product"].queryset = Product.objects.filter(
             type=ProductType.STOCK, is_active=True, bom__isnull=False, bom__is_active=True
         )
+        from inventory.models import Location
+        self.fields["production_location"].queryset = Location.objects.filter(is_active=True)
+        self.fields["production_location"].required = False
+
 
     def clean(self):
         cleaned_data = super().clean()

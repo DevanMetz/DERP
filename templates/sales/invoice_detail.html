@@ -18,7 +18,7 @@
     {% if invoice.notes %}<p><strong>Notes:</strong> {{ invoice.notes }}</p>{% endif %}
     <div class="table-wrap">
     <table>
-      <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th>Revenue account</th><th class="num">Line total</th></tr></thead>
+      <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th>Revenue account</th><th>Warehouse</th><th class="num">Line total</th></tr></thead>
       <tbody>
         {% for l in invoice.lines.all %}
           <tr>
@@ -32,14 +32,15 @@
             <td class="num">{{ l.qty }}</td>
             <td class="num">{{ l.unit_price }}</td>
             <td>{{ l.revenue_account.code }} {{ l.revenue_account.name }}</td>
+            <td>{{ l.location.name|default:"Main Warehouse (Default)" }}</td>
             <td class="num">{{ l.line_total }}</td>
           </tr>
         {% endfor %}
-        <tr><th colspan="4" class="num">Subtotal</th><th class="num">{{ invoice.subtotal }}</th></tr>
-        <tr><th colspan="4" class="num">Tax ({{ invoice.tax_rate }}%)</th><th class="num">{{ invoice.tax_total }}</th></tr>
-        <tr><th colspan="4" class="num">Total</th><th class="num">{{ invoice.total }}</th></tr>
-        <tr><th colspan="4" class="num">Paid</th><th class="num">{{ invoice.amount_paid }}</th></tr>
-        <tr><th colspan="4" class="num">Amount due</th><th class="num">{{ invoice.amount_due }}</th></tr>
+        <tr><th colspan="5" class="num">Subtotal</th><th class="num">{{ invoice.subtotal }}</th></tr>
+        <tr><th colspan="5" class="num">Tax ({{ invoice.tax_rate }}%)</th><th class="num">{{ invoice.tax_total }}</th></tr>
+        <tr><th colspan="5" class="num">Total</th><th class="num">{{ invoice.total }}</th></tr>
+        <tr><th colspan="5" class="num">Paid</th><th class="num">{{ invoice.amount_paid }}</th></tr>
+        <tr><th colspan="5" class="num">Amount due</th><th class="num">{{ invoice.amount_due }}</th></tr>
       </tbody>
     </table>
     </div>

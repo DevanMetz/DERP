@@ -68,3 +68,10 @@ Users can view and manage their physical warehouse locations from the **Warehous
 - **Create and Edit**: Create new warehouse locations or update existing ones (Name, Description, and Active Status) through a dedicated card form.
 - **Active/Inactive Status**: Toggling a warehouse to inactive hides/prevents it from active transaction selections while preserving all historical stock movement and ledger data for complete compliance and auditing.
 
+### Multi-Warehouse Integration in Operations
+DERP supports localized warehouse assignment across your transactional flows:
+- **Manufacturing Orders**: Select a specific assembly warehouse when planning production. Stock shortages are calculated against that warehouse's inventory balances, components are consumed from it, and finished assemblies are deposited directly into it.
+- **Sales Invoices**: Allocate a fulfillment warehouse on a line-item basis when drafting invoices. Stock issue movements are completed at the allocated warehouses, reducing their localized balances.
+- **Goods Receipts**: Assign a target receiving warehouse for each item line on a purchase order receipt. Stock receipt movements are generated and stored at those specific locations.
+
+

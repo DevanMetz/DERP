@@ -40,6 +40,13 @@
         {% if form.date_planned.errors %}<span style="color: var(--err); font-size: 12px;">{{ form.date_planned.errors.as_text }}</span>{% endif %}
       </p>
 
+      <p>
+        <label for="{{ form.production_location.id_for_label }}">Assembly Warehouse</label>
+        {{ form.production_location }}
+        <span class="text-subtle" style="display: block; margin-top: 4px;">Select the warehouse where assembly takes place. Falls back to Main Warehouse if left blank.</span>
+        {% if form.production_location.errors %}<span style="color: var(--err); font-size: 12px;">{{ form.production_location.errors.as_text }}</span>{% endif %}
+      </p>
+
       <div class="action-row" style="margin-top: 24px;">
         <button class="btn" type="submit">Create Manufacturing Order</button>
         <a class="btn secondary" href="{% url 'mo_list' %}">Cancel</a>

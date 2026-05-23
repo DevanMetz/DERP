@@ -196,3 +196,47 @@ class ManufacturingModuleTests(TestCase):
         # Confirm order can't be completed if cancelled
         with self.assertRaises(ValidationError):
             confirm_manufacturing_order(mo, self.user)
+
+    def test_mo_completion_with_custom_location(self):
+        from inventory.models import Location, LocationStock
+        # 1. Create a custom assembly location
+        custom_loc = Location.objects.create(name="Assembly Bay 4", is_active=True)
+
+        # 2. Seed stock at custom location
+        from inventory.services import post_stock_movement
+        post_stock_movement(
+            product=self.rm1,
+            movement_type="receipt",
+            qty=Decimal("20.0000"),
+            location=custom_loc
+        )
+        post_stock_movement(
+            product=self.rm2,
+            movement_type="receipt",
+            qty=Decimal("30.0000"),
+            location=custom_loc
+        )
+
+        mo = ManufacturingOrder.objects.create(
+            product=self.fp,
+            bom=self.bom,
+            qty_target=Decimal("10.0000"),
+            date_planned=timezone.localdate(),
+            created_by=self.user,
+            production_location=custom_loc
+        )
+        confirm_manufacturing_order(mo, self.user)
+
+        # Complete MO
+        complete_manufacturing_order(mo, self.user)
+
+        # Verify components were drawn from custom_loc
+        stock1 = LocationStock.objects.get(product=self.rm1, location=custom_loc)
+        stock2 = LocationStock.objects.get(product=self.rm2, location=custom_loc)
+        self.assertEqual(stock1.qty, Decimal("0.0000"))
+        self.assertEqual(stock2.qty, Decimal("0.0000"))
+
+        # Verify finished good was received at custom_loc
+        fp_stock = LocationStock.objects.get(product=self.fp, location=custom_loc)
+        self.assertEqual(fp_stock.qty, Decimal("10.0000"))
+

@@ -11,7 +11,7 @@
       {% if formset.non_form_errors %}<ul class="errorlist">{% for e in formset.non_form_errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
       <div class="table-wrap">
       <table>
-        <thead><tr><th>Product</th><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th>Revenue account</th></tr></thead>
+        <thead><tr><th>Product</th><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th>Revenue account</th><th>Warehouse</th></tr></thead>
         <tbody>
           {% for f in formset %}
             <tr>
@@ -20,8 +20,9 @@
               <td class="num">{{ f.qty }}</td>
               <td class="num">{{ f.unit_price }}</td>
               <td>{{ f.revenue_account }}</td>
+              <td>{{ f.location }}</td>
             </tr>
-            {% if f.non_field_errors %}<tr><td colspan="5"><ul class="errorlist">{% for e in f.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul></td></tr>{% endif %}
+            {% if f.non_field_errors %}<tr><td colspan="6"><ul class="errorlist">{% for e in f.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul></td></tr>{% endif %}
           {% endfor %}
         </tbody>
       </table>

@@ -48,12 +48,21 @@ def complete_manufacturing_order(mo: ManufacturingOrder, user) -> ManufacturingO
     for comp in components:
         req_qty = comp.qty * mo.qty_target
         on_hand_qty = Decimal("0.0000")
-        if hasattr(comp.product, "stock_on_hand"):
-            on_hand_qty = comp.product.stock_on_hand.qty
+        if mo.production_location:
+            from inventory.models import LocationStock
+            try:
+                loc_stock = LocationStock.objects.get(product=comp.product, location=mo.production_location)
+                on_hand_qty = loc_stock.qty
+            except LocationStock.DoesNotExist:
+                on_hand_qty = Decimal("0.0000")
+        else:
+            if hasattr(comp.product, "stock_on_hand"):
+                on_hand_qty = comp.product.stock_on_hand.qty
         
         if on_hand_qty < req_qty:
+            loc_name = mo.production_location.name if mo.production_location else "Main Warehouse"
             shortages.append(
-                f"{comp.product.sku} ({comp.product.name}): Required {req_qty:.4f}, On Hand {on_hand_qty:.4f}"
+                f"{comp.product.sku} ({comp.product.name}): Required {req_qty:.4f}, On Hand {on_hand_qty:.4f} at {loc_name}"
             )
         required_components.append((comp, req_qty))
 
@@ -78,6 +87,7 @@ def complete_manufacturing_order(mo: ManufacturingOrder, user) -> ManufacturingO
             movement_type=StockMovement.MovementType.ISSUE,
             qty=req_qty,
             unit_cost=comp_cost,
+            location=mo.production_location,
             ref_doc_type="ManufacturingOrder",
             ref_doc_id=mo.id,
             memo=f"Consumed in MO {mo.number}",
@@ -103,6 +113,7 @@ def complete_manufacturing_order(mo: ManufacturingOrder, user) -> ManufacturingO
         movement_type=StockMovement.MovementType.RECEIPT,
         qty=mo.qty_target,
         unit_cost=finished_unit_cost,
+        location=mo.production_location,
         ref_doc_type="ManufacturingOrder",
         ref_doc_id=mo.id,
         memo=f"Produced in MO {mo.number}",

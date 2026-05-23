@@ -14,7 +14,7 @@
       <h2>Open lines</h2>
       <div class="table-wrap">
       <table>
-        <thead><tr><th>Description</th><th class="num">Ordered</th><th class="num">Received</th><th class="num">Open</th><th class="num">Receive</th></tr></thead>
+        <thead><tr><th>Description</th><th class="num">Ordered</th><th class="num">Received</th><th class="num">Open</th><th class="num">Receive</th><th>Warehouse</th></tr></thead>
         <tbody>
           {% for line in order.lines.all %}
             <tr>
@@ -23,6 +23,14 @@
               <td class="num">{{ line.received_qty }}</td>
               <td class="num">{{ line.open_qty }}</td>
               <td class="num"><input class="amount-input" type="text" inputmode="decimal" name="receive_{{ line.pk }}" {% if line.open_qty <= 0 %}disabled{% endif %}></td>
+              <td>
+                <select name="receive_location_{{ line.pk }}" {% if line.open_qty <= 0 %}disabled{% endif %} style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); color: var(--text);">
+                  <option value="">Main Warehouse (Default)</option>
+                  {% for loc in locations %}
+                    <option value="{{ loc.pk }}">{{ loc.name }}</option>
+                  {% endfor %}
+                </select>
+              </td>
             </tr>
           {% endfor %}
         </tbody>

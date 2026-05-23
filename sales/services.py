@@ -95,7 +95,9 @@ def create_invoice_lines(invoice: Invoice, cleaned_lines: list[dict]) -> None:
                 customer=invoice.customer,
                 explicit=line.get("revenue_account"),
             ),
+            location=line.get("location"),
         )
+
 
 
 @transaction.atomic
@@ -126,6 +128,7 @@ def confirm_sales_order(order: SalesOrder, *, user=None) -> SalesOrder:
                 movement_type="issue",
                 qty=line.qty,
                 unit_cost=line.product.cost,
+                location=line.location,
                 ref_doc_type="Invoice",
                 ref_doc_id=invoice.pk,
                 memo=f"Auto stock shipment for SO {order.number} via Invoice {invoice.number or 'DRAFT'}",
@@ -204,10 +207,12 @@ def undo_invoice_from_sales_order(order: SalesOrder) -> SalesOrder:
             movement_type=StockMovement.MovementType.RECEIPT,
             qty=move.qty,
             unit_cost=move.unit_cost,
+            location=move.location,
             ref_doc_type="InvoiceUndo",
             ref_doc_id=invoice.pk,
             memo=f"Stock return due to deleted draft invoice from SO {order.number}",
         )
+
 
     invoice.delete()
     order.status = SalesOrder.Status.CONFIRMED
@@ -266,11 +271,13 @@ def post_invoice(invoice: Invoice, *, user=None) -> Invoice:
                     movement_type="issue",
                     qty=line.qty,
                     unit_cost=line.product.cost,
+                    location=line.location,
                     ref_doc_type="Invoice",
                     ref_doc_id=invoice.pk,
                     memo=f"Invoice {invoice.number} issue",
                     user=user,
                 )
+
 
     # Aggregate by revenue account so we emit one credit line per account.
     by_account: dict[str, Decimal] = defaultdict(lambda: ZERO)
@@ -362,11 +369,13 @@ def void_invoice(invoice: Invoice, *, user=None) -> Invoice:
                 movement_type=StockMovement.MovementType.RECEIPT,
                 qty=move.qty,
                 unit_cost=move.unit_cost,
+                location=move.location,
                 ref_doc_type="InvoiceVoid",
                 ref_doc_id=invoice.pk,
                 memo=f"Stock return due to voided invoice {invoice.number}",
                 user=user,
             )
+
 
     invoice.status = Invoice.Status.VOID
     invoice.save(update_fields=["status"])

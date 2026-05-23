@@ -233,7 +233,7 @@ def receive_purchase_order(
     *,
     order: PurchaseOrder,
     date,
-    receipts: list[tuple[PurchaseOrderLine, Decimal]],
+    receipts: list,
     notes: str = "",
     user=None,
 ) -> GoodsReceipt:
@@ -262,7 +262,13 @@ def receive_purchase_order(
         posted_by=user,
     )
 
-    for original_line, qty in receipts:
+    for item in receipts:
+        if len(item) == 3:
+            original_line, qty, line_location = item
+        else:
+            original_line, qty = item
+            line_location = None
+
         line = locked_lines.get(original_line.id)
         if line is None:
             raise ValidationError("Receipt line does not belong to this purchase order.")
@@ -280,6 +286,7 @@ def receive_purchase_order(
             movement_type=StockMovement.MovementType.RECEIPT,
             qty=qty,
             unit_cost=line.unit_cost,
+            location=line_location,
             ref_doc_type="GoodsReceipt",
             ref_doc_id=receipt.pk,
             memo=f"Receipt {number} for {order.number}",
@@ -292,6 +299,7 @@ def receive_purchase_order(
             qty_received=qty,
             unit_cost=line.unit_cost,
             stock_movement=movement,
+            location=line_location,
         )
 
     if not receipt.lines.exists():
@@ -312,11 +320,13 @@ def reverse_goods_receipt(receipt: GoodsReceipt, *, user=None) -> GoodsReceipt:
             movement_type=StockMovement.MovementType.ISSUE,
             qty=line.qty_received,
             unit_cost=line.unit_cost,
+            location=line.location,
             ref_doc_type="GoodsReceiptReversal",
             ref_doc_id=receipt.pk,
             memo=f"Reverse receipt {receipt.number}",
             user=user,
         )
+
 
     receipt.is_reversed = True
     receipt.reversed_at = timezone.now()

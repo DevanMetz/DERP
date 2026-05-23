@@ -152,6 +152,14 @@ class ManufacturingOrder(models.Model):
         on_delete=models.PROTECT,
         related_name="completed_mos"
     )
+    production_location = models.ForeignKey(
+        "inventory.Location",
+        on_delete=models.PROTECT,
+        related_name="manufacturing_orders",
+        null=True,
+        blank=True,
+        help_text="Warehouse location where assembly takes place."
+    )
 
     history = HistoricalRecords()
 

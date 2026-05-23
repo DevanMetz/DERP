@@ -312,3 +312,57 @@ class CustomerDetailViewTests(TestCase):
         self.assertContains(response, "Lifetime Posted Revenue")
         self.assertContains(response, "$40.00")
 
+
+class LocalizedInvoiceTests(TestCase):
+    def setUp(self):
+        self.ar = Account.objects.create(code="1200", name="Accounts Receivable", type=AccountType.ASSET)
+        self.revenue = Account.objects.create(code="4100", name="Product Sales", type=AccountType.REVENUE)
+        self.tax = Account.objects.create(code="2120", name="Sales Tax Payable", type=AccountType.LIABILITY)
+        self.inventory = Account.objects.create(code="1300", name="Inventory", type=AccountType.ASSET)
+        self.cogs = Account.objects.create(code="5100", name="COGS - Materials", type=AccountType.EXPENSE)
+        self.customer = Customer.objects.create(name="Acme", tax_rate=Decimal("10.000"))
+        self.product = Product.objects.create(sku="WIDGET", name="Widget", price=D("100.00"), cost=D("50.00"), default_revenue_account=self.revenue)
+
+    def test_invoice_fulfillment_from_custom_location(self):
+        from inventory.models import Location, LocationStock
+        custom_loc = Location.objects.create(name="Aisle 12", is_active=True)
+
+        # Seed stock at custom location
+        post_stock_movement(
+            product=self.product,
+            movement_type=StockMovement.MovementType.RECEIPT,
+            qty=D("10.0000"),
+            unit_cost=D("50.00"),
+            location=custom_loc,
+        )
+
+        invoice = Invoice.objects.create(
+            customer=self.customer,
+            date=date(2026, 5, 1),
+            due_date=date(2026, 5, 16),
+        )
+        from sales.models import InvoiceLine
+        line = InvoiceLine.objects.create(
+            invoice=invoice,
+            product=self.product,
+            description="Widget",
+            qty=D("3.0000"),
+            unit_price=D("100.00"),
+            revenue_account=self.revenue,
+            location=custom_loc,
+        )
+
+        post_invoice(invoice)
+        invoice.refresh_from_db()
+
+        self.assertEqual(invoice.status, Invoice.Status.SENT)
+
+        # Check stock decreased specifically at Aisle 12
+        loc_stock = LocationStock.objects.get(product=self.product, location=custom_loc)
+        self.assertEqual(loc_stock.qty, D("7.0000"))
+
+        # Verify that default location has no stock
+        wh_stock_exists = LocationStock.objects.filter(product=self.product, location__name="Main Warehouse").exists()
+        self.assertFalse(wh_stock_exists)
+
+

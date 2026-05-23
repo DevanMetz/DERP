@@ -16,6 +16,8 @@ from accounting.models import Account
 from inventory.models import Product
 from purchasing.models import PurchaseOrder, PurchaseOrderLine, Vendor
 from purchasing.services import resolve_expense_account
+from sales.models import Customer, SalesOrder, SalesOrderLine
+from sales.services import resolve_revenue_account
 
 from .docs import list_doc_pages
 from .models import Company, CopilotAuditEvent, Role
@@ -41,31 +43,44 @@ def run_copilot_turn(message: str, *, api_key: str = "", user=None, session=None
     # Update pending PO state from anything the searches just found.
     _absorb_tools_into_pending(tools, state)
 
-    # Decide whether to attempt an autofill. Two triggers:
-    #   1) user explicitly said "try your best" / "just do it" / etc.
-    #   2) user clearly asked for a PO AND we have enough state to fill it
-    pending = state.get("pending_po") or {}
-    has_enough_for_full = bool(
-        pending.get("vendor_name") and pending.get("product_label")
-        and pending.get("qty") and pending.get("unit_cost")
-    )
-    asked_for_po = bool(re.search(r"\b(make|create|draft|build|generate|do)\s+(?:a|the)?\s*po\b", (message or ""), re.IGNORECASE))
-    should_autofill = _user_wants_best_effort(message) or (asked_for_po and has_enough_for_full)
+    # Decide whether to attempt an autofill, and which doc to draft.
+    doc_intent = _detect_doc_intent(message, state)
+    asked_for_doc = bool(re.search(
+        r"\b(make|create|draft|build|generate|do)\s+(?:a|the)?\s*(po|so|purchase\s+order|sales\s+order)\b",
+        (message or ""), re.IGNORECASE,
+    ))
+    pending = state.get(f"pending_{doc_intent}") or {} if doc_intent else {}
+    if doc_intent == "po":
+        has_enough = bool(
+            pending.get("vendor_name") and pending.get("product_label")
+            and pending.get("qty") and pending.get("unit_cost")
+        )
+    elif doc_intent == "so":
+        has_enough = bool(
+            pending.get("customer_name") and pending.get("product_label")
+            and pending.get("qty") and pending.get("unit_price")
+        )
+    else:
+        has_enough = False
 
-    if should_autofill:
-        existing = _tool_result(tools, "draft_purchase_order_preview")
+    should_autofill = _user_wants_best_effort(message) or (asked_for_doc and has_enough)
+
+    if should_autofill and doc_intent:
+        tool_name = "draft_purchase_order_preview" if doc_intent == "po" else "draft_sales_order_preview"
+        existing = _tool_result(tools, tool_name)
         if not existing or not existing.get("preview"):
-            auto = _autofill_preview(state, user=user)
+            auto = _autofill_preview(state, user=user, doc_type=doc_intent)
             if auto is not None and auto.get("preview"):
-                # Replace any failed preview attempt with the autofilled one.
-                tools = [t for t in tools if t["name"] != "draft_purchase_order_preview"]
-                tools.append({"name": "draft_purchase_order_preview", "arguments": {"auto": True}, "result": auto})
+                tools = [t for t in tools if t["name"] != tool_name]
+                tools.append({"name": tool_name, "arguments": {"auto": True}, "result": auto})
 
     response = _build_reply(message, plan, tools, state, user=user)
     response["state"] = {
         "last_vendor": state.get("last_vendor_name", ""),
+        "last_customer": state.get("last_customer_name", ""),
         "last_product": state.get("last_product_label", ""),
         "pending_po": _public_pending_po(state),
+        "pending_so": _public_pending_so(state),
     }
     _save_state(session, state)
     _audit(
@@ -86,17 +101,30 @@ def run_copilot_turn(message: str, *, api_key: str = "", user=None, session=None
     return response
 
 
-@transaction.atomic
-def confirm_purchase_order_action(action_token: str, user) -> dict:
-    if not _can_create_purchase_documents(user):
-        raise ValidationError("Your role can review AI previews, but cannot create purchasing documents.")
+def confirm_action_token(action_token: str, user) -> dict:
+    """Dispatch a signed action token to the right creator (PO or SO)."""
     try:
         payload = signing.loads(action_token, salt=ACTION_SALT, max_age=60 * 30)
     except signing.BadSignature as exc:
         raise ValidationError("This AI action preview expired or was modified. Please ask again.") from exc
 
-    if payload.get("action") != "create_purchase_order_draft":
-        raise ValidationError("Unsupported AI action.")
+    action = payload.get("action")
+    if action == "create_purchase_order_draft":
+        return _confirm_create_purchase_order(payload, user)
+    if action == "create_sales_order_draft":
+        return _confirm_create_sales_order(payload, user)
+    raise ValidationError("Unsupported AI action.")
+
+
+# Backwards-compatible alias — older imports / callers still work.
+def confirm_purchase_order_action(action_token: str, user) -> dict:
+    return confirm_action_token(action_token, user)
+
+
+@transaction.atomic
+def _confirm_create_purchase_order(payload: dict, user) -> dict:
+    if not _can_create_purchase_documents(user):
+        raise ValidationError("Your role can review AI previews, but cannot create purchasing documents.")
 
     vendor = Vendor.objects.get(pk=payload["vendor_id"], is_active=True)
     order = PurchaseOrder.objects.create(
@@ -134,6 +162,50 @@ def confirm_purchase_order_action(action_token: str, user) -> dict:
         "reply": f"Created draft purchase order {order}.",
         "purchase_order_id": order.pk,
         "url": reverse("purchase_order_detail", args=[order.pk]),
+    }
+
+
+@transaction.atomic
+def _confirm_create_sales_order(payload: dict, user) -> dict:
+    if not _can_create_sales_documents(user):
+        raise ValidationError("Your role can review AI previews, but cannot create sales documents.")
+
+    customer = Customer.objects.get(pk=payload["customer_id"], is_active=True)
+    order = SalesOrder.objects.create(
+        customer=customer,
+        date=timezone.localdate(),
+        requested_date=payload.get("requested_date") or None,
+        status=SalesOrder.Status.DRAFT,
+        notes="Draft created from AI copilot preview.",
+        created_by=user if getattr(user, "is_authenticated", False) else None,
+    )
+
+    for line in payload.get("lines") or []:
+        product = Product.objects.filter(pk=line.get("product_id")).first() if line.get("product_id") else None
+        qty = Decimal(str(line["qty"]))
+        unit_price = Decimal(str(line["unit_price"]))
+        description = (line.get("description") or "").strip()
+        SalesOrderLine.objects.create(
+            order=order,
+            product=product,
+            description=description or (f"{product.sku} {product.name}" if product else "AI-created line"),
+            qty=qty,
+            unit_price=unit_price,
+            revenue_account=resolve_revenue_account(product=product, customer=customer),
+        )
+
+    _audit(
+        user=user,
+        event_type=CopilotAuditEvent.EventType.CONFIRM,
+        tool_names=["create_sales_order_draft"],
+        metadata={"customer": customer.name, "line_count": len(payload.get("lines") or [])},
+        object_type="sales.SalesOrder",
+        object_id=order.pk,
+    )
+    return {
+        "reply": f"Created draft sales order {order}.",
+        "sales_order_id": order.pk,
+        "url": reverse("sales_order_detail", args=[order.pk]),
     }
 
 
@@ -192,9 +264,10 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
                     "additionalProperties": False,
                     "properties": {
                         "name": {"type": "string", "enum": [
-                            "search_vendors", "search_products", "get_stock_levels",
-                            "get_open_purchase_orders", "get_recent_purchase_prices",
-                            "search_accounts", "search_docs", "draft_purchase_order_preview",
+                            "search_vendors", "search_customers", "search_products",
+                            "get_stock_levels", "get_open_purchase_orders",
+                            "get_recent_purchase_prices", "search_accounts", "search_docs",
+                            "draft_purchase_order_preview", "draft_sales_order_preview",
                         ]},
                         "arguments": {"type": "object"},
                     },
@@ -210,7 +283,8 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
         "\n"
         "TOOLS (with argument shapes):\n"
         '  search_vendors({"query": "<name>"}) — fuzzy match; tolerates misspellings and missing spaces.\n'
-        '  search_products({"query": "<sku-or-name>"}) — fuzzy match.\n'
+        '  search_customers({"query": "<name>"}) — fuzzy match.\n'
+        '  search_products({"query": "<sku-or-name>"}) — fuzzy match. Returns product.cost (purchase) and product.price (sell).\n'
         '  get_stock_levels({"query": "<product>"})\n'
         '  get_open_purchase_orders({"vendor": "<name>"})\n'
         '  get_recent_purchase_prices({"product": "<name>", "vendor": "<name>"})\n'
@@ -218,20 +292,28 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
         '  search_docs({"query": "<topic>"})\n'
         '  draft_purchase_order_preview({\n'
         '     "vendor": "<vendor name as user said it>",\n'
-        '     "lines": [{"product": "<product as user said it>", "qty": "<number>", "unit_cost": "<number>", "description": "<optional>"}],\n'
+        '     "lines": [{"product": "<product>", "qty": "<number>", "unit_cost": "<number>", "description": "<optional>"}],\n'
         '     "expected_date": "<YYYY-MM-DD or empty>"\n'
-        '  }) — builds a preview the user must confirm separately. Lines must be non-empty.\n'
+        '  }) — preview of a buy. Use for "bought", "purchased", "order from <vendor>", "make a PO".\n'
+        '  draft_sales_order_preview({\n'
+        '     "customer": "<customer name as user said it>",\n'
+        '     "lines": [{"product": "<product>", "qty": "<number>", "unit_price": "<number>", "description": "<optional>"}],\n'
+        '     "requested_date": "<YYYY-MM-DD or empty>"\n'
+        '  }) — preview of a sale. Use for "sold", "selling", "ship to <customer>", "make an SO".\n'
         "\n"
         "RULES:\n"
-        "  • Extract vendor, product, qty, and unit_cost from ANY phrasing — 'make a po for pla filament from "
-        "bambulab 5 pieces $20 each' must produce a draft_purchase_order_preview call with vendor='bambulab', "
-        "lines=[{product:'pla filament', qty:'5', unit_cost:'20'}]. Trust the fuzzy search to resolve names.\n"
-        "  • state.pending_po carries partial info across turns (vendor_name, product_label, product_sku, "
-        "product_cost, qty, unit_cost). Use it. If the user previously mentioned a vendor or product, do NOT "
-        "re-ask — carry it into the next tool call.\n"
+        "  • Pick the right tool from the user's verb. 'bought / purchased / order from <vendor>' → "
+        "draft_purchase_order_preview. 'sold / selling / ship to <customer>' → draft_sales_order_preview.\n"
+        "  • Extract party, product, qty, and unit cost/price from ANY phrasing. 'make a po for pla filament "
+        "from bambulab 5 pieces $20 each' → draft_purchase_order_preview with vendor='bambulab', "
+        "lines=[{product:'pla filament', qty:'5', unit_cost:'20'}]. 'sold 3 widgets to acme for $50 each' → "
+        "draft_sales_order_preview with customer='acme', lines=[{product:'widgets', qty:'3', unit_price:'50'}]. "
+        "Trust the fuzzy search to resolve names.\n"
+        "  • state.pending_po and state.pending_so carry partial info across turns. Use whichever matches the "
+        "current intent. If a previous turn established a vendor/customer or product, do NOT re-ask — carry it.\n"
         "  • 'try your best', 'just do it', 'go ahead', 'any', 'whatever' = user authorizes defaults. Fill "
-        "missing slots: qty='1', unit_cost=state.pending_po.product_cost (or '0' if unknown). Always call "
-        "draft_purchase_order_preview.\n"
+        "missing slots: qty='1', unit_cost=product_cost (PO) or unit_price=product_price (SO). Always call "
+        "the appropriate draft tool.\n"
         "  • If only a search is needed (e.g. 'find bambu lab' or 'list products'), call the search tool. The "
         "result feeds the pending state automatically — don't worry about restating it.\n"
         "  • NEVER claim a document was created. The preview goes to the user; they confirm separately.\n"
@@ -248,7 +330,11 @@ def _plan_with_ai(message: str, state: dict, context: dict, api_key: str) -> dic
         "\n"
         "  User: 'try your best'   (pending_po has vendor + product)\n"
         "  → tool_calls: [{name: 'draft_purchase_order_preview', arguments: {vendor: <pending.vendor_name>, "
-        "lines: [{product: <pending.product_sku>, qty: '1', unit_cost: <pending.product_cost or '0'>}]}}]"
+        "lines: [{product: <pending.product_sku>, qty: '1', unit_cost: <pending.product_cost or '0'>}]}}]\n"
+        "\n"
+        "  User: 'sold 3 pla filament to acme corp for $30 each'\n"
+        "  → tool_calls: [{name: 'draft_sales_order_preview', arguments: {customer: 'acme corp', lines: "
+        "[{product: 'pla filament', qty: '3', unit_price: '30'}]}}]"
     )
     payload = {
         "model": DEFAULT_MODEL,
@@ -300,6 +386,10 @@ def _execute_tool_plan(plan: dict, state: dict, *, user=None) -> list[dict]:
             result = _tool_search_docs(args.get("query", ""))
         elif name == "draft_purchase_order_preview":
             result = _tool_draft_purchase_order_preview(args, state, user=user)
+        elif name == "search_customers":
+            result = _tool_search_customers(args.get("query", ""))
+        elif name == "draft_sales_order_preview":
+            result = _tool_draft_sales_order_preview(args, state, user=user)
         else:
             result = {"error": f"Unknown tool: {name}"}
         results.append({"name": name, "arguments": args, "result": result})
@@ -307,14 +397,19 @@ def _execute_tool_plan(plan: dict, state: dict, *, user=None) -> list[dict]:
 
 
 def _build_reply(message: str, plan: dict, tools: list[dict], state: dict, *, user=None) -> dict:
-    preview_tool = _tool_result(tools, "draft_purchase_order_preview")
-    if preview_tool:
-        return preview_tool
+    # Either preview wins — return immediately.
+    for tool_name in ("draft_purchase_order_preview", "draft_sales_order_preview"):
+        preview_tool = _tool_result(tools, tool_name)
+        if preview_tool:
+            return preview_tool
+
     docs = _tool_result(tools, "search_docs")
     if docs and docs.get("matches"):
         top = docs["matches"][0]
         return {"reply": f"{top['title']}: {top['summary']}", "preview": None, "tool_results": tools}
+
     vendors = _tool_result(tools, "search_vendors")
+    customers = _tool_result(tools, "search_customers")
     products = _tool_result(tools, "search_products")
     stock = _tool_result(tools, "get_stock_levels")
     recent = _tool_result(tools, "get_recent_purchase_prices")
@@ -323,6 +418,8 @@ def _build_reply(message: str, plan: dict, tools: list[dict], state: dict, *, us
     lines = []
     if vendors is not None:
         lines.append(_format_matches("vendors", vendors.get("matches", []), "name"))
+    if customers is not None:
+        lines.append(_format_matches("customers", customers.get("matches", []), "name"))
     if products is not None:
         lines.append(_format_matches("products", products.get("matches", []), "label"))
     if stock is not None and stock.get("matches"):
@@ -333,37 +430,59 @@ def _build_reply(message: str, plan: dict, tools: list[dict], state: dict, *, us
         lines.append("Open POs: " + "; ".join(f"{item['number']} with {item['vendor']} ({item['status']})" for item in open_pos["matches"]))
     reply = " ".join(line for line in lines if line)
 
-    # If we have partial PO state, append a nudge so the user can see we've remembered it.
-    pending = state.get("pending_po") or {}
-    if pending.get("vendor_name") or pending.get("product_label"):
-        missing = []
-        if not pending.get("vendor_name"):
-            missing.append("vendor")
-        if not pending.get("product_label"):
-            missing.append("product")
-        if not pending.get("qty"):
-            missing.append("quantity")
-        if not pending.get("unit_cost"):
-            missing.append("unit cost")
-        have_bits = []
-        if pending.get("vendor_name"):
-            have_bits.append(f"vendor: {pending['vendor_name']}")
-        if pending.get("product_label"):
-            have_bits.append(f"product: {pending['product_label']}")
-        if pending.get("qty"):
-            have_bits.append(f"qty: {pending['qty']}")
-        if pending.get("unit_cost"):
-            have_bits.append(f"unit cost: ${pending['unit_cost']}")
-        if have_bits:
-            reply = (reply + " " if reply else "") + "Pending PO so far — " + ", ".join(have_bits) + "."
-        if missing:
-            reply += " Still need: " + ", ".join(missing) + ". (Say 'try your best' and I'll use defaults.)"
+    # Append a 'pending so far' summary for whichever doc is being built.
+    intent = _detect_doc_intent(message, state)
+    if intent == "so":
+        reply += _format_pending_so(state)
+    elif intent == "po":
+        reply += _format_pending_po(state)
+    else:
+        # No clear intent — try whichever has more state.
+        reply += _format_pending_po(state) or _format_pending_so(state)
 
     return {
-        "reply": reply or plan.get("reply") or "I checked the available tools, but need a little more detail.",
+        "reply": reply.strip() or plan.get("reply") or "I checked the available tools, but need a little more detail.",
         "preview": None,
         "tool_results": tools,
     }
+
+
+def _format_pending_po(state: dict) -> str:
+    pending = state.get("pending_po") or {}
+    if not (pending.get("vendor_name") or pending.get("product_label")):
+        return ""
+    have, missing = [], []
+    for label, key, prefix in [
+        ("vendor", "vendor_name", ""), ("product", "product_label", ""),
+        ("qty", "qty", ""), ("unit cost", "unit_cost", "$"),
+    ]:
+        if pending.get(key):
+            have.append(f"{label}: {prefix}{pending[key]}")
+        else:
+            missing.append(label)
+    out = " Pending PO so far — " + ", ".join(have) + "."
+    if missing:
+        out += " Still need: " + ", ".join(missing) + ". (Say 'try your best' and I'll use defaults.)"
+    return out
+
+
+def _format_pending_so(state: dict) -> str:
+    pending = state.get("pending_so") or {}
+    if not (pending.get("customer_name") or pending.get("product_label")):
+        return ""
+    have, missing = [], []
+    for label, key, prefix in [
+        ("customer", "customer_name", ""), ("product", "product_label", ""),
+        ("qty", "qty", ""), ("unit price", "unit_price", "$"),
+    ]:
+        if pending.get(key):
+            have.append(f"{label}: {prefix}{pending[key]}")
+        else:
+            missing.append(label)
+    out = " Pending SO so far — " + ", ".join(have) + "."
+    if missing:
+        out += " Still need: " + ", ".join(missing) + ". (Say 'try your best' and I'll use defaults.)"
+    return out
 
 
 def _normalize_for_match(value: str) -> str:
@@ -405,6 +524,18 @@ def _tool_search_vendors(query: str) -> dict:
     return {"matches": matches, "count": len(matches)}
 
 
+def _tool_search_customers(query: str) -> dict:
+    base = Customer.objects.filter(is_active=True)
+    qs = base
+    if query:
+        qs = base.filter(Q(name__icontains=query) | Q(email__icontains=query) | Q(phone__icontains=query))
+    customers = list(qs.order_by("name")[:5])
+    if query and not customers:
+        customers = _fuzzy_post_filter(list(base), query, ["name", "email"])
+    matches = [{"id": c.pk, "name": c.name, "email": c.email, "phone": c.phone} for c in customers]
+    return {"matches": matches, "count": len(matches)}
+
+
 def _tool_search_products(query: str) -> dict:
     base = Product.objects.filter(is_active=True)
     qs = base
@@ -421,6 +552,7 @@ def _tool_search_products(query: str) -> dict:
             "name": product.name,
             "label": f"{product.sku} - {product.name}",
             "cost": str(product.cost),
+            "price": str(product.price),
             "type": product.get_type_display(),
         })
     return {"matches": matches, "count": len(matches)}
@@ -561,6 +693,76 @@ def _tool_draft_purchase_order_preview(args: dict, state: dict, *, user=None) ->
     return {"reply": f"Ready to create a draft PO for {vendor.name}{date_phrase} totaling ${preview['total']}.", "preview": preview}
 
 
+def _tool_draft_sales_order_preview(args: dict, state: dict, *, user=None) -> dict:
+    if not _can_create_sales_documents(user):
+        return {"reply": "Your role can search and review ERP data, but cannot create draft sales orders.", "preview": None}
+
+    pending = state.get("pending_so") or {}
+    customer_name = (args.get("customer") or pending.get("customer_name") or "").strip()
+    raw_lines = args.get("lines") or pending.get("lines") or []
+    requested_date = _parse_expected_date(args.get("requested_date") or args.get("expected_date") or "")
+
+    if not customer_name:
+        return {"reply": "Which customer is this sale for?", "preview": None}
+    if not raw_lines:
+        return {"reply": "Which product, quantity, and unit price should go on the draft SO?", "preview": None}
+
+    customer_matches = _tool_search_customers(customer_name)["matches"]
+    if not customer_matches:
+        return {"reply": f"I could not find an active customer matching \"{customer_name}\".", "preview": None}
+    if len(customer_matches) > 1 and not any(item["name"].lower() == customer_name.lower() for item in customer_matches):
+        return {"reply": "I found multiple matching customers: " + ", ".join(item["name"] for item in customer_matches) + ". Which one?", "preview": None}
+    customer = Customer.objects.get(pk=customer_matches[0]["id"])
+
+    resolved_lines = []
+    for line in raw_lines:
+        product_name = (line.get("product") or "").strip()
+        description = (line.get("description") or product_name).strip()
+        product = _find_one(Product.objects.filter(is_active=True), product_name, ["sku", "name"]) if product_name else None
+        qty = _decimal_or_none(line.get("qty"), scale="0.0001")
+        unit_price = _decimal_or_none(line.get("unit_price") or line.get("unit_cost"), scale="0.01")
+        if product_name and product is None:
+            return {"reply": f"I could not find a product matching \"{product_name}\". Give me a SKU or use a description-only line.", "preview": None}
+        if qty is None or qty <= 0:
+            return {"reply": f"Quantity for {product_name or description or 'the line'} must be greater than zero.", "preview": None}
+        if unit_price is None or unit_price < 0:
+            return {"reply": f"Unit price for {product_name or description or 'the line'} must be zero or greater.", "preview": None}
+        resolved_lines.append({
+            "product_id": product.pk if product else None,
+            "product": product.sku if product else "",
+            "description": description or f"{product.sku} {product.name}",
+            "qty": str(qty),
+            "unit_price": str(unit_price),
+            "line_total": str((qty * unit_price).quantize(Decimal("0.01"))),
+        })
+
+    total = sum((Decimal(line["line_total"]) for line in resolved_lines), Decimal("0.00"))
+    payload = {
+        "action": "create_sales_order_draft",
+        "customer_id": customer.pk,
+        "customer": customer.name,
+        "requested_date": requested_date.isoformat() if requested_date else "",
+        "lines": resolved_lines,
+    }
+    state.setdefault("pending_so", {})
+    state["pending_so"]["customer_id"] = customer.pk
+    state["pending_so"]["customer_name"] = customer.name
+    state["pending_so"]["lines"] = resolved_lines
+    state["pending_so"]["product_label"] = resolved_lines[0]["product"] or resolved_lines[0]["description"]
+    state["pending_so"]["requested_date"] = payload["requested_date"]
+
+    preview = {
+        "title": "Create draft sales order",
+        "customer": customer.name,
+        "requested_date": payload["requested_date"],
+        "lines": resolved_lines,
+        "total": str(total.quantize(Decimal("0.01"))),
+        "action_token": signing.dumps(payload, salt=ACTION_SALT),
+    }
+    date_phrase = f" requested {payload['requested_date']}" if payload["requested_date"] else ""
+    return {"reply": f"Ready to create a draft SO for {customer.name}{date_phrase} totaling ${preview['total']}.", "preview": preview}
+
+
 def _parse_purchase_request(message: str) -> dict | None:
     match = re.search(
         r"(?:purchased|bought|buy|order(?:ed)?)?\s*(?P<qty>\d+(?:\.\d+)?)\s*(?:units?|pcs?|pieces?|ea|each)?\s+(?:of\s+)?(?P<product>.+?)\s+from\s+(?P<vendor>.+?)(?:\s+(?:at|for)\s+\$?(?P<cost>\d+(?:\.\d+)?))?(?:\s*(?:each|ea|per unit))?$",
@@ -643,6 +845,10 @@ def _can_create_purchase_documents(user) -> bool:
     return getattr(user, "is_authenticated", False) and getattr(user, "role", None) in {Role.ADMIN, Role.MANAGER, Role.STAFF}
 
 
+def _can_create_sales_documents(user) -> bool:
+    return getattr(user, "is_authenticated", False) and getattr(user, "role", None) in {Role.ADMIN, Role.MANAGER, Role.STAFF}
+
+
 def _load_state(session) -> dict:
     if session is None:
         return {}
@@ -655,10 +861,13 @@ def _save_state(session, state: dict) -> None:
     session[STATE_KEY] = {
         "last_vendor_id": state.get("last_vendor_id"),
         "last_vendor_name": state.get("last_vendor_name", ""),
+        "last_customer_id": state.get("last_customer_id"),
+        "last_customer_name": state.get("last_customer_name", ""),
         "last_product_label": state.get("last_product_label", ""),
         "last_po_lines": state.get("last_po_lines", [])[:3],
         "last_expected_date": state.get("last_expected_date", ""),
         "pending_po": state.get("pending_po", {}),
+        "pending_so": state.get("pending_so", {}),
     }
     session.modified = True
 
@@ -682,6 +891,11 @@ def _pending(state: dict) -> dict:
     return state["pending_po"]
 
 
+def _pending_so(state: dict) -> dict:
+    state.setdefault("pending_so", {})
+    return state["pending_so"]
+
+
 def _public_pending_po(state: dict) -> dict:
     p = state.get("pending_po") or {}
     return {
@@ -692,39 +906,92 @@ def _public_pending_po(state: dict) -> dict:
     }
 
 
+def _public_pending_so(state: dict) -> dict:
+    p = state.get("pending_so") or {}
+    return {
+        "customer": p.get("customer_name", ""),
+        "product": p.get("product_label", ""),
+        "qty": p.get("qty", ""),
+        "unit_price": p.get("unit_price", ""),
+    }
+
+
 def _absorb_message_into_pending(message: str, state: dict) -> None:
     """Intentionally a no-op. The LLM parses messages; Python only carries state."""
     return
 
 
 def _absorb_tools_into_pending(tools: list[dict], state: dict) -> None:
-    """If a search came back with exactly one match, remember it as the user's choice."""
-    pending = _pending(state)
+    """If a search came back with at least one match, remember the top hit."""
+    pending_po = _pending(state)
+    pending_so = _pending_so(state)
 
     vendors = _tool_result(tools, "search_vendors")
     if vendors and vendors.get("matches"):
-        # take the top result whenever there's any match — fuzzy already ranks best first
         top = vendors["matches"][0]
-        pending["vendor_id"] = top["id"]
-        pending["vendor_name"] = top["name"]
+        pending_po["vendor_id"] = top["id"]
+        pending_po["vendor_name"] = top["name"]
         state["last_vendor_id"] = top["id"]
         state["last_vendor_name"] = top["name"]
+
+    customers = _tool_result(tools, "search_customers")
+    if customers and customers.get("matches"):
+        top = customers["matches"][0]
+        pending_so["customer_id"] = top["id"]
+        pending_so["customer_name"] = top["name"]
+        state["last_customer_id"] = top["id"]
+        state["last_customer_name"] = top["name"]
 
     products = _tool_result(tools, "search_products")
     if products and products.get("matches"):
         top = products["matches"][0]
-        pending["product_id"] = top["id"]
-        pending["product_label"] = top["label"]
-        pending["product_sku"] = top["sku"]
-        pending["product_cost"] = top.get("cost", "0")
+        # Shared product context — applies to whichever doc the user is building.
+        for p in (pending_po, pending_so):
+            p["product_id"] = top["id"]
+            p["product_label"] = top["label"]
+            p["product_sku"] = top["sku"]
+            p["product_cost"] = top.get("cost", "0")
+            p["product_price"] = top.get("price", "0")
         state["last_product_label"] = top["label"]
 
 
-def _autofill_preview(state: dict, *, user) -> dict | None:
-    """Best-effort draft: use pending state + sensible defaults to build a preview."""
+def _detect_doc_intent(message: str, state: dict) -> str:
+    """Return 'po', 'so', or '' depending on what the user seems to want.
+
+    Heuristics:
+      - explicit verbs ('sold/selling/customer/ship to' → so;
+        'bought/purchase/vendor/order from' → po)
+      - 'po' / 'so' / 'sales order' / 'purchase order' tokens
+      - else: whichever pending_* has more filled slots
+      - else: 'po' as historical default
+    """
+    lower = (message or "").lower()
+    so_signals = re.search(r"\b(sold|sale|selling|sells|customer|invoice|ship\s+to|so\b|sales\s*order)\b", lower)
+    po_signals = re.search(r"\b(bought|buy|buying|buys|purchase|purchased|vendor|supplier|po\b|order\s+from)\b", lower)
+    if so_signals and not po_signals:
+        return "so"
+    if po_signals and not so_signals:
+        return "po"
+    # Both or neither — go with whichever side has more pending state filled.
+    po_slots = sum(1 for k in ("vendor_name", "product_label", "qty", "unit_cost") if (state.get("pending_po") or {}).get(k))
+    so_slots = sum(1 for k in ("customer_name", "product_label", "qty", "unit_price") if (state.get("pending_so") or {}).get(k))
+    if so_slots > po_slots:
+        return "so"
+    if po_slots > so_slots:
+        return "po"
+    return "po" if po_signals or so_signals else ""
+
+
+def _autofill_preview(state: dict, *, user, doc_type: str = "po") -> dict | None:
+    """Best-effort draft: fill missing slots with defaults and call the right preview tool."""
+    if doc_type == "so":
+        return _autofill_sales_preview(state, user=user)
+    return _autofill_purchase_preview(state, user=user)
+
+
+def _autofill_purchase_preview(state: dict, *, user) -> dict | None:
     pending = _pending(state)
 
-    # Default vendor: pending → first active
     vendor_name = pending.get("vendor_name") or ""
     if not vendor_name:
         first_vendor = Vendor.objects.filter(is_active=True).order_by("name").first()
@@ -734,7 +1001,6 @@ def _autofill_preview(state: dict, *, user) -> dict | None:
         pending["vendor_id"] = first_vendor.pk
         pending["vendor_name"] = first_vendor.name
 
-    # Default product: pending → first active
     product_label = pending.get("product_label") or ""
     product_cost = pending.get("product_cost") or "0"
     if not product_label:
@@ -762,6 +1028,47 @@ def _autofill_preview(state: dict, *, user) -> dict | None:
         "expected_date": "",
     }
     return _tool_draft_purchase_order_preview(args, state, user=user)
+
+
+def _autofill_sales_preview(state: dict, *, user) -> dict | None:
+    pending = _pending_so(state)
+
+    customer_name = pending.get("customer_name") or ""
+    if not customer_name:
+        first_customer = Customer.objects.filter(is_active=True).order_by("name").first()
+        if not first_customer:
+            return {"reply": "There are no active customers in this workspace yet. Add a customer first.", "preview": None}
+        customer_name = first_customer.name
+        pending["customer_id"] = first_customer.pk
+        pending["customer_name"] = first_customer.name
+
+    product_label = pending.get("product_label") or ""
+    product_price = pending.get("product_price") or "0"
+    if not product_label:
+        first_product = Product.objects.filter(is_active=True).order_by("sku").first()
+        if not first_product:
+            return {"reply": "There are no active products yet. Add one to draft a sales order.", "preview": None}
+        product_label = f"{first_product.sku} - {first_product.name}"
+        pending["product_id"] = first_product.pk
+        pending["product_label"] = product_label
+        pending["product_sku"] = first_product.sku
+        pending["product_price"] = str(first_product.price)
+        product_price = str(first_product.price)
+
+    qty = pending.get("qty") or "1"
+    unit_price = pending.get("unit_price") or product_price or "0"
+
+    args = {
+        "customer": customer_name,
+        "lines": [{
+            "product": pending.get("product_sku", "") or product_label,
+            "description": product_label,
+            "qty": qty,
+            "unit_price": unit_price,
+        }],
+        "requested_date": "",
+    }
+    return _tool_draft_sales_order_preview(args, state, user=user)
 
 
 def _audit(*, event_type, user=None, message="", tool_names=None, metadata=None, object_type="", object_id=None) -> None:

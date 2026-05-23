@@ -15,6 +15,7 @@ from .models import Company
 from accounting.models import Account, AccountType, JournalEntry, JournalLine
 from inventory.models import Product, ProductType
 from purchasing.models import Vendor
+from sales.models import Customer
 from .ai_agent import confirm_purchase_order_action, run_copilot_turn
 from .docs import get_doc_page, list_doc_pages, render_doc_markdown
 
@@ -112,7 +113,7 @@ def ai_confirm(request):
     try:
         payload = json.loads(request.body.decode("utf-8"))
         result = confirm_purchase_order_action(payload.get("action_token") or "", request.user)
-    except (json.JSONDecodeError, ValidationError, Vendor.DoesNotExist) as exc:
+    except (json.JSONDecodeError, ValidationError, Vendor.DoesNotExist, Customer.DoesNotExist) as exc:
         message = exc.messages[0] if hasattr(exc, "messages") else str(exc)
         return JsonResponse({"error": message}, status=400)
     return JsonResponse(result)

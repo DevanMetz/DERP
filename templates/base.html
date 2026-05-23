@@ -1418,27 +1418,32 @@
 
     function renderAiPreview(preview) {
       if (!aiMessages || !preview) return;
+      const isSales = !!preview.customer;
+      const docLabel = isSales ? "SO" : "PO";
+
       const wrapper = document.createElement("div");
       wrapper.className = "ai-preview";
       const title = document.createElement("h3");
       title.textContent = preview.title || "Draft action";
       wrapper.appendChild(title);
 
-      const vendor = document.createElement("div");
-      vendor.textContent = `Vendor: ${preview.vendor}`;
-      wrapper.appendChild(vendor);
+      const party = document.createElement("div");
+      party.textContent = isSales ? `Customer: ${preview.customer}` : `Vendor: ${preview.vendor}`;
+      wrapper.appendChild(party);
 
-      if (preview.expected_date) {
-        const expectedDate = document.createElement("div");
-        expectedDate.textContent = `Expected: ${preview.expected_date}`;
-        wrapper.appendChild(expectedDate);
+      const dateValue = preview.requested_date || preview.expected_date;
+      if (dateValue) {
+        const dateDiv = document.createElement("div");
+        dateDiv.textContent = isSales ? `Requested: ${dateValue}` : `Expected: ${dateValue}`;
+        wrapper.appendChild(dateDiv);
       }
 
       const list = document.createElement("ul");
       list.className = "ai-preview-list";
       (preview.lines || []).forEach(line => {
+        const unitAmt = line.unit_price ?? line.unit_cost;
         const item = document.createElement("li");
-        item.textContent = `${line.qty} x ${line.product || line.description} at $${line.unit_cost} = $${line.line_total}`;
+        item.textContent = `${line.qty} x ${line.product || line.description} at $${unitAmt} = $${line.line_total}`;
         list.appendChild(item);
       });
       wrapper.appendChild(list);
@@ -1451,7 +1456,7 @@
       const confirm = document.createElement("button");
       confirm.className = "btn";
       confirm.type = "button";
-      confirm.textContent = "Create Draft PO";
+      confirm.textContent = `Create Draft ${docLabel}`;
       confirm.addEventListener("click", async () => {
         confirm.disabled = true;
         confirm.textContent = "Creating...";
@@ -1465,19 +1470,19 @@
             body: JSON.stringify({ action_token: preview.action_token })
           });
           const data = await response.json();
-          if (!response.ok) throw new Error(data.error || "Could not create the purchase order.");
-          appendAiMessage("assistant", data.reply || "Draft purchase order created.");
+          if (!response.ok) throw new Error(data.error || `Could not create the ${docLabel}.`);
+          appendAiMessage("assistant", data.reply || `Draft ${docLabel} created.`);
           if (data.url) {
             const link = document.createElement("a");
             link.className = "btn secondary";
             link.href = data.url;
-            link.textContent = "Open PO";
+            link.textContent = `Open ${docLabel}`;
             aiMessages.appendChild(link);
           }
         } catch (error) {
           appendAiMessage("error", error.message);
           confirm.disabled = false;
-          confirm.textContent = "Create Draft PO";
+          confirm.textContent = `Create Draft ${docLabel}`;
         } finally {
           aiMessages.scrollTop = aiMessages.scrollHeight;
         }

@@ -178,6 +178,180 @@
       margin: 0 auto;
       padding: 28px 24px 48px;
     }
+    .app-shell {
+      display: flex;
+      align-items: stretch;
+      min-height: calc(100vh - 59px);
+      width: 100%;
+    }
+    .app-content {
+      flex: 1;
+      min-width: 0;
+    }
+    .app-sidebar {
+      position: sticky;
+      top: 59px;
+      align-self: flex-start;
+      display: flex;
+      flex: 0 0 248px;
+      flex-direction: column;
+      width: 248px;
+      height: calc(100vh - 59px);
+      background: rgba(255,255,255,.98);
+      border-right: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      transition: flex-basis .18s ease, width .18s ease;
+      z-index: 6;
+    }
+    .app-sidebar.is-collapsed {
+      flex-basis: 72px;
+      width: 72px;
+    }
+    .sidebar-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 56px;
+      padding: 12px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .sidebar-title {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      color: #344054;
+      font-size: 13px;
+      font-weight: 750;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .sidebar-icon-btn {
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 auto;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+      color: #344054;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+    }
+    .sidebar-icon-btn:hover {
+      background: var(--surface-subtle);
+      color: var(--fg);
+    }
+    .sidebar-icon-btn svg,
+    .sidebar-link-icon svg {
+      width: 16px;
+      height: 16px;
+    }
+    .sidebar-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 12px;
+    }
+    .sidebar-group {
+      margin-bottom: 16px;
+    }
+    .sidebar-group-title {
+      margin: 0 0 6px;
+      padding: 0 10px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .sidebar-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 36px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      color: #344054;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .sidebar-link:hover {
+      background: var(--surface-subtle);
+      color: var(--fg);
+      text-decoration: none;
+    }
+    .sidebar-link.is-active {
+      background: #eff6ff;
+      color: #175cd3;
+    }
+    .sidebar-link.is-dragging {
+      opacity: .45;
+    }
+    .sidebar-link.is-drop-target {
+      outline: 2px solid rgba(36,83,179,.28);
+      outline-offset: 1px;
+    }
+    .sidebar-link-icon {
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 18px;
+      width: 18px;
+      color: currentColor;
+    }
+    .sidebar-link-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .sidebar-customizer {
+      max-height: 46%;
+      overflow-y: auto;
+      border-top: 1px solid var(--line-soft);
+      padding: 12px;
+      background: var(--surface-subtle);
+    }
+    .sidebar-customizer[hidden] {
+      display: none;
+    }
+    .sidebar-customizer h2 {
+      margin: 0 0 10px;
+      color: #344054;
+      font-size: 13px;
+    }
+    .sidebar-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 30px;
+      color: #344054;
+      font-size: 13px;
+      font-weight: 550;
+    }
+    .sidebar-reset {
+      width: 100%;
+      margin-top: 10px;
+    }
+    .app-sidebar.is-collapsed .sidebar-title,
+    .app-sidebar.is-collapsed .sidebar-settings,
+    .app-sidebar.is-collapsed .sidebar-group-title,
+    .app-sidebar.is-collapsed .sidebar-link-label,
+    .app-sidebar.is-collapsed .sidebar-customizer {
+      display: none;
+    }
+    .app-sidebar.is-collapsed .sidebar-top {
+      justify-content: center;
+    }
+    .app-sidebar.is-collapsed .sidebar-scroll {
+      padding: 12px 8px;
+    }
+    .app-sidebar.is-collapsed .sidebar-link {
+      justify-content: center;
+      padding: 8px;
+    }
     h1 {
       margin: 0 0 18px;
       font-size: 24px;
@@ -478,6 +652,12 @@
       [style*="grid-template-columns: 1fr 1fr"] {
         grid-template-columns: 1fr !important;
       }
+      .app-shell {
+        display: block;
+      }
+      .app-sidebar {
+        display: none;
+      }
     }
     @media (max-width: 760px) {
       .topbar {
@@ -671,35 +851,84 @@
   {% endif %}
   </div>
 </header>
+{% if user.is_authenticated %}
+<div class="app-shell">
+  <aside class="app-sidebar" id="app-sidebar" aria-label="Workspace sidebar">
+    <div class="sidebar-top">
+      <button class="sidebar-icon-btn" id="sidebar-toggle" type="button" title="Collapse sidebar" aria-label="Collapse sidebar" aria-expanded="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg>
+      </button>
+      <span class="sidebar-title">Workspace</span>
+      <button class="sidebar-icon-btn sidebar-settings" id="sidebar-customize-toggle" type="button" title="Customize sidebar" aria-label="Customize sidebar" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2a2 2 0 0 1-4 0V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H2.8a2 2 0 0 1 0-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7A2 2 0 0 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V2.8a2 2 0 0 1 4 0V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 0 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2a2 2 0 0 1 0 4H21a1.7 1.7 0 0 0-1.6 1z"></path></svg>
+      </button>
+    </div>
+    <nav class="sidebar-scroll" id="sidebar-links" aria-label="Module navigation"></nav>
+    <section class="sidebar-customizer" id="sidebar-customizer" hidden>
+      <h2>Customize</h2>
+      <div id="sidebar-options"></div>
+      <button class="btn secondary sidebar-reset" id="sidebar-reset" type="button">Reset sidebar</button>
+    </section>
+  </aside>
+  <div class="app-content">
+{% endif %}
 <main>
   {% if messages %}
     {% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}
   {% endif %}
   {% block content %}{% endblock %}
 </main>
+{% if user.is_authenticated %}
+  </div>
+</div>
+{% endif %}
 <script>
   document.addEventListener("DOMContentLoaded", function() {
-    const ALL_APPS = {
-      "dashboard": { name: "Analytics", url: "{% url 'dashboard' %}" },
-      "products": { name: "Products", url: "{% url 'product_list' %}" },
-      "stock_ledger": { name: "Stock Ledger", url: "{% url 'stock_movement_list' %}" },
-      "boms": { name: "BOMs", url: "{% url 'bom_list' %}" },
-      "manufacturing": { name: "Production", url: "{% url 'mo_list' %}" },
-      "customers": { name: "Customers", url: "{% url 'customer_list' %}" },
-      "sales_orders": { name: "Sales Orders", url: "{% url 'sales_order_list' %}" },
-      "invoices": { name: "Invoices", url: "{% url 'invoice_list' %}" },
-      "vendors": { name: "Vendors", url: "{% url 'vendor_list' %}" },
-      "purchase_orders": { name: "Purchase Orders", url: "{% url 'purchase_order_list' %}" },
-      "bills": { name: "Bills", url: "{% url 'bill_list' %}" },
-      "journal": { name: "Journal", url: "{% url 'journal_list' %}" },
-      "trial_balance": { name: "Trial Balance", url: "{% url 'trial_balance' %}" },
-      "income_statement": { name: "P&L", url: "{% url 'income_statement' %}" },
-      "balance_sheet": { name: "Balance Sheet", url: "{% url 'balance_sheet' %}" },
-      "general_ledger": { name: "GL", url: "{% url 'general_ledger' %}" },
-      "data_export": { name: "Data Export", url: "{% url 'data_export' %}" },
-      "data_import": { name: "Data Import", url: "{% url 'data_import' %}" },
-      "docs": { name: "Docs", url: "{% url 'docs_index' %}" }
+    const ICONS = {
+      dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M9 3v18"></path><path d="M3 9h18"></path><path d="M14 14h3"></path></svg>',
+      docs: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path><path d="M8 7h8"></path><path d="M8 11h8"></path></svg>',
+      company: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l8-4v18"></path><path d="M19 21V11l-6-3"></path><path d="M9 9h1"></path><path d="M9 13h1"></path><path d="M9 17h1"></path></svg>',
+      product: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><path d="M3.3 7 12 12l8.7-5"></path><path d="M12 22V12"></path></svg>',
+      list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"></path><path d="M8 12h13"></path><path d="M8 18h13"></path><path d="M3 6h.01"></path><path d="M3 12h.01"></path><path d="M3 18h.01"></path></svg>',
+      user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.9"></path><path d="M16 3.1a4 4 0 0 1 0 7.8"></path></svg>',
+      file: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 13h8"></path><path d="M8 17h5"></path></svg>',
+      money: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>',
+      chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M7 15l4-4 3 3 5-7"></path></svg>',
+      data: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><path d="M12 15V3"></path></svg>'
     };
+
+    const ALL_APPS = {
+      "dashboard": { name: "Analytics", url: "{% url 'dashboard' %}", group: "workspace", icon: ICONS.dashboard },
+      "docs": { name: "Docs", url: "{% url 'docs_index' %}", group: "workspace", icon: ICONS.docs },
+      "company": { name: "Company", url: "{% url 'company_setup' %}", group: "workspace", icon: ICONS.company },
+      "products": { name: "Products", url: "{% url 'product_list' %}", group: "operations", icon: ICONS.product },
+      "stock_ledger": { name: "Stock Ledger", url: "{% url 'stock_movement_list' %}", group: "operations", icon: ICONS.list },
+      "boms": { name: "BOMs", url: "{% url 'bom_list' %}", group: "operations", icon: ICONS.docs },
+      "manufacturing": { name: "Production", url: "{% url 'mo_list' %}", group: "operations", icon: ICONS.product },
+      "customers": { name: "Customers", url: "{% url 'customer_list' %}", group: "sales", icon: ICONS.user },
+      "sales_orders": { name: "Sales Orders", url: "{% url 'sales_order_list' %}", group: "sales", icon: ICONS.file },
+      "invoices": { name: "Invoices", url: "{% url 'invoice_list' %}", group: "sales", icon: ICONS.money },
+      "vendors": { name: "Vendors", url: "{% url 'vendor_list' %}", group: "purchasing", icon: ICONS.user },
+      "purchase_orders": { name: "Purchase Orders", url: "{% url 'purchase_order_list' %}", group: "purchasing", icon: ICONS.file },
+      "bills": { name: "Bills", url: "{% url 'bill_list' %}", group: "purchasing", icon: ICONS.money },
+      "journal": { name: "Journal", url: "{% url 'journal_list' %}", group: "accounting", icon: ICONS.docs },
+      "trial_balance": { name: "Trial Balance", url: "{% url 'trial_balance' %}", group: "accounting", icon: ICONS.money },
+      "income_statement": { name: "P&L", url: "{% url 'income_statement' %}", group: "accounting", icon: ICONS.chart },
+      "balance_sheet": { name: "Balance Sheet", url: "{% url 'balance_sheet' %}", group: "accounting", icon: ICONS.chart },
+      "general_ledger": { name: "GL", url: "{% url 'general_ledger' %}", group: "accounting", icon: ICONS.list },
+      "data_export": { name: "Data Export", url: "{% url 'data_export' %}", group: "data", icon: ICONS.data },
+      "data_import": { name: "Data Import", url: "{% url 'data_import' %}", group: "data", icon: ICONS.data }
+    };
+    const SIDEBAR_GROUPS = [
+      { id: "workspace", name: "Workspace" },
+      { id: "operations", name: "Operations" },
+      { id: "sales", name: "Sales" },
+      { id: "purchasing", name: "Purchasing" },
+      { id: "accounting", name: "Accounting" },
+      { id: "data", name: "Data" }
+    ];
+    const DEFAULT_SIDEBAR_ORDER = Object.keys(ALL_APPS);
+    const SIDEBAR_STORAGE_KEY = "derp_sidebar_v1";
 
     window.updateFavNavbar = function() {
       const container = document.getElementById("fav-nav-links");
@@ -760,7 +989,201 @@
     };
 
 
+    let sidebarCustomizeOpen = false;
+
+    function sidebarPrefs() {
+      const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+      let prefs = {};
+      if (stored) {
+        try {
+          prefs = JSON.parse(stored) || {};
+        } catch(e) {
+          prefs = {};
+        }
+      }
+
+      const known = new Set(DEFAULT_SIDEBAR_ORDER);
+      const storedOrder = Array.isArray(prefs.order) ? prefs.order.filter(id => known.has(id)) : [];
+      const order = storedOrder.concat(DEFAULT_SIDEBAR_ORDER.filter(id => !storedOrder.includes(id)));
+      const hidden = Array.isArray(prefs.hidden) ? prefs.hidden.filter(id => known.has(id)) : [];
+
+      return {
+        collapsed: Boolean(prefs.collapsed),
+        hidden,
+        order
+      };
+    }
+
+    function saveSidebarPrefs(prefs) {
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(prefs));
+    }
+
+    function isActiveSidebarLink(url) {
+      const path = window.location.pathname;
+      if (url === "/") return path === "/";
+      return path === url || path.startsWith(url);
+    }
+
+    function moveSidebarItem(sourceId, targetId) {
+      if (!sourceId || !targetId || sourceId === targetId) return;
+      const prefs = sidebarPrefs();
+      const order = prefs.order.filter(id => id !== sourceId);
+      const targetIndex = order.indexOf(targetId);
+      if (targetIndex === -1) return;
+      order.splice(targetIndex, 0, sourceId);
+      prefs.order = order;
+      saveSidebarPrefs(prefs);
+      renderSidebar();
+    }
+
+    function buildSidebarLink(id, prefs) {
+      const app = ALL_APPS[id];
+      const link = document.createElement("a");
+      link.href = app.url;
+      link.className = "sidebar-link";
+      link.dataset.sidebarId = id;
+      link.title = app.name;
+      link.innerHTML = `<span class="sidebar-link-icon">${app.icon}</span><span class="sidebar-link-label">${app.name}</span>`;
+
+      if (isActiveSidebarLink(app.url)) {
+        link.classList.add("is-active");
+      }
+
+      link.draggable = sidebarCustomizeOpen && !prefs.collapsed;
+      if (link.draggable) {
+        link.addEventListener("dragstart", event => {
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", id);
+          link.classList.add("is-dragging");
+        });
+        link.addEventListener("dragend", () => {
+          link.classList.remove("is-dragging");
+        });
+        link.addEventListener("dragover", event => {
+          event.preventDefault();
+          link.classList.add("is-drop-target");
+        });
+        link.addEventListener("dragleave", () => {
+          link.classList.remove("is-drop-target");
+        });
+        link.addEventListener("drop", event => {
+          event.preventDefault();
+          link.classList.remove("is-drop-target");
+          moveSidebarItem(event.dataTransfer.getData("text/plain"), id);
+        });
+      }
+
+      return link;
+    }
+
+    function renderSidebarOptions(prefs) {
+      const options = document.getElementById("sidebar-options");
+      if (!options) return;
+
+      options.innerHTML = "";
+      DEFAULT_SIDEBAR_ORDER.forEach(id => {
+        const app = ALL_APPS[id];
+        const row = document.createElement("label");
+        row.className = "sidebar-option";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = !prefs.hidden.includes(id);
+        checkbox.addEventListener("change", () => {
+          const nextPrefs = sidebarPrefs();
+          if (checkbox.checked) {
+            nextPrefs.hidden = nextPrefs.hidden.filter(hiddenId => hiddenId !== id);
+          } else if (!nextPrefs.hidden.includes(id)) {
+            nextPrefs.hidden.push(id);
+          }
+          saveSidebarPrefs(nextPrefs);
+          renderSidebar();
+        });
+        row.appendChild(checkbox);
+        row.appendChild(document.createTextNode(app.name));
+        options.appendChild(row);
+      });
+    }
+
+    function renderSidebar() {
+      const sidebar = document.getElementById("app-sidebar");
+      const linksContainer = document.getElementById("sidebar-links");
+      const customizer = document.getElementById("sidebar-customizer");
+      const customizeButton = document.getElementById("sidebar-customize-toggle");
+      const toggleButton = document.getElementById("sidebar-toggle");
+      if (!sidebar || !linksContainer) return;
+
+      const prefs = sidebarPrefs();
+      sidebar.classList.toggle("is-collapsed", prefs.collapsed);
+      if (toggleButton) {
+        toggleButton.setAttribute("aria-expanded", String(!prefs.collapsed));
+        toggleButton.title = prefs.collapsed ? "Expand sidebar" : "Collapse sidebar";
+      }
+
+      if (prefs.collapsed) {
+        sidebarCustomizeOpen = false;
+      }
+      if (customizer) {
+        customizer.hidden = !sidebarCustomizeOpen || prefs.collapsed;
+      }
+      if (customizeButton) {
+        customizeButton.setAttribute("aria-pressed", String(sidebarCustomizeOpen));
+      }
+
+      linksContainer.innerHTML = "";
+      const hidden = new Set(prefs.hidden);
+      SIDEBAR_GROUPS.forEach(group => {
+        const groupIds = prefs.order.filter(id => ALL_APPS[id]?.group === group.id && !hidden.has(id));
+        if (!groupIds.length) return;
+
+        const groupEl = document.createElement("div");
+        groupEl.className = "sidebar-group";
+        const heading = document.createElement("h2");
+        heading.className = "sidebar-group-title";
+        heading.textContent = group.name;
+        groupEl.appendChild(heading);
+
+        groupIds.forEach(id => {
+          groupEl.appendChild(buildSidebarLink(id, prefs));
+        });
+        linksContainer.appendChild(groupEl);
+      });
+
+      renderSidebarOptions(prefs);
+    }
+
+    const sidebarToggle = document.getElementById("sidebar-toggle");
+    if (sidebarToggle) {
+      sidebarToggle.addEventListener("click", () => {
+        const prefs = sidebarPrefs();
+        prefs.collapsed = !prefs.collapsed;
+        saveSidebarPrefs(prefs);
+        renderSidebar();
+      });
+    }
+
+    const sidebarCustomize = document.getElementById("sidebar-customize-toggle");
+    if (sidebarCustomize) {
+      sidebarCustomize.addEventListener("click", () => {
+        sidebarCustomizeOpen = !sidebarCustomizeOpen;
+        renderSidebar();
+      });
+    }
+
+    const sidebarReset = document.getElementById("sidebar-reset");
+    if (sidebarReset) {
+      sidebarReset.addEventListener("click", () => {
+        sidebarCustomizeOpen = false;
+        saveSidebarPrefs({
+          collapsed: false,
+          hidden: [],
+          order: DEFAULT_SIDEBAR_ORDER
+        });
+        renderSidebar();
+      });
+    }
+
     window.updateFavNavbar();
+    renderSidebar();
 
     // Ctrl+K / Cmd+K → focus global search
     document.addEventListener("keydown", function(e) {

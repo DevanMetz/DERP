@@ -33,6 +33,8 @@ class HomeViewTests(TestCase):
         self.assertEqual(len(response.context["low_stock_products"]), 1)
         self.assertContains(response, "Low Stock Alerts")
         self.assertContains(response, "PART-1")
+        self.assertContains(response, 'id="app-sidebar"')
+        self.assertContains(response, "derp_sidebar_v1")
 
     def test_home_page_does_not_show_low_stock_alerts_when_above_threshold(self):
         self.client.login(username="testuser", password="password")

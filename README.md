@@ -241,7 +241,7 @@ Run the full test suite:
 python manage.py test
 ```
 
-The repository currently contains 72 test methods across the core, accounting, inventory, sales, purchasing, and manufacturing modules. The highest-value tests cover financial posting integrity, stock movement validation, sales order automation, purchasing receipt/bill flows, manufacturing completion, import/export, PDFs, and dashboard/report behavior.
+The repository currently contains 76 test methods across the core, accounting, inventory, sales, purchasing, manufacturing, and tenant modules. The highest-value tests cover tenant-aware setup, financial posting integrity, stock movement validation, sales order automation, purchasing receipt/bill flows, manufacturing completion, import/export, PDFs, in-app docs, and dashboard/report behavior.
 
 For focused runs:
 

@@ -13,7 +13,7 @@ from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.test import TestCase
+from core.test_utils import DERPTenantTestCase as TestCase
 
 from accounting.models import Account, AccountType, JournalEntry, JournalLine
 from accounting.reports import balance_sheet, income_statement

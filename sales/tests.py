@@ -1,6 +1,6 @@
 from datetime import date
 from decimal import Decimal
-from django.test import TestCase
+from core.test_utils import DERPTenantTestCase as TestCase
 
 from accounting.models import Account, AccountType
 from inventory.models import Product, StockOnHand, StockMovement
@@ -311,5 +311,4 @@ class CustomerDetailViewTests(TestCase):
         self.assertContains(response, "Acme")
         self.assertContains(response, "Lifetime Posted Revenue")
         self.assertContains(response, "$40.00")
-
 

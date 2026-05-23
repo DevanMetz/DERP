@@ -1,5 +1,5 @@
 from decimal import Decimal
-from django.test import TestCase
+from core.test_utils import DERPTenantTestCase as TestCase
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 

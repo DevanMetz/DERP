@@ -4,7 +4,8 @@ import shutil
 import tempfile
 
 from django.core.exceptions import ValidationError
-from django.test import TestCase, override_settings
+from django.test import override_settings
+from core.test_utils import DERPTenantTestCase as TestCase
 
 from inventory.models import Product, ProductType, StockMovement, StockOnHand
 from inventory.services import post_stock_movement
@@ -255,4 +256,3 @@ class ProductViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         # Verify the movement list links to Invoice #456
         self.assertContains(response, '/invoices/456/')
-

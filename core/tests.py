@@ -1,5 +1,5 @@
 from decimal import Decimal
-from django.test import TestCase
+from core.test_utils import DERPTenantTestCase as TestCase
 from django.urls import reverse
 from django.utils import timezone
 from core.models import User, Company, Role
@@ -349,4 +349,3 @@ class DataImportTests(TestCase):
         c = Customer.objects.get(pk=777)
         self.assertEqual(c.name, "CSV Ingested Co")
         self.assertEqual(c.payment_terms_days, 45)
-

@@ -33,13 +33,40 @@ TENANT_ROW_LIMITS = {
 }
 
 
+WRITE_RATE_PER_MINUTE = 100
+
+
 def _enforce_limit(sender, instance, **kwargs):
     if instance.pk is not None:
         return  # only check on create, not update
+
     key = f"{sender._meta.app_label}.{sender.__name__}"
     limit = TENANT_ROW_LIMITS.get(key)
     if limit is None:
         return
+
+    # Per-user / per-IP write rate limit
+    from .middleware import get_current_request
+    from .models import WriteAttempt
+
+    request = get_current_request()
+    if request is not None:
+        ip = request.META.get(
+            "HTTP_X_FORWARDED_FOR", request.META.get("REMOTE_ADDR", "")
+        ).split(",")[0].strip() or None
+        user = getattr(request, "user", None)
+        if WriteAttempt.is_limited(user=user, ip=ip, max_per_minute=WRITE_RATE_PER_MINUTE):
+            raise ValidationError(
+                f"Too many writes per minute. Please slow down "
+                f"(limit: {WRITE_RATE_PER_MINUTE}/min)."
+            )
+        WriteAttempt.record(user=user, ip=ip)
+        # Probabilistic prune to keep the rate-limit table small
+        import random
+        if random.random() < 0.01:
+            WriteAttempt.prune()
+
+    # Per-tenant hard cap
     if sender.objects.count() >= limit:
         raise ValidationError(
             f"This workspace has reached its limit of {limit:,} "

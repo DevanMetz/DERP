@@ -6,8 +6,12 @@ one Company row per database. We enforce that with a unique-on-constant
 trick so the constraint shows up in migrations.
 """
 
+from datetime import timedelta
+
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
 from .numbering import DocumentCounter  # noqa: F401 — register model with the app
@@ -74,3 +78,40 @@ class Company(models.Model):
     def save(self, *args, **kwargs):
         self.singleton_key = 1  # force
         super().save(*args, **kwargs)
+
+
+class WriteAttempt(models.Model):
+    """Per-tenant write rate limit ledger. One row per high-volume create."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "created_at"]),
+            models.Index(fields=["ip", "created_at"]),
+        ]
+
+    @classmethod
+    def is_limited(cls, user=None, ip=None, max_per_minute=100):
+        cutoff = timezone.now() - timedelta(minutes=1)
+        qs = cls.objects.filter(created_at__gte=cutoff)
+        if user is not None and getattr(user, "is_authenticated", False):
+            return qs.filter(user=user).count() >= max_per_minute
+        if ip:
+            return qs.filter(ip=ip).count() >= max_per_minute
+        return False
+
+    @classmethod
+    def record(cls, user=None, ip=None):
+        cls.objects.create(
+            user=user if user is not None and getattr(user, "is_authenticated", False) else None,
+            ip=ip or None,
+        )
+
+    @classmethod
+    def prune(cls, older_than_minutes=10):
+        cutoff = timezone.now() - timedelta(minutes=older_than_minutes)
+        cls.objects.filter(created_at__lt=cutoff).delete()

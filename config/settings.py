@@ -90,6 +90,7 @@ MIDDLEWARE = [
     "allauth.account.middleware.AccountMiddleware",
     "simple_history.middleware.HistoryRequestMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
+    "core.middleware.CurrentRequestMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"

@@ -1,3 +1,4 @@
+import json
 from decimal import Decimal
 from core.test_utils import DERPTenantTestCase as TestCase
 from django.urls import reverse
@@ -5,6 +6,7 @@ from django.utils import timezone
 from core.models import User, Company, Role
 from inventory.models import Product, ProductType, StockOnHand
 from accounting.models import Account, AccountType, JournalEntry, JournalLine
+from purchasing.models import PurchaseOrder, PurchaseOrderLine, Vendor
 
 
 class HomeViewTests(TestCase):
@@ -173,6 +175,82 @@ class DocsViewTests(TestCase):
         self.client.login(username="docsuser", password="password")
         response = self.client.get(reverse("docs_page", args=["missing-page"]))
         self.assertEqual(response.status_code, 404)
+
+
+class AiCopilotTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="aiuser",
+            email="ai@example.com",
+            password="password",
+            role=Role.ADMIN,
+        )
+        self.expense_account = Account.objects.create(
+            code="6900",
+            name="Miscellaneous Expense",
+            type=AccountType.EXPENSE,
+            is_postable=True,
+        )
+        self.vendor = Vendor.objects.create(name="Supply Co")
+        self.product = Product.objects.create(
+            sku="WIDGET",
+            name="Widget",
+            type=ProductType.STOCK,
+            cost=Decimal("5.00"),
+            price=Decimal("10.00"),
+        )
+
+    def test_home_page_includes_ai_copilot_shell(self):
+        self.client.login(username="aiuser", password="password")
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="ai-copilot"')
+        self.assertContains(response, "derp_ai_api_key")
+        self.assertContains(response, "Browser only")
+
+    def test_ai_chat_previews_purchase_order_without_api_key(self):
+        self.client.login(username="aiuser", password="password")
+        response = self.client.post(
+            reverse("ai_chat"),
+            data=json.dumps({"message": "I purchased 3 units of WIDGET from Supply Co at $5 each"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn("Ready to create a draft PO", payload["reply"])
+        self.assertEqual(payload["preview"]["vendor"], "Supply Co")
+        self.assertEqual(payload["preview"]["lines"][0]["product"], "WIDGET")
+        self.assertEqual(payload["preview"]["lines"][0]["line_total"], "15.00")
+        self.assertEqual(payload["preview"]["total"], "15.00")
+
+    def test_ai_confirm_creates_purchase_order_draft(self):
+        self.client.login(username="aiuser", password="password")
+        preview_response = self.client.post(
+            reverse("ai_chat"),
+            data=json.dumps({"message": "purchased 3 units of WIDGET from Supply Co at $5 each"}),
+            content_type="application/json",
+        )
+        token = preview_response.json()["preview"]["action_token"]
+
+        response = self.client.post(
+            reverse("ai_confirm"),
+            data=json.dumps({"action_token": token}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(PurchaseOrder.objects.count(), 1)
+        order = PurchaseOrder.objects.get()
+        self.assertEqual(order.vendor, self.vendor)
+        self.assertEqual(order.status, PurchaseOrder.Status.DRAFT)
+        self.assertEqual(order.created_by, self.user)
+        self.assertEqual(PurchaseOrderLine.objects.count(), 1)
+        line = PurchaseOrderLine.objects.get()
+        self.assertEqual(line.product, self.product)
+        self.assertEqual(line.qty, Decimal("3.0000"))
+        self.assertEqual(line.unit_cost, Decimal("5.00"))
+        self.assertEqual(line.expense_account, self.expense_account)
+        self.assertEqual(response.json()["url"], reverse("purchase_order_detail", args=[order.pk]))
 
 
 class DataExportTests(TestCase):

@@ -1,6 +1,9 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import Http404
+import json
+
+from django.core.exceptions import ValidationError
+from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django import forms
 from django.utils import timezone
@@ -11,6 +14,8 @@ from django.db.models import Sum, Q
 from .models import Company
 from accounting.models import Account, AccountType, JournalEntry, JournalLine
 from inventory.models import Product, ProductType
+from purchasing.models import Vendor
+from .ai_agent import build_purchase_order_preview, confirm_purchase_order_action
 from .docs import get_doc_page, list_doc_pages, render_doc_markdown
 
 ZERO = Decimal("0.00")
@@ -75,6 +80,36 @@ def docs_page(request, slug):
         "pages": list_doc_pages(),
         "content": render_doc_markdown(page),
     })
+
+
+@login_required
+def ai_chat(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required."}, status=405)
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON."}, status=400)
+
+    message = (payload.get("message") or "").strip()
+    if not message:
+        return JsonResponse({"error": "Message is required."}, status=400)
+
+    result = build_purchase_order_preview(message, api_key=(payload.get("api_key") or "").strip())
+    return JsonResponse(result)
+
+
+@login_required
+def ai_confirm(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required."}, status=405)
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+        result = confirm_purchase_order_action(payload.get("action_token") or "", request.user)
+    except (json.JSONDecodeError, ValidationError, Vendor.DoesNotExist) as exc:
+        message = exc.messages[0] if hasattr(exc, "messages") else str(exc)
+        return JsonResponse({"error": message}, status=400)
+    return JsonResponse(result)
 
 
 @login_required

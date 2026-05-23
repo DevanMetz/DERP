@@ -81,16 +81,20 @@ def tenant_not_found(request):
     hostname = remove_www(request.get_host().split(":")[0])
     subdomain = _pending_subdomain_from_hostname(hostname)
     pending = PendingTenant.objects.filter(subdomain=subdomain).first() if subdomain else None
+    protocol = "https" if not settings.DEBUG else "http"
+    public_base_url = f"{protocol}://{settings.BASE_DOMAIN}"
 
     if pending:
         return render(request, "tenants/workspace_pending.html", {
             "base": settings.BASE_DOMAIN,
             "is_expired": pending.is_expired(),
+            "public_base_url": public_base_url,
             "subdomain": pending.subdomain,
         }, status=404)
 
     return render(request, "tenants/workspace_not_found.html", {
         "hostname": hostname,
+        "public_base_url": public_base_url,
     }, status=404)
 
 

@@ -11,7 +11,7 @@ class PendingWorkspaceViewTests(TestCase):
     def setUp(self):
         self.factory = RequestFactory()
 
-    @override_settings(BASE_DOMAIN="inventorymanager.test", ALLOWED_HOSTS=[".inventorymanager.test"])
+    @override_settings(BASE_DOMAIN="inventorymanager.test", ALLOWED_HOSTS=[".inventorymanager.test"], DEBUG=False)
     def test_extracts_pending_subdomain_from_host(self):
         self.assertEqual(
             _pending_subdomain_from_hostname("acme.inventorymanager.test"),
@@ -35,8 +35,10 @@ class PendingWorkspaceViewTests(TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertContains(response, "not verified yet", status_code=404)
         self.assertContains(response, "acme.inventorymanager.test", status_code=404)
+        self.assertContains(response, 'href="https://inventorymanager.test/signup/"', status_code=404)
+        self.assertContains(response, 'href="https://inventorymanager.test/"', status_code=404)
 
-    @override_settings(BASE_DOMAIN="inventorymanager.test", ALLOWED_HOSTS=[".inventorymanager.test"])
+    @override_settings(BASE_DOMAIN="inventorymanager.test", ALLOWED_HOSTS=[".inventorymanager.test"], DEBUG=False)
     def test_expired_pending_subdomain_renders_expired_message(self):
         pending = PendingTenant.create_for(
             company_name="Acme",
@@ -61,3 +63,4 @@ class PendingWorkspaceViewTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertContains(response, "Workspace not found", status_code=404)
+        self.assertContains(response, 'href="https://inventorymanager.test/"', status_code=404)

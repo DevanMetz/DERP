@@ -15,7 +15,7 @@ from .models import Company
 from accounting.models import Account, AccountType, JournalEntry, JournalLine
 from inventory.models import Product, ProductType
 from purchasing.models import Vendor
-from .ai_agent import build_purchase_order_preview, confirm_purchase_order_action
+from .ai_agent import confirm_purchase_order_action, run_copilot_turn
 from .docs import get_doc_page, list_doc_pages, render_doc_markdown
 
 ZERO = Decimal("0.00")
@@ -95,7 +95,13 @@ def ai_chat(request):
     if not message:
         return JsonResponse({"error": "Message is required."}, status=400)
 
-    result = build_purchase_order_preview(message, api_key=(payload.get("api_key") or "").strip())
+    result = run_copilot_turn(
+        message,
+        api_key=(payload.get("api_key") or "").strip(),
+        user=request.user,
+        session=request.session,
+        page_context=payload.get("page_context") or {},
+    )
     return JsonResponse(result)
 
 

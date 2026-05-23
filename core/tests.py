@@ -3,7 +3,7 @@ from decimal import Decimal
 from core.test_utils import DERPTenantTestCase as TestCase
 from django.urls import reverse
 from django.utils import timezone
-from core.models import User, Company, Role
+from core.models import CopilotAuditEvent, User, Company, Role
 from inventory.models import Product, ProductType, StockOnHand
 from accounting.models import Account, AccountType, JournalEntry, JournalLine
 from purchasing.models import PurchaseOrder, PurchaseOrderLine, Vendor
@@ -222,6 +222,7 @@ class AiCopilotTests(TestCase):
         self.assertEqual(payload["preview"]["lines"][0]["product"], "WIDGET")
         self.assertEqual(payload["preview"]["lines"][0]["line_total"], "15.00")
         self.assertEqual(payload["preview"]["total"], "15.00")
+        self.assertTrue(CopilotAuditEvent.objects.filter(event_type=CopilotAuditEvent.EventType.PREVIEW).exists())
 
     def test_ai_confirm_creates_purchase_order_draft(self):
         self.client.login(username="aiuser", password="password")
@@ -251,6 +252,39 @@ class AiCopilotTests(TestCase):
         self.assertEqual(line.unit_cost, Decimal("5.00"))
         self.assertEqual(line.expense_account, self.expense_account)
         self.assertEqual(response.json()["url"], reverse("purchase_order_detail", args=[order.pk]))
+        self.assertTrue(CopilotAuditEvent.objects.filter(event_type=CopilotAuditEvent.EventType.CONFIRM).exists())
+
+    def test_ai_chat_uses_session_state_for_followup_quantity_change(self):
+        self.client.login(username="aiuser", password="password")
+        self.client.post(
+            reverse("ai_chat"),
+            data=json.dumps({"message": "purchased 3 units of WIDGET from Supply Co at $5 each"}),
+            content_type="application/json",
+        )
+
+        response = self.client.post(
+            reverse("ai_chat"),
+            data=json.dumps({"message": "I bought 10 of those instead"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["preview"]["lines"][0]["qty"], "10.0000")
+        self.assertEqual(payload["preview"]["total"], "50.00")
+
+    def test_ai_chat_can_search_docs(self):
+        self.client.login(username="aiuser", password="password")
+        response = self.client.post(
+            reverse("ai_chat"),
+            data=json.dumps({"message": "How do I reverse a goods receipt?"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIsNone(payload["preview"])
+        self.assertIn("tool_results", payload)
 
 
 class DataExportTests(TestCase):

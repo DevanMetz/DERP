@@ -115,3 +115,34 @@ class WriteAttempt(models.Model):
     def prune(cls, older_than_minutes=10):
         cutoff = timezone.now() - timedelta(minutes=older_than_minutes)
         cls.objects.filter(created_at__lt=cutoff).delete()
+
+
+class CopilotAuditEvent(models.Model):
+    class EventType(models.TextChoices):
+        CHAT = "chat", "Chat"
+        PREVIEW = "preview", "Preview"
+        CONFIRM = "confirm", "Confirm"
+        ERROR = "error", "Error"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="copilot_audit_events",
+    )
+    event_type = models.CharField(max_length=20, choices=EventType.choices)
+    message = models.TextField(blank=True)
+    tool_names = models.JSONField(default=list, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    object_type = models.CharField(max_length=80, blank=True)
+    object_id = models.PositiveBigIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["user", "created_at"]),
+            models.Index(fields=["event_type", "created_at"]),
+            models.Index(fields=["object_type", "object_id"]),
+        ]

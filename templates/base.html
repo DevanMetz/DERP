@@ -1428,6 +1428,12 @@
       vendor.textContent = `Vendor: ${preview.vendor}`;
       wrapper.appendChild(vendor);
 
+      if (preview.expected_date) {
+        const expectedDate = document.createElement("div");
+        expectedDate.textContent = `Expected: ${preview.expected_date}`;
+        wrapper.appendChild(expectedDate);
+      }
+
       const list = document.createElement("ul");
       list.className = "ai-preview-list";
       (preview.lines || []).forEach(line => {
@@ -1513,7 +1519,12 @@
             },
             body: JSON.stringify({
               message,
-              api_key: (aiApiKey?.value || "").trim()
+              api_key: (aiApiKey?.value || "").trim(),
+              page_context: {
+                path: window.location.pathname,
+                title: document.title,
+                heading: document.querySelector("h1")?.textContent?.trim() || ""
+              }
             })
           });
           const data = await response.json();

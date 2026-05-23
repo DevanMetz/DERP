@@ -702,6 +702,7 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 class UserCreateForm(forms.ModelForm):
+    email = forms.EmailField(required=True)
     password = forms.CharField(widget=forms.PasswordInput(), required=True)
 
     class Meta:
@@ -716,6 +717,7 @@ class UserCreateForm(forms.ModelForm):
         return user
 
 class UserEditForm(forms.ModelForm):
+    email = forms.EmailField(required=True)
     new_password = forms.CharField(widget=forms.PasswordInput(), required=False, label="Change Password", help_text="Leave blank to keep existing password.")
 
     class Meta:

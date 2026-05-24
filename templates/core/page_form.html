@@ -1219,6 +1219,9 @@
     }
 
     function showRecoveryToast(pageId, draftHtml) {
+      // Store the draft globally to avoid escaping issues in HTML attribute strings
+      window.currentRecoverableDraft = draftHtml;
+
       const toast = document.createElement("div");
       toast.id = "recovery-toast";
       toast.style.position = "fixed";
@@ -1243,14 +1246,17 @@
           We found a local backup with unsaved modifications that are newer than the active database version.
         </div>
         <div style="display:flex; gap:8px; margin-top:4px; user-select:none;">
-          <button type="button" onclick="restoreLocalDraft('${pageId}', \`${draftHtml.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)" class="btn" style="min-height:26px; padding:4px 8px; font-size:10px; background:#d97706; border-color:#d97706; border-radius:6px; color:#fff !important; margin:0;">Restore Backup</button>
+          <button type="button" onclick="restoreLocalDraft('${pageId}')" class="btn" style="min-height:26px; padding:4px 8px; font-size:10px; background:#d97706; border-color:#d97706; border-radius:6px; color:#fff !important; margin:0;">Restore Backup</button>
           <button type="button" onclick="discardLocalDraft('${pageId}')" class="btn secondary" style="min-height:26px; padding:4px 8px; font-size:10px; border-radius:6px; margin:0;">Discard</button>
         </div>
       `;
       document.body.appendChild(toast);
     }
 
-    window.restoreLocalDraft = function(pageId, html) {
+    window.restoreLocalDraft = function(pageId) {
+      const html = window.currentRecoverableDraft;
+      if (!html) return;
+
       htmlInput.value = html;
       if (activeEditorMode === 'builder') {
         parseHtmlToCanvas(html);

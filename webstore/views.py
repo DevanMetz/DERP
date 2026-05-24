@@ -269,65 +269,90 @@ def stripe_webhook(request):
         # webhooks don't blow up logs.
         return HttpResponse(status=503)
 
+    # The same endpoint URL receives events from both the Thin and the
+    # Snapshot destinations (Stripe forbids subscribing both V1 and V2
+    # event families to one destination). Try the thin parser first;
+    # if signature verification fails, fall back to the snapshot
+    # verifier. Whichever succeeds tells us which payload style we're
+    # dealing with — and any malformed/unsigned request still ends
+    # with a clean 400.
+    notification = None
+    event = None
     try:
         notification = stripe_service.parse_thin_event(payload, sig_header)
-    except Exception as exc:
-        log.warning("Stripe webhook signature verification failed: %s", exc)
-        return HttpResponse(status=400)
-
-    event_type = getattr(notification, "type", None) or notification.get("type", "")
-    log.info("Stripe webhook %s", event_type)
-
-    # ─── V2 thin events: fetch the full event before acting ──────────
-    if event_type.startswith("v2.core.account"):
+    except Exception:
+        # Not a thin event — try the V1 snapshot verifier.
         try:
-            full = stripe_service.retrieve_full_event(notification.id)
-        except Exception:
-            log.exception("Failed to retrieve full V2 event %s", notification.id)
-            return HttpResponse(status=500)
+            event = stripe_service.verify_snapshot_event(payload, sig_header)
+        except Exception as exc:
+            log.warning("Stripe webhook signature verification failed: %s", exc)
+            return HttpResponse(status=400)
 
-        # For requirements-updated and capability-status-updated, the
-        # action is the same: re-fetch the account status so any UI
-        # bound to it shows fresh state. We do not cache status —
-        # `retrieve_account_status` always hits the API.
-        related = getattr(full, "related_object", None) or {}
-        acct_id = getattr(related, "id", None) or (related.get("id") if isinstance(related, dict) else None)
-        if acct_id:
+    # ─── V2 thin events ──────────────────────────────────────────────
+    if notification is not None:
+        event_type = getattr(notification, "type", "") or ""
+        log.info("Stripe thin webhook %s", event_type)
+
+        if event_type.startswith("v2.core.account"):
+            # Fetch the full event so we can read related_object.id
             try:
-                stripe_service.retrieve_account_status(acct_id)
-                log.info("Refreshed status for connected account %s", acct_id)
+                full = stripe_service.retrieve_full_event(notification.id)
             except Exception:
-                log.exception("Status refresh failed for %s", acct_id)
-        return HttpResponse(status=200)
+                log.exception("Failed to retrieve full V2 event %s", notification.id)
+                return HttpResponse(status=500)
 
-    # ─── V1 checkout.session.completed — real-store fulfillment ──────
-    if event_type == "checkout.session.completed":
-        # The thin event still includes the data we need for V1 events;
-        # for V1 the `data.object` is the full session.
-        data = (
-            (getattr(notification, "data", None) or {}).get("object")
-            if hasattr(notification, "data")
-            else (notification.get("data") or {}).get("object")
-        ) or {}
-        token = (data.get("metadata") or {}).get("checkout_token")
-        if not token:
-            return HttpResponse(status=200)
-        checkout = Checkout.objects.filter(token=token).first()
-        if not checkout:
-            log.warning("Webhook for unknown checkout token %s", token)
-            return HttpResponse(status=200)
-        try:
-            services.complete_checkout(
-                checkout,
-                stripe_payment_intent=data.get("payment_intent", "") or "",
+            related = getattr(full, "related_object", None) or {}
+            acct_id = (
+                getattr(related, "id", None)
+                or (related.get("id") if isinstance(related, dict) else None)
             )
-        except Exception:
-            log.exception("Failed to complete checkout %s", checkout.pk)
-            return HttpResponse(status=500)
+            if acct_id:
+                try:
+                    # We don't cache status — re-fetching is the whole
+                    # point of receiving the event. Any UI binding to
+                    # WebsiteSettings will pull fresh on next render.
+                    stripe_service.retrieve_account_status(acct_id)
+                    log.info("Refreshed status for connected account %s", acct_id)
+                except Exception:
+                    log.exception("Status refresh failed for %s", acct_id)
+            return HttpResponse(status=200)
+
+        # Unknown thin event — silently ack.
         return HttpResponse(status=200)
 
-    # Any other event type — silently ack so Stripe stops retrying.
-    return HttpResponse(status=200)
+    # ─── V1 snapshot events ──────────────────────────────────────────
+    if event is not None:
+        event_type = event.get("type", "")
+        log.info("Stripe snapshot webhook %s", event_type)
+
+        if event_type == "checkout.session.completed":
+            data = (event.get("data") or {}).get("object") or {}
+            token = (data.get("metadata") or {}).get("checkout_token")
+            if not token:
+                # Sessions created outside our real-store flow (e.g. the
+                # sample storefront) won't have a checkout token in
+                # metadata. Stripe still records the sale on the
+                # connected account; we just have nothing to do.
+                return HttpResponse(status=200)
+            checkout = Checkout.objects.filter(token=token).first()
+            if not checkout:
+                log.warning("Webhook for unknown checkout token %s", token)
+                return HttpResponse(status=200)
+            try:
+                services.complete_checkout(
+                    checkout,
+                    stripe_payment_intent=data.get("payment_intent", "") or "",
+                )
+            except Exception:
+                log.exception("Failed to complete checkout %s", checkout.pk)
+                return HttpResponse(status=500)
+            return HttpResponse(status=200)
+
+        # Other V1 events — silently ack.
+        return HttpResponse(status=200)
+
+    # Defensive: neither verifier produced an event.
+    return HttpResponse(status=400)
 
 
 # ---------- Dev-only manual completion (when Stripe isn't configured) ----------

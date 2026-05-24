@@ -105,20 +105,24 @@ In your platform's `.env`:
 ```bash
 STRIPE_SECRET_KEY=sk_test_…           # platform key (mints connected accounts)
 STRIPE_PUBLISHABLE_KEY=pk_test_…
-STRIPE_WEBHOOK_SECRET=whsec_…         # from the platform webhook destination below
+STRIPE_WEBHOOK_SECRET=whsec_…         # Thin destination (V2 account events)
+STRIPE_WEBHOOK_SECRET_V1=whsec_…      # Snapshot destination (checkout.session.completed)
 FIELD_ENCRYPTION_KEY=<48 random bytes>
 ```
 
-Then in your Stripe Dashboard:
+Stripe forbids mixing V1 and V2 events on a single webhook destination, so create **two** destinations in your Stripe Dashboard. Both point at the same URL (`https://<your-platform>/shop/webhooks/stripe/`) and both listen to **Events from: Connected accounts**.
 
-- **Developers → Webhooks → Add destination**, URL = `https://<your-platform>/shop/webhooks/stripe/`
-- Payload style = **Thin**
-- Events:
-  - `v2.core.account[requirements].updated`
-  - `v2.core.account[configuration.merchant].capability_status_updated`
-  - `v2.core.account[configuration.customer].capability_status_updated`
-  - `checkout.session.completed` (V1 event for the real-store fulfillment path)
-- Copy the **Signing secret** and paste it into `STRIPE_WEBHOOK_SECRET`
+**Destination 1 — Thin payload (V2)**:
+- `v2.core.account[requirements].updated`
+- `v2.core.account[configuration.merchant].capability_status_updated`
+- `v2.core.account[configuration.customer].capability_status_updated`
+- Signing secret → `STRIPE_WEBHOOK_SECRET`
+
+**Destination 2 — Snapshot payload (V1)**:
+- `checkout.session.completed`
+- Signing secret → `STRIPE_WEBHOOK_SECRET_V1`
+
+The single endpoint at `/shop/webhooks/stripe/` tries the thin verifier first and falls back to the snapshot verifier, so both destinations can hit the same URL without conflict.
 
 ### 2. Tenant onboards
 
@@ -232,7 +236,8 @@ Paste into `.env` as `FIELD_ENCRYPTION_KEY=…`. Treat it like a password — lo
 | --- | --- | --- |
 | `STRIPE_SECRET_KEY` | Platform secret key — mints connected accounts and signs all API calls | Required for Connect |
 | `STRIPE_PUBLISHABLE_KEY` | Platform publishable key | Optional (reserved) |
-| `STRIPE_WEBHOOK_SECRET` | Single platform webhook destination signing secret | Required for status sync + real-store fulfillment |
+| `STRIPE_WEBHOOK_SECRET` | Thin destination signing secret (V2 account events) | Required for status sync |
+| `STRIPE_WEBHOOK_SECRET_V1` | Snapshot destination signing secret (V1 `checkout.session.completed`) | Required for real-store ERP fulfillment |
 | `FIELD_ENCRYPTION_KEY` | Fernet key for encrypted columns | Required in production |
 | `WEBSTORE_CASH_ACCOUNT_CODE` | Asset account that receives online sales | Optional; defaults to `1010` |
 

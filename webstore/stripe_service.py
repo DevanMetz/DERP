@@ -419,32 +419,62 @@ def retrieve_checkout_session(*, account_id: str, session_id: str) -> Any:
 # Webhook parsing (thin events)
 # ---------------------------------------------------------------------------
 def parse_thin_event(payload: bytes, sig_header: str):
-    """Verify the signature on an incoming thin-event webhook and
-    return the parsed `EventNotification`.
+    """Verify a V2 thin-event webhook and return the parsed
+    `EventNotification`.
 
-    Thin events are the V2 webhook format. They contain just an event
-    ID and minimal metadata — you fetch the full event with
-    `retrieve_full_event()` if your handler needs it. This avoids
-    payloads bloating as Stripe's data model grows.
+    Thin events contain just an event ID and minimal metadata — fetch
+    the full event with `retrieve_full_event()` if your handler needs
+    more than the type and related-object ID.
+
+    Stripe REJECTS mixing V2 events on a thin destination with V1 events
+    on the same destination. So this method is paired with
+    `verify_snapshot_event` below: one platform-wide destination per
+    payload style.
     """
     # ───── PLACEHOLDER: STRIPE_WEBHOOK_SECRET ────────────────────────
-    # Set this in your environment. Grab it from your webhook
-    # destination's "Signing secret" in
-    # https://dashboard.stripe.com/webhooks after you create one.
-    # Use the *test* mode secret while developing.
+    # The signing secret for the *Thin* destination — i.e. the
+    # destination subscribed to v2.core.account[*].* events. Get it
+    # from https://dashboard.stripe.com/webhooks.
     webhook_secret = getattr(settings, "STRIPE_WEBHOOK_SECRET", "")
     if not webhook_secret:
         raise RuntimeError(
             "STRIPE_WEBHOOK_SECRET is not configured. Add it to your environment:\n"
             "  STRIPE_WEBHOOK_SECRET=whsec_...\n"
-            "Get it from your webhook destination in https://dashboard.stripe.com/webhooks"
+            "This is the signing secret for the THIN webhook destination\n"
+            "(subscribed to v2.core.account[*].* events)."
         )
 
     client = get_client()
-    # In the Python SDK, the equivalent of JS's `parseThinEvent` is
-    # `parse_event_notification`. Same semantics: verifies signature,
-    # returns a typed event notification object.
+    # `parse_event_notification` is the Python SDK's equivalent of JS's
+    # `parseThinEvent`: signature verification + typed notification.
     return client.parse_event_notification(payload, sig_header, webhook_secret)
+
+
+def verify_snapshot_event(payload: bytes, sig_header: str):
+    """Verify a V1 snapshot webhook (e.g. `checkout.session.completed`).
+
+    V1 events use the older snapshot payload format — the full event is
+    inline so there's no follow-up `retrieve`. Stripe signs with the
+    *snapshot* destination's secret, distinct from the thin destination's
+    secret, so we use a different env var.
+    """
+    # ───── PLACEHOLDER: STRIPE_WEBHOOK_SECRET_V1 ─────────────────────
+    # The signing secret for the *Snapshot* destination — the one
+    # subscribed to `checkout.session.completed` (and any other V1
+    # events you care about). Get it from
+    # https://dashboard.stripe.com/webhooks.
+    webhook_secret = getattr(settings, "STRIPE_WEBHOOK_SECRET_V1", "")
+    if not webhook_secret:
+        raise RuntimeError(
+            "STRIPE_WEBHOOK_SECRET_V1 is not configured. Add it to your environment:\n"
+            "  STRIPE_WEBHOOK_SECRET_V1=whsec_...\n"
+            "This is the signing secret for the SNAPSHOT webhook destination\n"
+            "(subscribed to checkout.session.completed and other V1 events)."
+        )
+
+    # The SDK still exposes the V1 verifier as `stripe.Webhook.construct_event`.
+    # Returns a stripe.Event with full data inline.
+    return stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
 
 
 def retrieve_full_event(event_id: str):

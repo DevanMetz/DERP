@@ -285,7 +285,8 @@ Go to [inventorymanager.xyz](https://inventorymanager.xyz), create a workspace, 
 | `DEFAULT_FROM_EMAIL` | Outbound email sender | `noreply@inventorymanager.xyz` |
 | `STRIPE_SECRET_KEY` | Platform key for Stripe Connect OAuth (never charges money) | empty |
 | `STRIPE_PUBLISHABLE_KEY` | Platform publishable key (reserved) | empty |
-| `STRIPE_WEBHOOK_SECRET` | Single platform webhook signing secret (`whsec_…`) | empty |
+| `STRIPE_WEBHOOK_SECRET` | Thin webhook destination signing secret (V2 account events) | empty |
+| `STRIPE_WEBHOOK_SECRET_V1` | Snapshot webhook destination signing secret (V1 `checkout.session.completed`) | empty |
 | `FIELD_ENCRYPTION_KEY` | Fernet key for column-level encryption (per-tenant Stripe secrets) | falls back to `SECRET_KEY` |
 | `WEBSTORE_CASH_ACCOUNT_CODE` | Asset account code that receives online sales | `1010` |
 

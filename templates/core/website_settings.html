@@ -153,21 +153,33 @@
       {% endif %}
 
       <details style="margin-bottom: 16px;">
-        <summary style="cursor:pointer;font-weight:700;font-size:13px;color:var(--fg);padding:8px 0;">Platform webhook destination</summary>
+        <summary style="cursor:pointer;font-weight:700;font-size:13px;color:var(--fg);padding:8px 0;">Platform webhook destinations</summary>
         <div style="padding: 12px 0 0;">
           <p style="font-size: 12.5px; color: var(--muted); line-height: 1.5; margin-bottom: 12px;">
-            One platform-wide webhook handles thin events from all connected accounts. Configure it once in the <a href="https://dashboard.stripe.com/webhooks" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600;">Stripe Dashboard → Webhooks</a> with the URL below, select <strong>Thin payload</strong>, and subscribe to:
+            Stripe doesn't allow V1 and V2 events on a single webhook destination, so create <strong>two</strong> destinations in your <a href="https://dashboard.stripe.com/webhooks" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600;">Stripe Dashboard → Webhooks</a> — both pointing at the same URL, both listening to <strong>Connected accounts</strong>:
           </p>
-          <ul style="font-size:12px;color:var(--muted);margin:0 0 12px 18px;line-height:1.6;">
-            <li><code style="background:var(--surface-subtle);padding:1px 5px;border-radius:3px;">v2.core.account[requirements].updated</code></li>
-            <li><code style="background:var(--surface-subtle);padding:1px 5px;border-radius:3px;">v2.core.account[configuration.merchant].capability_status_updated</code></li>
-            <li><code style="background:var(--surface-subtle);padding:1px 5px;border-radius:3px;">v2.core.account[configuration.customer].capability_status_updated</code></li>
-            <li><code style="background:var(--surface-subtle);padding:1px 5px;border-radius:3px;">checkout.session.completed</code></li>
-          </ul>
-          <div style="background: #0f172a; color: #cbd5e1; padding: 10px 12px; border-radius: 6px; font-family: monospace; font-size: 12px; margin-bottom: 8px; word-break: break-all;">
+
+          <div style="background: #0f172a; color: #cbd5e1; padding: 10px 12px; border-radius: 6px; font-family: monospace; font-size: 12px; margin-bottom: 14px; word-break: break-all;">
             {{ request.scheme }}://{{ request.get_host }}{% url 'shop_stripe_webhook' %}
           </div>
-          <p style="font-size:11px;color:var(--muted);">Then set the signing secret as <code>STRIPE_WEBHOOK_SECRET</code> in the platform's environment (not per-tenant — one secret covers all accounts).</p>
+
+          <div style="background:var(--surface-subtle);border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin-bottom:10px;">
+            <div style="font-weight:700;font-size:12px;color:var(--fg);margin-bottom:6px;">Destination 1 — Thin payload (V2)</div>
+            <ul style="font-size:12px;color:var(--muted);margin:0 0 8px 18px;line-height:1.6;">
+              <li><code style="background:#fff;padding:1px 5px;border-radius:3px;">v2.core.account[requirements].updated</code></li>
+              <li><code style="background:#fff;padding:1px 5px;border-radius:3px;">v2.core.account[configuration.merchant].capability_status_updated</code></li>
+              <li><code style="background:#fff;padding:1px 5px;border-radius:3px;">v2.core.account[configuration.customer].capability_status_updated</code></li>
+            </ul>
+            <p style="font-size:11px;color:var(--muted);margin:0;">Set its signing secret as <code style="background:#fff;padding:1px 4px;border-radius:3px;">STRIPE_WEBHOOK_SECRET</code> in env.</p>
+          </div>
+
+          <div style="background:var(--surface-subtle);border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin-bottom:10px;">
+            <div style="font-weight:700;font-size:12px;color:var(--fg);margin-bottom:6px;">Destination 2 — Snapshot payload (V1)</div>
+            <ul style="font-size:12px;color:var(--muted);margin:0 0 8px 18px;line-height:1.6;">
+              <li><code style="background:#fff;padding:1px 5px;border-radius:3px;">checkout.session.completed</code></li>
+            </ul>
+            <p style="font-size:11px;color:var(--muted);margin:0;">Set its signing secret as <code style="background:#fff;padding:1px 4px;border-radius:3px;">STRIPE_WEBHOOK_SECRET_V1</code> in env.</p>
+          </div>
         </div>
       </details>
 

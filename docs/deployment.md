@@ -41,7 +41,8 @@ Required only if you want tenants to accept payments through the storefront. See
 | --- | --- |
 | `STRIPE_SECRET_KEY` | Platform key — mints V2 connected accounts and signs every API call |
 | `STRIPE_PUBLISHABLE_KEY` | Platform publishable key (reserved for future embedded use) |
-| `STRIPE_WEBHOOK_SECRET` | Signing secret for the single platform-wide webhook destination |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret for the Thin webhook destination (V2 account events) |
+| `STRIPE_WEBHOOK_SECRET_V1` | Signing secret for the Snapshot webhook destination (V1 `checkout.session.completed`) |
 | `FIELD_ENCRYPTION_KEY` | Fernet key for column-level encryption. Generate once with `python -c "import secrets; print(secrets.token_urlsafe(48))"` and back it up in your password manager — losing it makes every encrypted row unrecoverable |
 | `WEBSTORE_CASH_ACCOUNT_CODE` | Chart-of-accounts code that receives online sales (defaults to `1010`) |
 
@@ -56,7 +57,8 @@ python manage.py check
 This guards against:
 - `webstore.E001` — `FIELD_ENCRYPTION_KEY` unset when `DEBUG=False`
 - `webstore.W001` — live Stripe key (`sk_live_`) loaded while `DEBUG=True`
-- `webstore.W002` — `STRIPE_SECRET_KEY` set but `STRIPE_WEBHOOK_SECRET` missing (status sync and ERP fulfillment can't run)
+- `webstore.W002` — `STRIPE_SECRET_KEY` set but `STRIPE_WEBHOOK_SECRET` missing (V2 status sync can't run)
+- `webstore.W003` — `STRIPE_SECRET_KEY` set but `STRIPE_WEBHOOK_SECRET_V1` missing (V1 `checkout.session.completed` can't be verified, real-store fulfillment won't fire)
 
 ## Migrations
 

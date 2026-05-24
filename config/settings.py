@@ -207,11 +207,18 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
 
-# Webhook signing secret for the *single platform-wide* webhook
-# destination that receives thin events for every connected account.
-# Get it from https://dashboard.stripe.com/webhooks after creating the
-# destination — see docs/webstore.md for the exact event selection.
+# Webhook signing secrets. Stripe forbids mixing V1 (snapshot) and V2
+# (thin) events on a single destination, so the platform needs two:
+#
+#   STRIPE_WEBHOOK_SECRET      = the THIN destination (V2 account events)
+#   STRIPE_WEBHOOK_SECRET_V1   = the SNAPSHOT destination (checkout.session.completed
+#                                and any other V1 events you subscribe to)
+#
+# Both can be set to the same value during local dev with the Stripe CLI;
+# in production they will differ since each destination has its own
+# `whsec_…`.
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_WEBHOOK_SECRET_V1 = os.environ.get("STRIPE_WEBHOOK_SECRET_V1", "")
 
 # Key used to derive Fernet-encrypted column values. Rotate via a custom
 # command that re-encrypts each row. Falls back to SECRET_KEY if unset,

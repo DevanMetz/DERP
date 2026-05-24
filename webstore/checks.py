@@ -30,21 +30,35 @@ def stripe_and_encryption_checks(app_configs, **kwargs):
         ))
 
     secret = getattr(settings, "STRIPE_SECRET_KEY", "")
-    webhook_secret = getattr(settings, "STRIPE_WEBHOOK_SECRET", "")
+    thin_secret = getattr(settings, "STRIPE_WEBHOOK_SECRET", "")
+    snapshot_secret = getattr(settings, "STRIPE_WEBHOOK_SECRET_V1", "")
 
-    if not debug and secret and not webhook_secret:
+    if not debug and secret and not thin_secret:
         issues.append(Warning(
             "STRIPE_SECRET_KEY is set but STRIPE_WEBHOOK_SECRET is missing.",
             hint=(
-                "Connected-account status updates rely on Stripe webhooks. "
-                "Without STRIPE_WEBHOOK_SECRET we cannot verify incoming "
-                "events. Create a webhook destination in your Stripe "
-                "Dashboard (Developers → Webhooks → Add destination), "
-                "subscribe to v2.core.account[requirements].updated and "
-                "the v2 capability events, then paste the signing secret "
-                "into STRIPE_WEBHOOK_SECRET."
+                "Connected-account status updates rely on V2 thin webhooks. "
+                "Create a webhook destination in your Stripe Dashboard "
+                "(Developers → Webhooks → Add destination) with payload "
+                "style Thin and Events from Connected accounts; subscribe "
+                "to the v2.core.account[*].* events. Paste the signing "
+                "secret into STRIPE_WEBHOOK_SECRET."
             ),
             id="webstore.W002",
+        ))
+
+    if not debug and secret and not snapshot_secret:
+        issues.append(Warning(
+            "STRIPE_SECRET_KEY is set but STRIPE_WEBHOOK_SECRET_V1 is missing.",
+            hint=(
+                "Real-store ERP fulfillment depends on the V1 "
+                "checkout.session.completed event. Create a second "
+                "webhook destination with payload style Snapshot, Events "
+                "from Connected accounts, subscribed to "
+                "checkout.session.completed. Paste its signing secret "
+                "into STRIPE_WEBHOOK_SECRET_V1."
+            ),
+            id="webstore.W003",
         ))
 
     if debug and secret and secret.startswith("sk_live_"):

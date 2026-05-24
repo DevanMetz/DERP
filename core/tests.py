@@ -1005,3 +1005,16 @@ class PublicWebsiteTests(TestCase):
         self.assertContains(response, 'name="keywords" content="bookkeeping, warehousing"')
         self.assertContains(response, 'property="og:image" content="https://example.com/cards.jpg"')
 
+    def test_page_builder_static_delivery(self):
+        self.client.force_login(self.admin_user)
+        # Verify page create loads successfully
+        response = self.client.get(reverse("page_create"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Visual Builder")
+        
+        # Verify page edit loads successfully
+        response = self.client.get(reverse("page_edit", args=[self.about_page.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Visual Builder")
+        self.assertContains(response, "draggable-block")
+

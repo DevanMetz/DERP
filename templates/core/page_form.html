@@ -154,6 +154,41 @@
       color: var(--fg);
       cursor: pointer;
     }
+
+    /* Drag and Drop Elements */
+    .draggable-block {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      cursor: grab;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+    .draggable-block:hover {
+      border-color: var(--accent);
+      background: var(--surface-subtle);
+    }
+    .draggable-block:active {
+      cursor: grabbing;
+    }
+    
+    .canvas-section {
+      border: 1px solid transparent;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .canvas-section:hover {
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+    }
+    .canvas-section:hover .section-overlay {
+      display: flex !important;
+    }
   </style>
 
   <div class="page-header" style="margin-bottom: 24px;">
@@ -233,6 +268,7 @@
             <div class="editor-mode-toggle">
               <button type="button" id="toggle-code-btn" class="editor-toggle-btn active" onclick="setEditorMode('code')">💻 HTML Code</button>
               <button type="button" id="toggle-visual-btn" class="editor-toggle-btn" onclick="setEditorMode('visual')">✏️ Visual Editor</button>
+              <button type="button" id="toggle-builder-btn" class="editor-toggle-btn" onclick="setEditorMode('builder')">🧱 Visual Builder</button>
             </div>
           </div>
 
@@ -271,6 +307,65 @@
           <!-- Quill Visual WYSIWYG Container -->
           <div id="visual-wysiwyg-editor" style="display: none; margin-bottom: 16px;">
             <div id="quill-editor" style="height: 350px; background: #ffffff;"></div>
+          </div>
+
+          <!-- DRAG AND DROP VISUAL BUILDER CONTAINER -->
+          <div id="drag-drop-builder-panel" style="display: none; margin-top: 8px;">
+            <div style="display: grid; grid-template-columns: 160px 1fr; gap: 16px; min-height: 480px; align-items: start;">
+              
+              <!-- Sidebar List of Draggable Block Types -->
+              <div style="background: var(--surface-subtle); border: 1px solid var(--line); border-radius: 8px; padding: 10px; position: sticky; top: 10px;">
+                <span style="font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; display: block; margin-bottom: 10px; letter-spacing: 0.05em;">🧱 Blocks</span>
+                
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <div class="draggable-block" draggable="true" data-block-type="hero">
+                    <span style="font-size: 16px;">⚡</span>
+                    <span style="font-size: 11px; font-weight: bold; color: var(--fg);">Hero Banner</span>
+                  </div>
+                  <div class="draggable-block" draggable="true" data-block-type="features">
+                    <span style="font-size: 16px;">📦</span>
+                    <span style="font-size: 11px; font-weight: bold; color: var(--fg);">Features Grid</span>
+                  </div>
+                  <div class="draggable-block" draggable="true" data-block-type="pricing">
+                    <span style="font-size: 16px;">💳</span>
+                    <span style="font-size: 11px; font-weight: bold; color: var(--fg);">Pricing Cards</span>
+                  </div>
+                  <div class="draggable-block" draggable="true" data-block-type="stats">
+                    <span style="font-size: 16px;">📈</span>
+                    <span style="font-size: 11px; font-weight: bold; color: var(--fg);">Stats Banner</span>
+                  </div>
+                  <div class="draggable-block" draggable="true" data-block-type="faq">
+                    <span style="font-size: 16px;">🙋</span>
+                    <span style="font-size: 11px; font-weight: bold; color: var(--fg);">FAQ List</span>
+                  </div>
+                  <div class="draggable-block" draggable="true" data-block-type="rich_text">
+                    <span style="font-size: 16px;">📝</span>
+                    <span style="font-size: 11px; font-weight: bold; color: var(--fg);">Simple Text</span>
+                  </div>
+                  <div class="draggable-block" draggable="true" data-block-type="cta">
+                    <span style="font-size: 16px;">🔔</span>
+                    <span style="font-size: 11px; font-weight: bold; color: var(--fg);">CTA Section</span>
+                  </div>
+                </div>
+                
+                <span style="font-size: 9px; color: var(--muted); margin-top: 10px; display: block; line-height: 1.3;">Drag a block on the right dropzone, or click one to append.</span>
+              </div>
+              
+              <!-- Active Visual Canvas Dropzone -->
+              <div>
+                <div id="visual-canvas" style="border: 2px dashed #b2ddff; border-radius: 10px; background: #f8fafc; min-height: 480px; padding: 12px; display: flex; flex-direction: column; gap: 12px; transition: all 0.2s;">
+                  
+                  <!-- Placeholder shown when no blocks are loaded -->
+                  <div id="canvas-placeholder" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 380px; color: var(--muted); pointer-events: none;">
+                    <span style="font-size: 36px; margin-bottom: 8px;">🧱</span>
+                    <p style="margin: 0; font-weight: 750; font-size: 13px;">Your Canvas is Empty</p>
+                    <p style="margin: 4px 0 0; font-size: 10px; text-align: center; max-width: 220px; line-height: 1.4;">Drag block modules here, or click them to append. Click text directly on screen to edit inline.</p>
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
           </div>
           {% if form.html_content.errors %}<span class="errorlist">{{ form.html_content.errors }}</span>{% endif %}
 
@@ -430,31 +525,37 @@
       activeEditorMode = mode;
       const rawDiv = document.getElementById("html-raw-editor");
       const wysiwygDiv = document.getElementById("visual-wysiwyg-editor");
+      const builderDiv = document.getElementById("drag-drop-builder-panel");
       const codeBtn = document.getElementById("toggle-code-btn");
       const visualBtn = document.getElementById("toggle-visual-btn");
+      const builderBtn = document.getElementById("toggle-builder-btn");
       const blockDrawer = document.getElementById("section-blocks-drawer");
+
+      // Hide all panels
+      rawDiv.style.display = "none";
+      wysiwygDiv.style.display = "none";
+      builderDiv.style.display = "none";
+      if (blockDrawer) blockDrawer.style.display = "none";
+      
+      // Deactivate all buttons
+      codeBtn.classList.remove("active");
+      visualBtn.classList.remove("active");
+      builderBtn.classList.remove("active");
 
       if (mode === 'visual') {
         initQuill();
         // Load raw HTML text into visual editor
         quillInstance.root.innerHTML = htmlInput.value;
-        
-        rawDiv.style.display = "none";
         wysiwygDiv.style.display = "block";
-        blockDrawer.style.display = "none"; // Hide code block drawer in visual mode
-        codeBtn.classList.remove("active");
         visualBtn.classList.add("active");
+      } else if (mode === 'builder') {
+        parseHtmlToCanvas(htmlInput.value);
+        builderDiv.style.display = "block";
+        builderBtn.classList.add("active");
       } else {
-        // Load visual content back into raw textarea
-        if (quillInstance) {
-          htmlInput.value = quillInstance.root.innerHTML;
-        }
-        
         rawDiv.style.display = "block";
-        wysiwygDiv.style.display = "none";
-        blockDrawer.style.display = "block";
+        if (blockDrawer) blockDrawer.style.display = "block";
         codeBtn.classList.add("active");
-        visualBtn.classList.remove("active");
       }
       updatePreview();
     }
@@ -613,7 +714,7 @@
       updateCharCounter();
     }
 
-    // Section block HTML code injector
+    // Section block HTML templates
     const SECTION_BLOCKS = {
       hero: `
 <section style="text-align: center; padding: 60px 20px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 16px; margin-bottom: 40px; border: 1px solid var(--line);">
@@ -684,6 +785,17 @@
     <h4 style="margin: 0 0 6px;">Can I hook custom web endpoints to the API?</h4>
     <p style="font-size: 13px; margin: 0; color: var(--muted);">Absolutely! Our developer panel lets you register secure webhooks matching your custom operations.</p>
   </div>
+</section>`,
+      rich_text: `
+<section style="max-width: 800px; margin: 0 auto; padding: 30px 20px;">
+  <h2 style="font-size: 24px; font-weight: 700; margin-bottom: 12px; color: var(--fg);">Custom Section Header</h2>
+  <p style="font-size: 15px; color: var(--muted);">This is a standard text section where you can write custom marketing copy, tell your story, or detail your internal business processes easily.</p>
+</section>`,
+      cta: `
+<section style="background: var(--primary); color: #fff; padding: 40px 20px; border-radius: 12px; text-align: center; margin-bottom: 20px;">
+  <h2 style="color: #ffffff; font-size: 26px; font-weight: 800; margin: 0 0 10px;">Ready to grow your logistics operations?</h2>
+  <p style="color: rgba(255,255,255,0.85); font-size: 15px; max-width: 500px; margin: 0 auto 20px;">Get in touch with an operations supervisor today and claim your custom integration keys.</p>
+  <a href="#" onclick="return false;" style="background: #ffffff; color: var(--primary) !important; font-weight: bold; padding: 10px 20px; border-radius: 8px; display: inline-block;">Request Integration</a>
 </section>`
     };
 
@@ -722,12 +834,245 @@
           htmlInput.value = html;
           if (activeEditorMode === 'visual' && quillInstance) {
             quillInstance.root.innerHTML = html;
+          } else if (activeEditorMode === 'builder') {
+            parseHtmlToCanvas(html);
           }
           updatePreview();
         }
       }
       // Reset dropdown
       select.value = "";
+    }
+
+    // --- Drag-and-Drop Visual Canvas Core JS Mechanics ---
+
+    // Compile canvas blocks back to raw HTML textarea
+    function serializeCanvas() {
+      const canvas = document.getElementById("visual-canvas");
+      if (!canvas) return;
+      
+      const sections = canvas.querySelectorAll(".canvas-section");
+      let compiledHtml = "";
+      
+      sections.forEach(sec => {
+        const contentDiv = sec.querySelector(".section-content");
+        if (contentDiv) {
+          // Clone content div to manipulate without breaking the active canvas
+          const clone = contentDiv.cloneNode(true);
+          
+          // Scrub builder-specific editable flags
+          clone.querySelectorAll("[contenteditable]").forEach(el => {
+            el.removeAttribute("contenteditable");
+            el.removeAttribute("style"); // Reset focus borders
+          });
+          
+          compiledHtml += clone.innerHTML.trim() + "\n";
+        }
+      });
+      
+      htmlInput.value = compiledHtml.trim();
+      updatePreview();
+    }
+
+    // Populate the active drag-and-drop canvas from raw HTML text
+    function parseHtmlToCanvas(htmlString) {
+      const canvas = document.getElementById("visual-canvas");
+      if (!canvas) return;
+      
+      // Clear all existing sections
+      canvas.querySelectorAll(".canvas-section").forEach(el => el.remove());
+      
+      const placeholder = document.getElementById("canvas-placeholder");
+      if (!htmlString || htmlString.trim() === "") {
+        if (placeholder) placeholder.style.display = "flex";
+        return;
+      }
+      
+      if (placeholder) placeholder.style.display = "none";
+      
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlString, "text/html");
+      const children = Array.from(doc.body.children);
+      
+      if (children.length === 0 && htmlString.trim() !== "") {
+        addSectionToCanvas("rich_text", htmlString);
+        return;
+      }
+      
+      children.forEach(child => {
+        let type = "rich_text";
+        const outerHtml = child.outerHTML;
+        
+        if (outerHtml.includes("Pricing") || outerHtml.includes("Pricing Cards") || outerHtml.includes("Enterprise Plan")) {
+          type = "pricing";
+        } else if (outerHtml.includes("Features Grid") || outerHtml.includes("Financial Intelligence") || outerHtml.includes("Inventory & Operations")) {
+          type = "features";
+        } else if (outerHtml.includes("Stats Banner") || outerHtml.includes("99.9%") || outerHtml.includes("Uptime")) {
+          type = "stats";
+        } else if (outerHtml.includes("FAQ") || outerHtml.includes("Frequently Asked")) {
+          type = "faq";
+        } else if (outerHtml.includes("Hero Banner") || outerHtml.includes("Empower Your Entire Workflow") || outerHtml.includes("Leading the Future")) {
+          type = "hero";
+        } else if (child.tagName === "SECTION" && child.style.background && child.style.background.includes("var(--primary)")) {
+          type = "cta";
+        }
+        
+        addSectionToCanvas(type, outerHtml);
+      });
+    }
+
+    // Instantiates a layout module on the canvas
+    function addSectionToCanvas(type, rawHtml) {
+      const canvas = document.getElementById("visual-canvas");
+      const placeholder = document.getElementById("canvas-placeholder");
+      if (placeholder) placeholder.style.display = "none";
+      
+      const secDiv = document.createElement("div");
+      secDiv.className = "canvas-section";
+      secDiv.dataset.blockType = type;
+      secDiv.style.position = "relative";
+      secDiv.style.border = "1px solid transparent";
+      secDiv.style.borderRadius = "8px";
+      secDiv.style.transition = "all 0.2s";
+      secDiv.style.marginBottom = "16px";
+      
+      const names = {
+        hero: "Hero Banner",
+        features: "Features Grid",
+        pricing: "Pricing Cards",
+        stats: "Stats Banner",
+        faq: "FAQ List",
+        rich_text: "Simple Text",
+        cta: "Call to Action"
+      };
+      const label = names[type] || "Custom Block";
+      
+      secDiv.innerHTML = `
+        <div class="section-overlay" style="position: absolute; top: -12px; right: 12px; display: none; background: var(--fg); color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; z-index: 10; gap: 6px; box-shadow: var(--shadow); align-items: center; user-select: none;">
+          <span style="color: #94a3b8; font-size: 9px; margin-right: 4px;">Block: ${label}</span>
+          <button type="button" class="overlay-move-btn" onclick="moveSectionUp(this)" style="background:none; border:none; color:#fff; cursor:pointer; font-size:9px; padding:0 2px;">⬆️</button>
+          <button type="button" class="overlay-move-btn" onclick="moveSectionDown(this)" style="background:none; border:none; color:#fff; cursor:pointer; font-size:9px; padding:0 2px;">⬇️</button>
+          <button type="button" class="overlay-move-btn" onclick="deleteSection(this)" style="background:none; border:none; color:#ff4d4f; cursor:pointer; font-size:9px; padding:0 2px; font-weight:bold;">🗑️</button>
+        </div>
+        <div class="section-content" style="padding: 10px; background: #ffffff; border-radius: 6px; border: 1px solid var(--line-soft);">
+          ${rawHtml}
+        </div>
+      `;
+      
+      const contentDiv = secDiv.querySelector(".section-content");
+      makeChildrenEditable(contentDiv);
+      canvas.appendChild(secDiv);
+      attachEditableListeners(contentDiv);
+    }
+
+    function makeChildrenEditable(container) {
+      const textTags = ["H1", "H2", "H3", "H4", "H5", "H6", "P", "SPAN", "A", "LI", "BUTTON", "STRONG", "EM"];
+      const allChildren = container.getElementsByTagName("*");
+      for (let i = 0; i < allChildren.length; i++) {
+        const el = allChildren[i];
+        if (textTags.includes(el.tagName)) {
+          el.setAttribute("contenteditable", "true");
+          el.style.outline = "none";
+          el.style.cursor = "text";
+          
+          el.addEventListener("focus", () => {
+            el.style.boxShadow = "0 0 0 2px rgba(37, 99, 235, 0.2)";
+            el.style.borderRadius = "4px";
+          });
+          el.addEventListener("blur", () => {
+            el.style.boxShadow = "none";
+          });
+        }
+      }
+    }
+
+    function attachEditableListeners(container) {
+      container.querySelectorAll("[contenteditable]").forEach(el => {
+        el.addEventListener("input", () => {
+          serializeCanvas();
+        });
+      });
+    }
+
+    // Overlay button actions
+    function moveSectionUp(btn) {
+      const section = btn.closest(".canvas-section");
+      const previous = section.previousElementSibling;
+      if (previous && previous.classList.contains("canvas-section")) {
+        section.parentNode.insertBefore(section, previous);
+        serializeCanvas();
+      }
+    }
+
+    function moveSectionDown(btn) {
+      const section = btn.closest(".canvas-section");
+      const next = section.nextElementSibling;
+      if (next && next.classList.contains("canvas-section")) {
+        section.parentNode.insertBefore(next, section);
+        serializeCanvas();
+      }
+    }
+
+    function deleteSection(btn) {
+      if (confirm("Are you sure you want to delete this block section?")) {
+        const section = btn.closest(".canvas-section");
+        section.remove();
+        
+        const canvas = document.getElementById("visual-canvas");
+        const sections = canvas.querySelectorAll(".canvas-section");
+        const placeholder = document.getElementById("canvas-placeholder");
+        if (sections.length === 0 && placeholder) {
+          placeholder.style.display = "flex";
+        }
+        serializeCanvas();
+      }
+    }
+
+    // Setup HTML5 Drag and Drop events
+    function initDragAndDrop() {
+      const canvas = document.getElementById("visual-canvas");
+      const draggableBlocks = document.querySelectorAll(".draggable-block");
+      
+      draggableBlocks.forEach(block => {
+        block.addEventListener("dragstart", (e) => {
+          e.dataTransfer.setData("text/plain", block.dataset.blockType);
+          block.style.opacity = "0.5";
+        });
+        block.addEventListener("dragend", () => {
+          block.style.opacity = "1";
+        });
+        
+        // Single click fallback: instantly append block
+        block.addEventListener("click", () => {
+          const type = block.dataset.blockType;
+          const templateHtml = SECTION_BLOCKS[type] || "<div>Custom Section</div>";
+          addSectionToCanvas(type, templateHtml);
+          serializeCanvas();
+        });
+      });
+      
+      canvas.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        canvas.style.borderColor = "var(--accent)";
+        canvas.style.background = "#eff6ff";
+      });
+      
+      canvas.addEventListener("dragleave", () => {
+        canvas.style.borderColor = "#b2ddff";
+        canvas.style.background = "#f8fafc";
+      });
+      
+      canvas.addEventListener("drop", (e) => {
+        e.preventDefault();
+        canvas.style.borderColor = "#b2ddff";
+        canvas.style.background = "#f8fafc";
+        
+        const type = e.dataTransfer.getData("text/plain");
+        const templateHtml = SECTION_BLOCKS[type] || "<div>Custom Section</div>";
+        
+        addSectionToCanvas(type, templateHtml);
+        serializeCanvas();
+      });
     }
 
     // Default template configurations
@@ -834,18 +1179,25 @@
       if (activeEditorMode === 'visual') {
         initQuill();
         quillInstance.root.innerHTML = t.html;
+      } else if (activeEditorMode === 'builder') {
+        parseHtmlToCanvas(t.html);
       }
       updatePreview();
     }
 
-    // Sync Quill visual state into Django form before submission
+    // Sync Quill visual state or builder state into Django form before submission
     document.getElementById("page-form").addEventListener("submit", function() {
       if (activeEditorMode === 'visual' && quillInstance) {
         htmlInput.value = quillInstance.root.innerHTML;
+      } else if (activeEditorMode === 'builder') {
+        serializeCanvas();
       }
     });
 
-    // Auto load preview on load
-    window.addEventListener("DOMContentLoaded", updatePreview);
+    // Auto load preview and init drag events on load
+    window.addEventListener("DOMContentLoaded", () => {
+      updatePreview();
+      initDragAndDrop();
+    });
   </script>
 {% endblock %}

@@ -189,6 +189,10 @@
     .canvas-section:hover .section-overlay {
       display: flex !important;
     }
+    #visual-canvas {
+      --primary: {{ website_settings.secondary_color|default:"#2563eb" }};
+      --primary-dark: {{ website_settings.primary_color|default:"#0f172a" }};
+    }
   </style>
 
   <div class="page-header" style="margin-bottom: 24px;">
@@ -954,7 +958,7 @@
           <button type="button" class="overlay-move-btn" onclick="moveSectionDown(this)" style="background:none; border:none; color:#fff; cursor:pointer; font-size:9px; padding:0 2px;">⬇️</button>
           <button type="button" class="overlay-move-btn" onclick="deleteSection(this)" style="background:none; border:none; color:#ff4d4f; cursor:pointer; font-size:9px; padding:0 2px; font-weight:bold;">🗑️</button>
         </div>
-        <div class="section-content" style="padding: 10px; background: #ffffff; border-radius: 6px; border: 1px solid var(--line-soft);">
+        <div class="section-content" style="background: transparent; border-radius: 8px;">
           ${rawHtml}
         </div>
       `;

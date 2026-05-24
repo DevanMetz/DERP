@@ -806,26 +806,119 @@ class PageForm(forms.ModelForm):
 
 def public_home(request):
     try:
+        # Auto-create a default template website with a few pages if database is empty
+        if PublicPage.objects.count() == 0:
+            PublicPage.objects.create(
+                title="Leading the Future of Modern Business",
+                slug="home",
+                html_content="""<section style="text-align: center; padding: 40px 0;">
+  <h1>Leading the Future of Modern Business</h1>
+  <p>We provide state-of-the-art enterprise resource planning, logistics management, and financial analytics solutions tailored for your business growth.</p>
+  <div style="margin-top: 30px;">
+    <a href="/p/about-us/" class="btn" style="padding: 12px 24px; font-size: 16px; margin-right: 12px; border-radius: 8px;">Learn About Us</a>
+    <a href="/p/contact/" class="btn secondary" style="padding: 12px 24px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px;">Get in Touch</a>
+  </div>
+</section>
+
+<section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 60px;">
+  <div style="background: var(--surface); padding: 24px; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);">
+    <span style="font-size: 32px;">📊</span>
+    <h3>Financial Intelligence</h3>
+    <p style="font-size: 14px; margin: 10px 0 0;">Gain absolute control over your general ledger, income statements, and balance sheets in real time.</p>
+  </div>
+  <div style="background: var(--surface); padding: 24px; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);">
+    <span style="font-size: 32px;">📦</span>
+    <h3>Inventory & Operations</h3>
+    <p style="font-size: 14px; margin: 10px 0 0;">Automate warehouse logistics, lot tracking, transfers, and real-time stock valuation reporting.</p>
+  </div>
+  <div style="background: var(--surface); padding: 24px; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);">
+    <span style="font-size: 32px;">🚀</span>
+    <h3>Production & Manufacturing</h3>
+    <p style="font-size: 14px; margin: 10px 0 0;">Streamline your bill of materials, schedule production orders, and optimize shop floor execution.</p>
+  </div>
+</section>""",
+                is_homepage=True,
+                is_published=True
+            )
+            PublicPage.objects.create(
+                title="About Us",
+                slug="about-us",
+                html_content="""<section style="max-width: 800px; margin: 0 auto;">
+  <h1>About Our Company</h1>
+  <p>Founded on a vision of absolute operational efficiency, we have spent the past decade pioneering integrated software solutions that connect every department—from accounting to the manufacturing floor.</p>
+  
+  <h2>Our Mission</h2>
+  <p>To empower businesses around the globe with real-time analytics, automated workflows, and robust financial tracking systems that remove friction and drive sustainable growth.</p>
+  
+  <h2>Our Core Values</h2>
+  <ul>
+    <li><strong>Relational Integrity</strong>: Absolute accuracy in transaction records and relational data.</li>
+    <li><strong>Innovation</strong>: Modern tools and AI-assisted copiloting to accelerate business execution.</li>
+    <li><strong>Operational Excellence</strong>: Seamless coordination between warehouses, suppliers, and buyers.</li>
+  </ul>
+</section>""",
+                is_homepage=False,
+                is_published=True
+            )
+            PublicPage.objects.create(
+                title="Contact Us",
+                slug="contact",
+                html_content="""<section style="max-width: 600px; margin: 0 auto;">
+  <h1>Contact Us</h1>
+  <p>Have questions about our enterprise solutions or want to request a custom demonstration? We would love to hear from you!</p>
+  
+  <div style="background: var(--surface); padding: 24px; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); margin-top: 30px;">
+    <h2>Send a Message</h2>
+    <form onsubmit="event.preventDefault(); alert('Thank you! Your message has been submitted. A sales associate will contact you shortly.'); this.reset();" style="display: grid; gap: 16px; margin-top: 20px;">
+      <div>
+        <label style="display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px;">Your Name</label>
+        <input type="text" required style="width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px;">
+      </div>
+      <div>
+        <label style="display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px;">Email Address</label>
+        <input type="email" required style="width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px;">
+      </div>
+      <div>
+        <label style="display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px;">Message</label>
+        <textarea required style="width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px; min-height: 120px;"></textarea>
+      </div>
+      <button type="submit" class="btn" style="width: 100%; padding: 12px; border: 0; cursor: pointer; border-radius: 8px;">Send Message</button>
+    </form>
+  </div>
+</section>""",
+                is_homepage=False,
+                is_published=True
+            )
         page = PublicPage.objects.filter(is_homepage=True, is_published=True).first()
     except Exception:
         page = None
 
+    public_pages = PublicPage.objects.filter(is_published=True).exclude(is_homepage=True).order_by("title")
+
     if page:
-        return render(request, "public_page.html", {"page": page})
+        return render(request, "public_page.html", {
+            "page": page,
+            "public_pages": public_pages,
+        })
     
     # Fallback default welcome page
     return render(request, "public_page.html", {
         "page": {
             "title": "Welcome to your new public website!",
             "html_content": "<h1>Welcome!</h1><p>This is your public-facing homepage. You can configure and edit this page by logging into your <a href='/derp/'>ERP Workspace</a> and visiting the <strong>Website Editor</strong>.</p>"
-        }
+        },
+        "public_pages": public_pages,
     })
 
 
 def public_page(request, slug):
     from django.shortcuts import get_object_or_404
     page = get_object_or_404(PublicPage, slug=slug, is_published=True)
-    return render(request, "public_page.html", {"page": page})
+    public_pages = PublicPage.objects.filter(is_published=True).exclude(is_homepage=True).order_by("title")
+    return render(request, "public_page.html", {
+        "page": page,
+        "public_pages": public_pages,
+    })
 
 
 # --- Administrative Website Editor Views ---

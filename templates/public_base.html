@@ -101,7 +101,10 @@
       </a>
       <nav class="nav">
         <a href="/">Home</a>
-        <a href="/derp/" class="btn">ERP Workspace</a>
+        {% for p in public_pages %}
+          <a href="/p/{{ p.slug }}/">{{ p.title }}</a>
+        {% endfor %}
+        <a href="/derp/" class="btn" style="margin-left: 10px;">ERP Workspace</a>
       </nav>
     </div>
   </header>

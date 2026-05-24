@@ -5,10 +5,28 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% block title %}{{ page.title|default:"My Website" }}{% endblock %}</title>
+  
+  <!-- SEO & Sharing Metadata -->
+  <meta name="description" content="{% block meta_description %}{{ page.meta_description|default:website_settings.brand_name }}{% endblock %}">
+  <meta name="keywords" content="{% block meta_keywords %}{{ page.meta_keywords|default:"" }}{% endblock %}">
+  <meta property="og:title" content="{% block og_title %}{{ page.title }}{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}{{ page.meta_description|default:website_settings.brand_name }}{% endblock %}">
+  <meta property="og:image" content="{% block og_image %}{{ page.og_image_url|default:website_settings.logo_url }}{% endblock %}">
+  <meta property="og:type" content="website">
+
+  <!-- Dynamic Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  {% if website_settings.font_family == 'Playfair Display' %}
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
+  {% else %}
+    <link href="https://fonts.googleapis.com/css2?family={{ website_settings.font_family|default:"Inter"|urlencode }}:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  {% endif %}
+
   <style>
     :root {
-      --primary: #2563eb;
-      --primary-dark: #1d4ed8;
+      --primary: {{ website_settings.secondary_color|default:"#2563eb" }};
+      --primary-dark: {{ website_settings.primary_color|default:"#0f172a" }};
       --bg: #fafbfc;
       --surface: #ffffff;
       --fg: #0f172a;
@@ -21,7 +39,7 @@
       margin: 0;
       background: var(--bg);
       color: var(--fg);
-      font: 16px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+      font: 16px/1.6 "{{ website_settings.font_family|default:"Inter" }}", ui-sans-serif, system-ui, -apple-system, sans-serif;
     }
     .header {
       background: var(--surface);
@@ -91,13 +109,21 @@
     p { margin: 0 0 18px; color: var(--muted); font-size: 18px; }
     a { color: var(--primary); text-decoration: none; }
     a:hover { text-decoration: underline; }
+    
+    /* Global Custom CSS Injection */
+    {{ website_settings.custom_css|safe }}
   </style>
 </head>
 <body>
   <header class="header">
     <div class="header-inner">
-      <a href="/" class="logo">
-        <span style="color: var(--primary);">🌐</span> Public Website
+      <a href="/" class="logo" style="display: flex; align-items: center; gap: 8px;">
+        {% if website_settings.logo_url %}
+          <img src="{{ website_settings.logo_url }}" alt="Logo" style="height: 32px; width: auto; object-fit: contain;">
+        {% else %}
+          <span style="color: var(--primary); font-size: 24px;">🌐</span>
+        {% endif %}
+        <span>{{ website_settings.brand_name|default:"Public Website" }}</span>
       </a>
       <nav class="nav">
         <a href="/">Home</a>
@@ -114,7 +140,7 @@
   </main>
 
   <footer>
-    <p style="margin: 0; color: inherit; font-size: 14px;">&copy; 2026 Public Tenant Website. Powered by DERP.</p>
+    <p style="margin: 0; color: inherit; font-size: 14px;">&copy; 2026 {{ website_settings.brand_name|default:"Public Tenant Website" }}. Powered by DERP.</p>
   </footer>
 </body>
 </html>

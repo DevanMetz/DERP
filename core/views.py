@@ -791,14 +791,35 @@ def user_edit(request, pk):
     })
 
 
-from .models import PublicPage
+from .models import PublicPage, WebsiteSettings, PageRevision
 
 class PageForm(forms.ModelForm):
     class Meta:
         model = PublicPage
-        fields = ["title", "slug", "html_content", "is_homepage", "is_published"]
+        fields = ["title", "slug", "html_content", "is_homepage", "is_published", "meta_description", "meta_keywords", "og_image_url"]
         widgets = {
             "html_content": forms.Textarea(attrs={"style": "font-family: monospace; font-size: 13px; height: 350px;"}),
+            "meta_description": forms.Textarea(attrs={"style": "height: 80px;", "rows": 3, "placeholder": "Search engines display this summary (ideal length: 150-160 characters)"}),
+            "meta_keywords": forms.TextInput(attrs={"placeholder": "e.g. accounting, inventory, logistics"}),
+            "og_image_url": forms.TextInput(attrs={"placeholder": "e.g. https://example.com/sharing-card.jpg"}),
+        }
+
+
+class WebsiteSettingsForm(forms.ModelForm):
+    class Meta:
+        model = WebsiteSettings
+        fields = ["brand_name", "primary_color", "secondary_color", "logo_url", "font_family", "custom_css"]
+        widgets = {
+            "primary_color": forms.TextInput(attrs={"type": "color", "style": "height: 38px; width: 60px; padding: 2px; border-radius: 6px;"}),
+            "secondary_color": forms.TextInput(attrs={"type": "color", "style": "height: 38px; width: 60px; padding: 2px; border-radius: 6px;"}),
+            "font_family": forms.Select(choices=[
+                ("Inter", "Inter (Sleek Modern Sans-Serif)"),
+                ("Roboto", "Roboto (Standard Clean Sans-Serif)"),
+                ("Outfit", "Outfit (Premium Dynamic Sans-Serif)"),
+                ("Poppins", "Poppins (Vibrant Friendly Sans-Serif)"),
+                ("Playfair Display", "Playfair Display (Premium Elegant Serif)"),
+            ]),
+            "custom_css": forms.Textarea(attrs={"style": "font-family: monospace; font-size: 13px; height: 200px;", "placeholder": "/* Write your custom global CSS overrides here */"}),
         }
 
 
@@ -963,10 +984,19 @@ def page_edit(request, pk):
         return HttpResponseForbidden("Only administrators and managers can modify public pages.")
 
     page = get_object_or_404(PublicPage, pk=pk)
+    revisions = page.revisions.all().order_by("-created_at")[:10]
+    
     if request.method == "POST":
+        old_html = page.html_content
         form = PageForm(request.POST, instance=page)
         if form.is_valid():
-            form.save()
+            page = form.save()
+            if old_html != page.html_content:
+                PageRevision.objects.create(
+                    page=page,
+                    html_content=page.html_content,
+                    author=request.user
+                )
             messages.success(request, f"Page '{page.title}' updated successfully.")
             return redirect("website_editor")
     else:
@@ -977,6 +1007,7 @@ def page_edit(request, pk):
         "is_create": False,
         "page_instance": page,
         "company": Company.get(),
+        "revisions": revisions,
     })
 
 
@@ -1002,3 +1033,26 @@ def page_delete(request, pk):
         "page_instance": page,
         "company": Company.get(),
     })
+
+
+@login_required
+def website_settings_view(request):
+    if request.user.role not in {Role.ADMIN, Role.MANAGER}:
+        return HttpResponseForbidden("Only administrators and managers can modify global website settings.")
+
+    settings_instance = WebsiteSettings.get()
+    
+    if request.method == "POST":
+        form = WebsiteSettingsForm(request.POST, instance=settings_instance)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Global website and branding settings updated successfully.")
+            return redirect("website_editor")
+    else:
+        form = WebsiteSettingsForm(instance=settings_instance)
+
+    return render(request, "core/website_settings.html", {
+        "form": form,
+        "company": Company.get(),
+    })
+

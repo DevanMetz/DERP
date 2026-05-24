@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Website Settings — DERP{% endblock %}
+{% block content %}
+  <div class="page-header" style="margin-bottom: 24px;">
+    <div>
+      <span class="text-subtle" style="font-weight: bold; text-transform: uppercase; font-size: 11px;">Website Editor</span>
+      <h1 style="margin-top: 4px;">Global Website & Theme Settings</h1>
+      <p class="text-subtle">Configure site-wide branding, primary and secondary design colors, typography, logos, and custom global style overrides.</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn secondary" href="{% url 'website_editor' %}">Back to Website Editor</a>
+    </div>
+  </div>
+
+  <div class="card" style="border-radius: 12px; box-shadow: var(--shadow); max-width: 800px; margin: 0 auto;">
+    <form method="post" autocomplete="off">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="errorlist" style="margin-bottom: 16px;">
+          {{ form.non_field_errors }}
+        </div>
+      {% endif %}
+
+      <div style="margin-bottom: 24px;">
+        <label for="{{ form.brand_name.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
+          Website Brand / Site Name
+        </label>
+        {{ form.brand_name }}
+        <span class="text-subtle" style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted);">This is shown in the main header and copyright footers.</span>
+        {% if form.brand_name.errors %}<span class="errorlist">{{ form.brand_name.errors }}</span>{% endif %}
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+        <div>
+          <label for="{{ form.primary_color.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
+            Primary Color (Brand Dark Color)
+          </label>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            {{ form.primary_color }}
+            <span style="font-size: 13px; color: var(--muted); font-family: monospace;">Use color picker</span>
+          </div>
+          {% if form.primary_color.errors %}<span class="errorlist">{{ form.primary_color.errors }}</span>{% endif %}
+        </div>
+
+        <div>
+          <label for="{{ form.secondary_color.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
+            Secondary Accent Color (CTA & Interactive Buttons)
+          </label>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            {{ form.secondary_color }}
+            <span style="font-size: 13px; color: var(--muted); font-family: monospace;">Use color picker</span>
+          </div>
+          {% if form.secondary_color.errors %}<span class="errorlist">{{ form.secondary_color.errors }}</span>{% endif %}
+        </div>
+      </div>
+
+      <div style="margin-bottom: 24px;">
+        <label for="{{ form.logo_url.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
+          Logo Image URL (Optional)
+        </label>
+        {{ form.logo_url }}
+        <span class="text-subtle" style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted);">Direct URL to your brand logo (e.g. an SVG or PNG). If left blank, your brand name will render as text.</span>
+        {% if form.logo_url.errors %}<span class="errorlist">{{ form.logo_url.errors }}</span>{% endif %}
+      </div>
+
+      <div style="margin-bottom: 24px;">
+        <label for="{{ form.font_family.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
+          Google Font Typography Family
+        </label>
+        <div class="custom-select-wrapper">
+          {{ form.font_family }}
+        </div>
+        <span class="text-subtle" style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted);">Select your global typography style sheet context.</span>
+        {% if form.font_family.errors %}<span class="errorlist">{{ form.font_family.errors }}</span>{% endif %}
+      </div>
+
+      <div style="margin-bottom: 24px;">
+        <label for="{{ form.custom_css.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
+          Custom Global CSS Stylesheet
+        </label>
+        {{ form.custom_css }}
+        <span class="text-subtle" style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted);">Add custom stylesheets, class definitions, animations, or styling overrides for your public site here safely.</span>
+        {% if form.custom_css.errors %}<span class="errorlist">{{ form.custom_css.errors }}</span>{% endif %}
+      </div>
+
+      <div class="action-row" style="margin-top: 24px; border-top: 1px solid var(--line-soft); padding-top: 16px; display: flex; justify-content: flex-end; gap: 12px;">
+        <a class="btn secondary" href="{% url 'website_editor' %}" style="border-radius: 8px;">Cancel</a>
+        <button class="btn" type="submit" style="border-radius: 8px; font-weight: bold; background: var(--accent); border-color: var(--accent);">
+          Save Settings
+        </button>
+      </div>
+    </form>
+  </div>
+{% endblock %}

@@ -1,16 +1,167 @@
 {% extends "base.html" %}
 {% block title %}{% if is_create %}Create New Page{% else %}Edit Page '{{ page_instance.title }}'{% endif %} — Website Editor{% endblock %}
 {% block content %}
+  <!-- Include Quill Stylesheets and CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+
+  <style>
+    .editor-container {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+    @media (min-width: 1024px) {
+      .editor-container {
+        grid-template-columns: 1.15fr 0.85fr;
+      }
+    }
+    
+    /* Tab System Styling */
+    .tab-bar {
+      display: flex;
+      border-bottom: 2px solid var(--line-soft);
+      margin-bottom: 20px;
+      gap: 16px;
+    }
+    .tab-btn {
+      padding: 10px 16px;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: -2px;
+    }
+    .tab-btn:hover {
+      color: var(--fg);
+    }
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Live Preview Panel */
+    .preview-sticky {
+      position: sticky;
+      top: 24px;
+    }
+    .preview-frame-container {
+      background: #fafbfc;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .preview-header {
+      background: #f1f5f9;
+      border-bottom: 1px solid var(--line);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--muted);
+    }
+    .preview-browser-dots {
+      display: flex;
+      gap: 6px;
+    }
+    .preview-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #cbd5e1;
+    }
+    .preview-iframe {
+      width: 100%;
+      height: 620px;
+      border: none;
+      background: #ffffff;
+    }
+
+    /* Switch toggle styling */
+    .editor-mode-toggle {
+      display: flex;
+      background: var(--surface-subtle);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 4px;
+      gap: 4px;
+      margin-bottom: 12px;
+      width: fit-content;
+    }
+    .editor-toggle-btn {
+      padding: 6px 12px;
+      border: none;
+      background: none;
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--muted);
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+    }
+    .editor-toggle-btn.active {
+      background: var(--surface);
+      color: var(--fg);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    
+    /* Section block button grid */
+    .block-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .block-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-align: center;
+    }
+    .block-btn:hover {
+      border-color: var(--accent);
+      background: var(--surface-subtle);
+      transform: translateY(-1px);
+    }
+    .block-btn span {
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
+    .block-btn label {
+      font-size: 11px;
+      font-weight: bold;
+      color: var(--fg);
+      cursor: pointer;
+    }
+  </style>
+
   <div class="page-header" style="margin-bottom: 24px;">
     <div>
       <span class="text-subtle" style="font-weight: bold; text-transform: uppercase; font-size: 11px;">Website Editor</span>
       <h1 style="margin-top: 4px;">{% if is_create %}Create Public Page{% else %}Edit Page: {{ page_instance.title }}{% endif %}</h1>
       <p class="text-subtle">
-        {% if is_create %}
-          Author a new database-backed responsive public website page.
-        {% else %}
-          Modify page structure, update search friendly slugs, or modify HTML layout content.
-        {% endif %}
+        Author public-facing pages inside a responsive, live-updating visual code workspace.
       </p>
     </div>
     <div class="page-actions">
@@ -18,119 +169,599 @@
     </div>
   </div>
 
-  <div class="card" style="border-color: #b2ddff; background: #f0f9ff; border-radius: 12px; margin-bottom: 24px; display: flex; align-items: flex-start; gap: 12px; padding: 16px;">
-    <span style="font-size: 20px; line-height: 1;">💡</span>
-    <div>
-      <h4 style="margin: 0 0 4px; color: #175cd3; font-weight: 700; font-size: 14px;">HTML Code Editor Guide</h4>
-      <p style="margin: 0; font-size: 13px; color: #1e40af; line-height: 1.4;">
-        Write standard, clean HTML markup to build page sections. For example, use:
-        <code>&lt;h1&gt;Header&lt;/h1&gt;</code> for the main title, 
-        <code>&lt;h2&gt;Subheader&lt;/h2&gt;</code>, and <code>&lt;p&gt;Paragraph&lt;/p&gt;</code>. 
-        You can wrap containers in stylish CSS grids/flex containers inline to build rich landing pages, or add customized style elements as needed!
-      </p>
-    </div>
-  </div>
-
-  <div class="card" style="border-radius: 12px; box-shadow: var(--shadow);">
-    <form method="post" autocomplete="off">
-      {% csrf_token %}
+  <div class="editor-container">
+    
+    <!-- LEFT PANE: Editor Fields & Controls -->
+    <div class="card" style="border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 0;">
       
-      {% if is_create %}
-      <div style="background: var(--surface-subtle); border: 1px solid var(--line-soft); border-radius: 8px; padding: 12px 16px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
-        <span style="font-weight: bold; font-size: 13px; color: var(--muted);">🚀 Pre-populate from Template:</span>
-        <div style="display: flex; gap: 8px;">
-          <button type="button" class="btn secondary" onclick="loadTemplate('home')" style="min-height: 30px; font-size: 12px; padding: 4px 10px; border-radius: 6px;">Home Page</button>
-          <button type="button" class="btn secondary" onclick="loadTemplate('about')" style="min-height: 30px; font-size: 12px; padding: 4px 10px; border-radius: 6px;">About Us</button>
-          <button type="button" class="btn secondary" onclick="loadTemplate('contact')" style="min-height: 30px; font-size: 12px; padding: 4px 10px; border-radius: 6px;">Contact Us</button>
+      <!-- Tab Selection Bar -->
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('content-tab', this)">✏️ Content Editor</button>
+        <button class="tab-btn" onclick="switchTab('seo-tab', this)">🔍 SEO & Social Metadata</button>
+        {% if not is_create %}
+          <button class="tab-btn" onclick="switchTab('revision-tab', this)">🕒 Revision History</button>
+        {% endif %}
+      </div>
+
+      <form method="post" autocomplete="off" id="page-form">
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+          <div class="errorlist" style="margin-bottom: 16px;">
+            {{ form.non_field_errors }}
+          </div>
+        {% endif %}
+
+        <!-- TAB 1: Content Editor -->
+        <div id="content-tab" class="tab-content active">
+          
+          {% if is_create %}
+          <div style="background: var(--surface-subtle); border: 1px solid var(--line-soft); border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+            <span style="font-weight: bold; font-size: 12px; color: var(--muted);">🚀 Quick Template Setup:</span>
+            <div style="display: flex; gap: 6px;">
+              <button type="button" class="btn secondary" onclick="loadTemplate('home')" style="min-height: 28px; font-size: 11px; padding: 4px 8px; border-radius: 6px; margin:0;">Home Page</button>
+              <button type="button" class="btn secondary" onclick="loadTemplate('about')" style="min-height: 28px; font-size: 11px; padding: 4px 8px; border-radius: 6px; margin:0;">About Us</button>
+              <button type="button" class="btn secondary" onclick="loadTemplate('contact')" style="min-height: 28px; font-size: 11px; padding: 4px 8px; border-radius: 6px; margin:0;">Contact Us</button>
+            </div>
+          </div>
+          {% endif %}
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px;">
+            <p style="margin: 0;">
+              <label for="{{ form.title.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
+                Page Title <span style="color: var(--err);">*</span>
+              </label>
+              {{ form.title }}
+              {% if form.title.errors %}<span class="errorlist">{{ form.title.errors }}</span>{% endif %}
+            </p>
+
+            <p style="margin: 0;">
+              <label for="{{ form.slug.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
+                URL Path / Slug <span style="color: var(--err);">*</span>
+              </label>
+              {{ form.slug }}
+              {% if form.slug.errors %}<span class="errorlist">{{ form.slug.errors }}</span>{% endif %}
+            </p>
+          </div>
+
+          <!-- HTML Editor Options Header -->
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 10px;">
+            <label for="{{ form.html_content.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin: 0;">
+              Page HTML Markup Content
+            </label>
+            
+            <div class="editor-mode-toggle">
+              <button type="button" id="toggle-code-btn" class="editor-toggle-btn active" onclick="setEditorMode('code')">💻 HTML Code</button>
+              <button type="button" id="toggle-visual-btn" class="editor-toggle-btn" onclick="setEditorMode('visual')">✏️ Visual Editor</button>
+            </div>
+          </div>
+
+          <!-- Click-to-Insert Sections Drawer -->
+          <div id="section-blocks-drawer" style="background: var(--surface-subtle); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+            <span style="font-size: 12px; font-weight: bold; color: var(--muted);">📥 Click to Insert Pre-designed HTML Block:</span>
+            <div class="block-grid">
+              <button type="button" class="block-btn" onclick="insertSectionBlock('hero')">
+                <span>⚡</span>
+                <label>Hero Banner</label>
+              </button>
+              <button type="button" class="block-btn" onclick="insertSectionBlock('features')">
+                <span>📦</span>
+                <label>Features Grid</label>
+              </button>
+              <button type="button" class="block-btn" onclick="insertSectionBlock('pricing')">
+                <span>💳</span>
+                <label>Pricing Cards</label>
+              </button>
+              <button type="button" class="block-btn" onclick="insertSectionBlock('stats')">
+                <span>📈</span>
+                <label>Stats Banner</label>
+              </button>
+              <button type="button" class="block-btn" onclick="insertSectionBlock('faq')">
+                <span>🙋</span>
+                <label>FAQ Accordion</label>
+              </button>
+            </div>
+          </div>
+
+          <!-- Raw HTML Editor Textarea -->
+          <div id="html-raw-editor">
+            {{ form.html_content }}
+          </div>
+
+          <!-- Quill Visual WYSIWYG Container -->
+          <div id="visual-wysiwyg-editor" style="display: none; margin-bottom: 16px;">
+            <div id="quill-editor" style="height: 350px; background: #ffffff;"></div>
+          </div>
+          {% if form.html_content.errors %}<span class="errorlist">{{ form.html_content.errors }}</span>{% endif %}
+
+          <div style="display: flex; gap: 24px; align-items: center; background: var(--surface-subtle); padding: 12px; border-radius: 8px; border: 1px solid var(--line-soft); margin-top: 18px;">
+            <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: bold; cursor: pointer; user-select: none; margin: 0;">
+              {{ form.is_homepage }}
+              Designate as Site Index Homepage (serves on '/')
+            </label>
+            <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: bold; cursor: pointer; user-select: none; margin: 0;">
+              {{ form.is_published }}
+              Publish status (makes visible to visitors)
+            </label>
+          </div>
         </div>
-      </div>
-      {% endif %}
 
-      {% if form.non_field_errors %}
-        <div class="errorlist">
-          {{ form.non_field_errors }}
+        <!-- TAB 2: SEO & Social Metadata -->
+        <div id="seo-tab" class="tab-content">
+          <div class="card" style="border-color: #b2ddff; background: #f0f9ff; border-radius: 8px; display: flex; align-items: flex-start; gap: 10px; padding: 12px; margin-bottom: 18px;">
+            <span style="font-size: 16px;">🔍</span>
+            <p style="margin: 0; font-size: 12px; color: #1e40af; line-height: 1.4;">
+              Provide specialized title tags and search engine summaries. High quality metadata increases traffic and guarantees stunning link cards when shared on social channels.
+            </p>
+          </div>
+
+          <div style="margin-bottom: 18px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+              <label for="{{ form.meta_description.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg);">
+                SEO Meta Description Summary
+              </label>
+              <span id="char-counter" style="font-size: 12px; font-weight: bold; color: var(--muted);">0 / 160 characters</span>
+            </div>
+            {{ form.meta_description }}
+            {% if form.meta_description.errors %}<span class="errorlist">{{ form.meta_description.errors }}</span>{% endif %}
+          </div>
+
+          <div style="margin-bottom: 18px;">
+            <label for="{{ form.meta_keywords.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
+              SEO Meta Keywords
+            </label>
+            {{ form.meta_keywords }}
+            <span class="text-subtle" style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted);">Comma separated tags (e.g. "erp, manufacturing, software").</span>
+            {% if form.meta_keywords.errors %}<span class="errorlist">{{ form.meta_keywords.errors }}</span>{% endif %}
+          </div>
+
+          <div style="margin-bottom: 18px;">
+            <label for="{{ form.og_image_url.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
+              Social Sharing (Open Graph) Image URL
+            </label>
+            {{ form.og_image_url }}
+            <span class="text-subtle" style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted);">Full image URL linked when sharing on platforms (Slack, Facebook, etc.).</span>
+            {% if form.og_image_url.errors %}<span class="errorlist">{{ form.og_image_url.errors }}</span>{% endif %}
+          </div>
         </div>
-      {% endif %}
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px;">
-        <p style="margin: 0;">
-          <label for="{{ form.title.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
-            Page Title <span style="color: var(--err);">*</span>
-          </label>
-          {{ form.title }}
-          {% if form.title.errors %}<span class="errorlist" style="margin-top: 6px;">{{ form.title.errors }}</span>{% endif %}
-        </p>
+        <!-- TAB 3: Revision History -->
+        {% if not is_create %}
+        <div id="revision-tab" class="tab-content">
+          <div style="margin-bottom: 18px;">
+            <label for="revision-select" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
+              Restore a Previous Saved Version
+            </label>
+            <select id="revision-select" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--line); font-size: 13px;" onchange="loadRevision(this.value)">
+              <option value="">-- Select a historical snapshot --</option>
+              {% for rev in revisions %}
+                <option value="{{ rev.pk }}" data-html="{{ rev.html_content|escapejs }}">
+                  Snapshot: {{ rev.created_at|date:"M d, Y h:i A" }} (by {{ rev.author.username|default:"System" }})
+                </option>
+              {% empty %}
+                <option value="" disabled>No historical revisions found yet. Edits are recorded when you save.</option>
+              {% endfor %}
+            </select>
+            <span class="text-subtle" style="display: block; margin-top: 6px; font-size: 11px; color: var(--muted);">Selecting a version will overwrite your current unsaved editor content. You must click 'Save Changes' to permanently apply the restore.</span>
+          </div>
+        </div>
+        {% endif %}
 
-        <p style="margin: 0;">
-          <label for="{{ form.slug.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
-            URL Slug / Path Key <span style="color: var(--err);">*</span>
-          </label>
-          {{ form.slug }}
-          <span class="text-subtle" style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted);">Letters, numbers, and hyphens (e.g. 'about-us'). Do not use slashes.</span>
-          {% if form.slug.errors %}<span class="errorlist" style="margin-top: 6px;">{{ form.slug.errors }}</span>{% endif %}
-        </p>
+        <div class="action-row" style="margin-top: 24px; border-top: 1px solid var(--line-soft); padding-top: 16px; display: flex; justify-content: flex-end; gap: 12px;">
+          <a class="btn secondary" href="{% url 'website_editor' %}" style="border-radius: 8px;">Cancel</a>
+          <button class="btn" type="submit" style="border-radius: 8px; font-weight: bold; background: var(--accent); border-color: var(--accent);">
+            {% if is_create %}Create Page{% else %}Save Changes{% endif %}
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- RIGHT PANE: Live Interactive Preview -->
+    <div class="preview-sticky">
+      <div class="preview-frame-container">
+        <div class="preview-header">
+          <div class="preview-browser-dots">
+            <div class="preview-dot" style="background: #f87171;"></div>
+            <div class="preview-dot" style="background: #facc15;"></div>
+            <div class="preview-dot" style="background: #4ade80;"></div>
+          </div>
+          <span style="font-family: monospace; font-size: 11px;">Live Site Preview</span>
+          <span style="color: var(--accent);">● Real-time</span>
+        </div>
+        <iframe id="live-preview-iframe" class="preview-iframe"></iframe>
       </div>
+    </div>
 
-      <p style="margin-bottom: 18px; margin-top: 18px;">
-        <label for="{{ form.html_content.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
-          HTML Markup Content
-        </label>
-        {{ form.html_content }}
-        {% if form.html_content.errors %}<span class="errorlist" style="margin-top: 6px;">{{ form.html_content.errors }}</span>{% endif %}
-      </p>
-
-      <div style="display: flex; gap: 24px; align-items: center; background: var(--surface-subtle); padding: 12px; border-radius: 8px; border: 1px solid var(--line-soft); margin-bottom: 18px;">
-        <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: bold; cursor: pointer; user-select: none; margin: 0;">
-          {{ form.is_homepage }}
-          Designate as Site Index Homepage (serves on '/')
-        </label>
-        <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: bold; cursor: pointer; user-select: none; margin: 0;">
-          {{ form.is_published }}
-          Publish status (makes visible to visitors)
-        </label>
-      </div>
-
-      <div class="action-row" style="margin-top: 24px; border-top: 1px solid var(--line-soft); padding-top: 16px; display: flex; justify-content: flex-end; gap: 12px;">
-        <a class="btn secondary" href="{% url 'website_editor' %}" style="border-radius: 8px;">Cancel</a>
-        <button class="btn" type="submit" style="border-radius: 8px; font-weight: bold; background: var(--accent); border-color: var(--accent);">
-          {% if is_create %}Create Page{% else %}Save Changes{% endif %}
-        </button>
-      </div>
-    </form>
   </div>
 
-  {% if is_create %}
   <script>
+    // Tab switching controller
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      
+      document.getElementById(tabId).classList.add('active');
+      btn.classList.add('active');
+    }
+
+    // Active theme settings passed from backend contexts
+    const brandName = "{{ website_settings.brand_name|default:"Public Website"|escapejs }}";
+    const logoUrl = "{{ website_settings.logo_url|escapejs }}";
+    const primaryColor = "{{ website_settings.primary_color|default:"#0f172a"|escapejs }}";
+    const secondaryColor = "{{ website_settings.secondary_color|default:"#2563eb"|escapejs }}";
+    const fontFamily = "{{ website_settings.font_family|default:"Inter"|escapejs }}";
+    const customCss = `{{ website_settings.custom_css|escapejs }}`;
+
+    // Elements
+    const titleInput = document.getElementById("id_title");
+    const htmlInput = document.getElementById("id_html_content");
+    const metaDescInput = document.getElementById("id_meta_description");
+    const charCounter = document.getElementById("char-counter");
+    const previewIframe = document.getElementById("live-preview-iframe");
+
+    // Quill WYSIWYG Editor Setup
+    let quillInstance = null;
+    let activeEditorMode = 'code';
+
+    function initQuill() {
+      if (quillInstance) return;
+      quillInstance = new Quill('#quill-editor', {
+        theme: 'snow',
+        modules: {
+          toolbar: [
+            [{ 'header': [1, 2, 3, false] }],
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+            ['link', 'clean']
+          ]
+        }
+      });
+
+      // Synchronize visual changes back to the Django textarea
+      quillInstance.on('text-change', function() {
+        if (activeEditorMode === 'visual') {
+          htmlInput.value = quillInstance.root.innerHTML;
+          updatePreview();
+        }
+      });
+    }
+
+    function setEditorMode(mode) {
+      activeEditorMode = mode;
+      const rawDiv = document.getElementById("html-raw-editor");
+      const wysiwygDiv = document.getElementById("visual-wysiwyg-editor");
+      const codeBtn = document.getElementById("toggle-code-btn");
+      const visualBtn = document.getElementById("toggle-visual-btn");
+      const blockDrawer = document.getElementById("section-blocks-drawer");
+
+      if (mode === 'visual') {
+        initQuill();
+        // Load raw HTML text into visual editor
+        quillInstance.root.innerHTML = htmlInput.value;
+        
+        rawDiv.style.display = "none";
+        wysiwygDiv.style.display = "block";
+        blockDrawer.style.display = "none"; // Hide code block drawer in visual mode
+        codeBtn.classList.remove("active");
+        visualBtn.classList.add("active");
+      } else {
+        // Load visual content back into raw textarea
+        if (quillInstance) {
+          htmlInput.value = quillInstance.root.innerHTML;
+        }
+        
+        rawDiv.style.display = "block";
+        wysiwygDiv.style.display = "none";
+        blockDrawer.style.display = "block";
+        codeBtn.classList.add("active");
+        visualBtn.classList.remove("active");
+      }
+      updatePreview();
+    }
+
+    // Dynamic Live Preview Compiler
+    function updatePreview() {
+      const pageTitle = titleInput ? titleInput.value : "Preview Page";
+      const pageHtml = htmlInput ? htmlInput.value : "";
+      
+      const doc = previewIframe.contentWindow.document;
+      
+      // Select appropriate dynamic Google Font URL
+      let fontLink = `<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">`;
+      if (fontFamily === 'Playfair Display') {
+        fontLink = `<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;800&display=swap" rel="stylesheet">`;
+      } else if (fontFamily && fontFamily !== 'Inter') {
+        fontLink = `<link href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontFamily)}:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">`;
+      }
+
+      const iframeHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          ${fontLink}
+          <style>
+            :root {
+              --primary: ${secondaryColor};
+              --primary-dark: ${primaryColor};
+              --bg: #fafbfc;
+              --surface: #ffffff;
+              --fg: #0f172a;
+              --muted: #475569;
+              --line: #e2e8f0;
+              --shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.03);
+            }
+            body {
+              margin: 0;
+              background: var(--bg);
+              color: var(--fg);
+              font-family: "${fontFamily}", ui-sans-serif, system-ui, sans-serif;
+              font-size: 15px;
+              line-height: 1.5;
+            }
+            .header {
+              background: var(--surface);
+              border-bottom: 1px solid var(--line);
+              box-shadow: var(--shadow);
+            }
+            .header-inner {
+              max-width: 1000px;
+              margin: 0 auto;
+              padding: 12px 16px;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+            }
+            .logo {
+              font-weight: 800;
+              font-size: 16px;
+              color: var(--fg);
+              text-decoration: none;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+            }
+            .nav {
+              display: flex;
+              gap: 14px;
+              align-items: center;
+            }
+            .nav a {
+              color: var(--muted);
+              text-decoration: none;
+              font-weight: 500;
+              font-size: 12px;
+            }
+            .btn {
+              background: var(--primary);
+              color: #ffffff !important;
+              padding: 6px 12px;
+              border-radius: 6px;
+              font-weight: bold;
+              font-size: 11px;
+            }
+            main {
+              max-width: 1000px;
+              margin: 0 auto;
+              padding: 30px 16px;
+              min-height: 400px;
+            }
+            h1 { font-size: 32px; font-weight: 800; line-height: 1.1; margin: 0 0 16px; letter-spacing: -0.03em; }
+            h2 { font-size: 22px; font-weight: 700; margin: 24px 0 12px; }
+            p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
+            a { color: var(--primary); text-decoration: none; }
+            footer {
+              background: #0f172a;
+              color: #94a3b8;
+              border-top: 1px solid #1e293b;
+              padding: 20px 16px;
+              text-align: center;
+              font-size: 12px;
+            }
+            ${customCss}
+          </style>
+        </head>
+        <body>
+          <header class="header">
+            <div class="header-inner">
+              <a href="#" onclick="return false;" class="logo">
+                ${logoUrl ? `<img src="${logoUrl}" style="height:24px;width:auto;">` : `<span style="color:var(--primary);">🌐</span>`}
+                <span>${brandName}</span>
+              </a>
+              <nav class="nav">
+                <a href="#" onclick="return false;">Home</a>
+                <a href="#" onclick="return false;" class="btn">ERP Workspace</a>
+              </nav>
+            </div>
+          </header>
+          
+          <main>
+            <article>
+              ${pageHtml || `<div style="text-align:center;padding:40px;color:var(--muted);"><h3>Welcome!</h3><p>Type inside your HTML Content Editor to see live previews populate in this pane instantly.</p></div>`}
+            </article>
+          </main>
+          
+          <footer>
+            &copy; 2026 ${brandName}. Powered by DERP.
+          </footer>
+        </body>
+        </html>
+      `;
+      
+      doc.open();
+      doc.write(iframeHtml);
+      doc.close();
+    }
+
+    // Initialize listeners
+    if (titleInput) titleInput.addEventListener("input", updatePreview);
+    if (htmlInput) htmlInput.addEventListener("input", updatePreview);
+    
+    // Auto-update character counters for SEO meta summary
+    function updateCharCounter() {
+      if (!metaDescInput) return;
+      const len = metaDescInput.value.length;
+      charCounter.textContent = `${len} / 160 characters`;
+      if (len > 160) {
+        charCounter.style.color = "var(--err)";
+      } else {
+        charCounter.style.color = "var(--muted)";
+      }
+    }
+    if (metaDescInput) {
+      metaDescInput.addEventListener("input", updateCharCounter);
+      updateCharCounter();
+    }
+
+    // Section block HTML code injector
+    const SECTION_BLOCKS = {
+      hero: `
+<section style="text-align: center; padding: 60px 20px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 16px; margin-bottom: 40px; border: 1px solid var(--line);">
+  <span style="font-size: 40px; display: block; margin-bottom: 12px;">🚀</span>
+  <h1 style="font-size: 38px; color: var(--primary-dark); font-weight: 800; margin: 0 0 16px;">Empower Your Entire Workflow</h1>
+  <p style="max-width: 600px; margin: 0 auto 24px; font-size: 16px; color: var(--muted);">We bridge the gap between complex resource operations, transaction records, and real-time analytical reporting models.</p>
+  <div>
+    <a href="#" class="btn" style="padding: 12px 28px; font-size: 14px; border-radius: 8px;">Get Started Now</a>
+  </div>
+</section>`,
+      features: `
+<section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px;">
+  <div style="background: var(--surface); padding: 24px; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);">
+    <span style="font-size: 28px;">💼</span>
+    <h3 style="margin: 12px 0 8px; font-size: 18px;">Dynamic Ledgers</h3>
+    <p style="font-size: 13px; margin: 0; color: var(--muted);">Fully customized double-entry bookkeeping ledgers automatically updated.</p>
+  </div>
+  <div style="background: var(--surface); padding: 24px; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);">
+    <span style="font-size: 28px;">🎛️</span>
+    <h3 style="margin: 12px 0 8px; font-size: 18px;">Operations Room</h3>
+    <p style="font-size: 13px; margin: 0; color: var(--muted);">Centralized order pipelines linked dynamically to warehouse stock counts.</p>
+  </div>
+  <div style="background: var(--surface); padding: 24px; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);">
+    <span style="font-size: 28px;">📊</span>
+    <h3 style="margin: 12px 0 8px; font-size: 18px;">Instant Analysis</h3>
+    <p style="font-size: 13px; margin: 0; color: var(--muted);">One-click profit forecasts and production metrics parsed elegantly.</p>
+  </div>
+</section>`,
+      pricing: `
+<section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 40px; max-width: 800px; margin-left: auto; margin-right: auto;">
+  <div style="background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 24px; display: flex; flex-direction: column; text-align: center;">
+    <h4 style="margin: 0; text-transform: uppercase; font-size: 11px; letter-spacing: 1px; color: var(--muted);">Standard Plan</h4>
+    <h2 style="font-size: 32px; margin: 12px 0;">$49<span style="font-size: 14px; font-weight: normal; color: var(--muted);">/mo</span></h2>
+    <p style="font-size: 13px; flex-grow: 1;">Essential accounting tools and single-location inventory metrics.</p>
+    <a href="#" class="btn" style="width: 100%; border-radius: 6px; padding: 8px;">Subscribe Now</a>
+  </div>
+  <div style="background: var(--surface); border: 2px solid var(--primary); border-radius: 12px; padding: 24px; display: flex; flex-direction: column; text-align: center; position: relative;">
+    <span style="position: absolute; top: -11px; left: 50%; transform: translateX(-50%); background: var(--primary); color: #fff; font-size: 9px; font-weight: bold; padding: 2px 8px; border-radius: 10px; text-transform: uppercase;">Most Popular</span>
+    <h4 style="margin: 0; text-transform: uppercase; font-size: 11px; letter-spacing: 1px; color: var(--muted);">Enterprise Plan</h4>
+    <h2 style="font-size: 32px; margin: 12px 0;">$149<span style="font-size: 14px; font-weight: normal; color: var(--muted);">/mo</span></h2>
+    <p style="font-size: 13px; flex-grow: 1;">Multi-location inventory tracking, shop floor manufacturing workflows, and full API integration.</p>
+    <a href="#" class="btn" style="width: 100%; border-radius: 6px; padding: 8px;">Subscribe Now</a>
+  </div>
+</section>`,
+      stats: `
+<section style="background: var(--primary-dark); color: #fff; border-radius: 16px; padding: 30px 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; text-align: center; margin-bottom: 40px;">
+  <div>
+    <h2 style="font-size: 36px; margin: 0; color: #fff; font-weight: 800;">99.9%</h2>
+    <p style="margin: 4px 0 0; font-size: 12px; color: #94a3b8; text-transform: uppercase;">System Uptime</p>
+  </div>
+  <div>
+    <h2 style="font-size: 36px; margin: 0; color: #fff; font-weight: 800;">500k+</h2>
+    <p style="margin: 4px 0 0; font-size: 12px; color: #94a3b8; text-transform: uppercase;">Transacted Items</p>
+  </div>
+  <div>
+    <h2 style="font-size: 36px; margin: 0; color: #fff; font-weight: 800;">10ms</h2>
+    <p style="margin: 4px 0 0; font-size: 12px; color: #94a3b8; text-transform: uppercase;">API Response Latency</p>
+  </div>
+</section>`,
+      faq: `
+<section style="max-width: 600px; margin: 0 auto 40px;">
+  <h2 style="text-align: center; margin-bottom: 24px;">Frequently Asked Questions</h2>
+  <div style="margin-bottom: 12px; border-bottom: 1px solid var(--line); padding-bottom: 12px;">
+    <h4 style="margin: 0 0 6px;">How safe are inventory logs in the ERP?</h4>
+    <p style="font-size: 13px; margin: 0; color: var(--muted);">Every warehouse stock transfer is uniquely signed, double-balanced, and recorded with revision tracking.</p>
+  </div>
+  <div style="margin-bottom: 12px; border-bottom: 1px solid var(--line); padding-bottom: 12px;">
+    <h4 style="margin: 0 0 6px;">Can I hook custom web endpoints to the API?</h4>
+    <p style="font-size: 13px; margin: 0; color: var(--muted);">Absolutely! Our developer panel lets you register secure webhooks matching your custom operations.</p>
+  </div>
+</section>`
+    };
+
+    function insertSectionBlock(blockKey) {
+      const codeMarkup = SECTION_BLOCKS[blockKey];
+      if (!codeMarkup) return;
+
+      if (activeEditorMode === 'visual' && quillInstance) {
+        // Inject block into Quill Visual Editor
+        const range = quillInstance.getSelection();
+        const index = range ? range.index : quillInstance.getLength();
+        quillInstance.clipboard.dangerouslyPasteHTML(index, codeMarkup);
+        htmlInput.value = quillInstance.root.innerHTML;
+      } else {
+        // Inject block into raw HTML Code Editor at cursor position
+        const cursorPosition = htmlInput.selectionStart;
+        const textBefore = htmlInput.value.substring(0, cursorPosition);
+        const textAfter  = htmlInput.value.substring(htmlInput.selectionEnd, htmlInput.value.length);
+        htmlInput.value = textBefore + codeMarkup + textAfter;
+        
+        // Refocus textarea and set selection to end of inserted block
+        htmlInput.focus();
+        htmlInput.selectionStart = htmlInput.selectionEnd = cursorPosition + codeMarkup.length;
+      }
+      updatePreview();
+    }
+
+    // Historical Revisions Loader
+    function loadRevision(revId) {
+      if (!revId) return;
+      const select = document.getElementById("revision-select");
+      const option = select.options[select.selectedIndex];
+      const html = option.getAttribute("data-html");
+      if (html) {
+        if (confirm("Are you sure you want to load this revision? It will overwrite your current unsaved editor content.")) {
+          htmlInput.value = html;
+          if (activeEditorMode === 'visual' && quillInstance) {
+            quillInstance.root.innerHTML = html;
+          }
+          updatePreview();
+        }
+      }
+      // Reset dropdown
+      select.value = "";
+    }
+
+    // Default template configurations
     const TEMPLATES = {
       home: {
         title: "Home Landing Page",
         slug: "home",
         is_homepage: true,
         is_published: true,
-        html: `<section style="text-align: center; padding: 40px 0;">
-  <h1>Leading the Future of Modern Business</h1>
-  <p>We provide state-of-the-art enterprise resource planning, logistics management, and financial analytics solutions tailored for your business growth.</p>
-  <div style="margin-top: 30px;">
-    <a href="/p/about-us/" class="btn" style="padding: 12px 24px; font-size: 16px; margin-right: 12px; border-radius: 8px;">Learn About Us</a>
-    <a href="/p/contact/" class="btn secondary" style="padding: 12px 24px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px;">Get in Touch</a>
+        html: `
+<section style="text-align: center; padding: 60px 20px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 16px; margin-bottom: 40px; border: 1px solid var(--line);">
+  <span style="font-size: 40px; display: block; margin-bottom: 12px;">📊</span>
+  <h1 style="font-size: 38px; color: var(--primary-dark); font-weight: 800; margin: 0 0 16px;">Leading the Future of Modern Business</h1>
+  <p style="max-width: 600px; margin: 0 auto 24px; font-size: 16px; color: var(--muted);">We provide state-of-the-art enterprise resource planning, logistics management, and financial analytics solutions tailored for your business growth.</p>
+  <div>
+    <a href="/p/about-us/" class="btn" style="padding: 12px 28px; font-size: 14px; border-radius: 8px;">Learn About Us</a>
   </div>
 </section>
 
-<section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 60px;">
+<section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 40px;">
   <div style="background: var(--surface); padding: 24px; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);">
     <span style="font-size: 32px;">📊</span>
     <h3>Financial Intelligence</h3>
-    <p style="font-size: 14px; margin: 10px 0 0;">Gain absolute control over your general ledger, income statements, and balance sheets in real time.</p>
+    <p style="font-size: 14px; margin: 10px 0 0; color: var(--muted);">Gain absolute control over your general ledger, income statements, and balance sheets in real time.</p>
   </div>
   <div style="background: var(--surface); padding: 24px; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);">
     <span style="font-size: 32px;">📦</span>
     <h3>Inventory & Operations</h3>
-    <p style="font-size: 14px; margin: 10px 0 0;">Automate warehouse logistics, lot tracking, transfers, and real-time stock valuation reporting.</p>
+    <p style="font-size: 14px; margin: 10px 0 0; color: var(--muted);">Automate warehouse logistics, lot tracking, transfers, and real-time stock valuation reporting.</p>
   </div>
   <div style="background: var(--surface); padding: 24px; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);">
     <span style="font-size: 32px;">🚀</span>
     <h3>Production & Manufacturing</h3>
-    <p style="font-size: 14px; margin: 10px 0 0;">Streamline your bill of materials, schedule production orders, and optimize shop floor execution.</p>
+    <p style="font-size: 14px; margin: 10px 0 0; color: var(--muted);">Streamline your bill of materials, schedule production orders, and optimize shop floor execution.</p>
   </div>
 </section>`
       },
@@ -139,7 +770,8 @@
         slug: "about-us",
         is_homepage: false,
         is_published: true,
-        html: `<section style="max-width: 800px; margin: 0 auto;">
+        html: `
+<section style="max-width: 800px; margin: 0 auto;">
   <h1>About Our Company</h1>
   <p>Founded on a vision of absolute operational efficiency, we have spent the past decade pioneering integrated software solutions that connect every department—from accounting to the manufacturing floor.</p>
   
@@ -159,7 +791,8 @@
         slug: "contact",
         is_homepage: false,
         is_published: true,
-        html: `<section style="max-width: 600px; margin: 0 auto;">
+        html: `
+<section style="max-width: 600px; margin: 0 auto;">
   <h1>Contact Us</h1>
   <p>Have questions about our enterprise solutions or want to request a custom demonstration? We would love to hear from you!</p>
   
@@ -178,7 +811,7 @@
         <label style="display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px;">Message</label>
         <textarea required style="width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px; min-height: 120px;"></textarea>
       </div>
-      <button type="submit" class="btn" style="width: 100%; padding: 12px; border: 0; cursor: pointer; border-radius: 8px;">Send Message</button>
+      <button type="submit" class="btn" style="width: 100%; padding: 12px; border: 0; cursor: pointer; border-radius: 8px; color:#fff !important;">Send Message</button>
     </form>
   </div>
 </section>`
@@ -189,18 +822,30 @@
       const t = TEMPLATES[key];
       if (!t) return;
       
-      const titleInput = document.getElementById("id_title");
-      const slugInput = document.getElementById("id_slug");
-      const htmlInput = document.getElementById("id_html_content");
       const homepageCheckbox = document.getElementById("id_is_homepage");
       const publishedCheckbox = document.getElementById("id_is_published");
       
       if (titleInput) titleInput.value = t.title;
-      if (slugInput) slugInput.value = t.slug;
+      if (document.getElementById("id_slug")) document.getElementById("id_slug").value = t.slug;
       if (htmlInput) htmlInput.value = t.html;
       if (homepageCheckbox) homepageCheckbox.checked = t.is_homepage;
       if (publishedCheckbox) publishedCheckbox.checked = t.is_published;
+      
+      if (activeEditorMode === 'visual') {
+        initQuill();
+        quillInstance.root.innerHTML = t.html;
+      }
+      updatePreview();
     }
+
+    // Sync Quill visual state into Django form before submission
+    document.getElementById("page-form").addEventListener("submit", function() {
+      if (activeEditorMode === 'visual' && quillInstance) {
+        htmlInput.value = quillInstance.root.innerHTML;
+      }
+    });
+
+    // Auto load preview on load
+    window.addEventListener("DOMContentLoaded", updatePreview);
   </script>
-  {% endif %}
 {% endblock %}

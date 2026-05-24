@@ -16,6 +16,7 @@ urlpatterns = [
     path("users/add/", views.user_create, name="user_create"),
     path("users/<int:pk>/edit/", views.user_edit, name="user_edit"),
     path("website/", views.website_editor, name="website_editor"),
+    path("website/settings/", views.website_settings_view, name="website_settings"),
     path("website/add/", views.page_create, name="page_create"),
     path("website/<int:pk>/edit/", views.page_edit, name="page_edit"),
     path("website/<int:pk>/delete/", views.page_delete, name="page_delete"),

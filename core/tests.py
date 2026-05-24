@@ -923,3 +923,85 @@ class PublicWebsiteTests(TestCase):
         response = self.client.post(reverse("page_delete", args=[self.about_page.pk]))
         self.assertEqual(response.status_code, 403)
         self.assertTrue(PublicPage.objects.filter(pk=self.about_page.pk).exists())
+
+    def test_website_settings_authorized_roles(self):
+        from core.models import WebsiteSettings
+        self.client.force_login(self.admin_user)
+        # Check settings page GET
+        response = self.client.get(reverse("website_settings"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Global Website & Theme Settings")
+
+        # Save settings POST
+        response = self.client.post(reverse("website_settings"), {
+            "brand_name": "DERP Awesome ERP Portal",
+            "primary_color": "#112233",
+            "secondary_color": "#445566",
+            "font_family": "Outfit",
+            "custom_css": ".my-custom-class { color: red; }",
+        })
+        self.assertEqual(response.status_code, 302)
+        settings = WebsiteSettings.get()
+        self.assertEqual(settings.brand_name, "DERP Awesome ERP Portal")
+        self.assertEqual(settings.font_family, "Outfit")
+
+        # Check Staff user access
+        self.client.force_login(self.staff_user)
+        response = self.client.get(reverse("website_settings"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_website_context_processor(self):
+        from core.models import WebsiteSettings
+        settings = WebsiteSettings.get()
+        settings.brand_name = "Dynamic ERP Brand"
+        settings.save()
+
+        # Render public homepage
+        response = self.client.get(reverse("public_home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Dynamic ERP Brand")
+
+    def test_page_revisions_created_on_change(self):
+        from core.models import PageRevision
+        self.client.force_login(self.admin_user)
+        initial_revision_count = PageRevision.objects.filter(page=self.about_page).count()
+
+        # POST without changing html_content
+        response = self.client.post(reverse("page_edit", args=[self.about_page.pk]), {
+            "title": "Unchanged HTML Content Title",
+            "slug": self.about_page.slug,
+            "html_content": self.about_page.html_content,
+            "is_homepage": self.about_page.is_homepage,
+            "is_published": self.about_page.is_published,
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(PageRevision.objects.filter(page=self.about_page).count(), initial_revision_count)
+
+        # POST with modified html_content
+        response = self.client.post(reverse("page_edit", args=[self.about_page.pk]), {
+            "title": "Unchanged HTML Content Title",
+            "slug": self.about_page.slug,
+            "html_content": "<h3>Brand new content!</h3>",
+            "is_homepage": self.about_page.is_homepage,
+            "is_published": self.about_page.is_published,
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(PageRevision.objects.filter(page=self.about_page).count(), initial_revision_count + 1)
+        latest_rev = PageRevision.objects.filter(page=self.about_page).first()
+        self.assertEqual(latest_rev.html_content, "<h3>Brand new content!</h3>")
+        self.assertEqual(latest_rev.author, self.admin_user)
+
+    def test_seo_metadata_output(self):
+        # Update SEO settings on about_page
+        self.about_page.meta_description = "Outstanding operational tracking summary."
+        self.about_page.meta_keywords = "bookkeeping, warehousing"
+        self.about_page.og_image_url = "https://example.com/cards.jpg"
+        self.about_page.save()
+
+        # Render public subpage
+        response = self.client.get(reverse("public_page", args=[self.about_page.slug]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="description" content="Outstanding operational tracking summary."')
+        self.assertContains(response, 'name="keywords" content="bookkeeping, warehousing"')
+        self.assertContains(response, 'property="og:image" content="https://example.com/cards.jpg"')
+

@@ -154,6 +154,12 @@ class PublicPage(models.Model):
     html_content = models.TextField(blank=True, default="<h1>Welcome!</h1><p>Edit this page from your Website Editor inside the ERP.</p>")
     is_homepage = models.BooleanField(default=False)
     is_published = models.BooleanField(default=True)
+    
+    # Advanced SEO Settings
+    meta_description = models.TextField(blank=True, max_length=160, help_text="Search engine summary. Keep under 160 characters.")
+    meta_keywords = models.CharField(max_length=255, blank=True, help_text="Comma-separated keywords.")
+    og_image_url = models.URLField(blank=True, max_length=500, help_text="Open Graph sharing card image URL.")
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -168,3 +174,43 @@ class PublicPage(models.Model):
             # Force other pages to be non-homepage
             PublicPage.objects.filter(is_homepage=True).exclude(pk=self.pk).update(is_homepage=False)
         super().save(*args, **kwargs)
+
+
+class WebsiteSettings(models.Model):
+    singleton_key = models.PositiveSmallIntegerField(default=1, unique=True, editable=False)
+    brand_name = models.CharField(max_length=200, default="My ERP Website")
+    primary_color = models.CharField(max_length=7, default="#0f172a")
+    secondary_color = models.CharField(max_length=7, default="#2563eb")
+    logo_url = models.URLField(blank=True, max_length=500)
+    font_family = models.CharField(max_length=100, default="Inter")
+    custom_css = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "Website Settings"
+        verbose_name_plural = "Website Settings"
+
+    def __str__(self):
+        return self.brand_name
+
+    @classmethod
+    def get(cls) -> "WebsiteSettings":
+        obj, _ = cls.objects.get_or_create(
+            singleton_key=1,
+            defaults={"brand_name": "My ERP Website"},
+        )
+        return obj
+
+    def save(self, *args, **kwargs):
+        self.singleton_key = 1
+        super().save(*args, **kwargs)
+
+
+class PageRevision(models.Model):
+    page = models.ForeignKey(PublicPage, on_delete=models.CASCADE, related_name="revisions")
+    html_content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+

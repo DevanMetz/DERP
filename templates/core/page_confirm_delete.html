@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Delete Page — DERP{% endblock %}
+{% block content %}
+  <div class="page-header" style="margin-bottom: 24px;">
+    <div>
+      <span class="text-subtle" style="font-weight: bold; text-transform: uppercase; font-size: 11px;">Website Editor</span>
+      <h1 style="margin-top: 4px;">Confirm Deletion</h1>
+      <p class="text-subtle">Are you absolutely sure you want to permanently delete this page?</p>
+    </div>
+  </div>
+
+  <div class="card" style="max-width: 500px; margin: 0 auto; border-color: #fecdca; background: #fffbfa; border-radius: 12px; box-shadow: var(--shadow);">
+    <h3 style="margin-top: 0; color: var(--err);">⚠️ Warning</h3>
+    <p style="color: #7a271a; font-size: 14px; line-height: 1.5; margin-bottom: 20px;">
+      You are about to permanently delete the page <strong>"{{ page_instance.title }}"</strong> (slug: <code>{{ page_instance.slug }}</code>). This action cannot be undone and the page will be immediately removed from your public website.
+    </p>
+    
+    <form method="post">
+      {% csrf_token %}
+      <div style="display: flex; justify-content: flex-end; gap: 12px;">
+        <a class="btn secondary" href="{% url 'website_editor' %}" style="border-radius: 8px;">Cancel</a>
+        <button class="btn" type="submit" style="background: var(--err); border-color: var(--err); border-radius: 8px; font-weight: bold;">
+          Yes, Delete Page
+        </button>
+      </div>
+    </form>
+  </div>
+{% endblock %}

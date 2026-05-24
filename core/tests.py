@@ -893,3 +893,33 @@ class PublicWebsiteTests(TestCase):
         self.page.refresh_from_db()
         self.assertFalse(self.page.is_homepage)
         self.assertTrue(self.about_page.is_homepage)
+
+    def test_admin_and_manager_can_delete_page(self):
+        self.client.force_login(self.admin_user)
+        # Verify about_page exists
+        self.assertTrue(PublicPage.objects.filter(pk=self.about_page.pk).exists())
+        
+        # Get delete confirmation page
+        response = self.client.get(reverse("page_delete", args=[self.about_page.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Confirm Deletion")
+        
+        # Post to delete
+        response = self.client.post(reverse("page_delete", args=[self.about_page.pk]))
+        self.assertEqual(response.status_code, 302)
+        # Verify page is deleted
+        self.assertFalse(PublicPage.objects.filter(pk=self.about_page.pk).exists())
+
+    def test_cannot_delete_active_homepage(self):
+        self.client.force_login(self.admin_user)
+        # Attempt to delete active homepage (self.page)
+        response = self.client.post(reverse("page_delete", args=[self.page.pk]))
+        self.assertEqual(response.status_code, 302)
+        # Should not be deleted
+        self.assertTrue(PublicPage.objects.filter(pk=self.page.pk).exists())
+
+    def test_staff_and_readonly_cannot_delete_page(self):
+        self.client.force_login(self.staff_user)
+        response = self.client.post(reverse("page_delete", args=[self.about_page.pk]))
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(PublicPage.objects.filter(pk=self.about_page.pk).exists())

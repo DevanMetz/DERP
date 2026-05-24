@@ -978,3 +978,27 @@ def page_edit(request, pk):
         "page_instance": page,
         "company": Company.get(),
     })
+
+
+@login_required
+def page_delete(request, pk):
+    from django.shortcuts import get_object_or_404
+    if request.user.role not in {Role.ADMIN, Role.MANAGER}:
+        return HttpResponseForbidden("Only administrators and managers can delete public pages.")
+
+    page = get_object_or_404(PublicPage, pk=pk)
+    title = page.title
+    
+    if page.is_homepage:
+        messages.error(request, "Cannot delete the active Homepage. Please designate another page as the homepage first.")
+        return redirect("website_editor")
+        
+    if request.method == "POST":
+        page.delete()
+        messages.success(request, f"Page '{title}' deleted successfully.")
+        return redirect("website_editor")
+
+    return render(request, "core/page_confirm_delete.html", {
+        "page_instance": page,
+        "company": Company.get(),
+    })

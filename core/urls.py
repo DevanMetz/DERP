@@ -18,4 +18,5 @@ urlpatterns = [
     path("website/", views.website_editor, name="website_editor"),
     path("website/add/", views.page_create, name="page_create"),
     path("website/<int:pk>/edit/", views.page_edit, name="page_edit"),
+    path("website/<int:pk>/delete/", views.page_delete, name="page_delete"),
 ]

@@ -53,10 +53,15 @@
                 <span class="badge secondary">Draft</span>
               {% endif %}
             </td>
-            <td style="text-align: center; vertical-align: middle;">
-              <a class="btn secondary" href="{% url 'page_edit' p.pk %}" style="min-height: 28px; padding: 4px 10px; font-size: 12px; border-radius: 6px;">
+            <td style="text-align: center; vertical-align: middle; white-space: nowrap; gap: 8px; display: flex; justify-content: center; border-bottom: 1px solid var(--line-soft);">
+              <a class="btn secondary" href="{% url 'page_edit' p.pk %}" style="min-height: 28px; padding: 4px 10px; font-size: 12px; border-radius: 6px; margin: 0;">
                 Edit Details
               </a>
+              {% if not p.is_homepage %}
+                <a class="btn secondary" href="{% url 'page_delete' p.pk %}" style="min-height: 28px; padding: 4px 10px; font-size: 12px; border-radius: 6px; color: var(--err); border-color: #fecdca; margin: 0;">
+                  Delete
+                </a>
+              {% endif %}
             </td>
           </tr>
         {% empty %}

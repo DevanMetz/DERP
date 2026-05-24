@@ -28,6 +28,16 @@ Most ERP systems are either expensive SaaS products or large enterprise platform
 - Subdomain routing: `django-tenants` maps each request to the correct tenant schema.
 - Public landing/signup routes are separated from tenant workspace routes.
 
+### Public Tenant Website & Drag-and-Drop Page Builder
+
+- **Root Domain Isolation**: The entire ERP lives under the `/derp/` subpath prefix, serving the public website directly on the root domain `/`.
+- **Drag-and-Drop Page Builder**: An interactive visual split-screen workspace to drag block modules (Hero Banner, Features Grid, Pricing Cards, Stats Banner, FAQ List, Simple Text, CTA Section) and assemble landing pages.
+- **Inline Text Editing**: Click directly on headings, paragraphs, buttons, list items, or links on the canvas and start typing copy in-place.
+- **Bi-directional HTML Parser**: Toggle between raw HTML code, a visual WYSIWYG editor (Quill.js), and the visual block canvas builder seamlessly while keeping the generated code clean.
+- **Global Theme Settings**: CENTRALized customization of Website Brand Name, Logo Image links, Google Fonts selectors (Inter, Roboto, Outfit, Poppins, Playfair Display), HSL Brand Colors via pickers, and a global custom CSS block.
+- **Page Revision History**: Chronological database-backed `PageRevision` log to record backups on save and restore past versions with 1 click.
+- **Advanced SEO Controls**: Custom subpage keyword tags, meta summaries, Open Graph sharing cards, and character counters.
+
 ### Workspace and Navigation
 
 - Tenant home workspace with application module shortcuts.
@@ -275,33 +285,38 @@ python manage.py test core
 | Area | URL paths |
 | --- | --- |
 | Public landing/signup | `/` on the public domain |
-| Tenant home | `/` on a tenant workspace |
-| Dashboard | `/dashboard/` |
-| Company setup | `/company/` |
-| Data export | `/export/` |
-| Data import | `/import/` |
-| Search | `/search/` |
-| Products | `/products/`, `/products/new/`, `/products/<id>/`, `/products/<id>/edit/` |
-| Inventory ledger | `/products/ledger/` |
-| Customers | `/customers/`, `/customers/new/`, `/customers/<id>/`, `/customers/<id>/edit/` |
-| Sales orders | `/sales-orders/`, `/sales-orders/new/`, `/sales-orders/<id>/` |
-| Sales order actions | `/sales-orders/<id>/confirm/`, `/unconfirm/`, `/invoice/`, `/undo-invoice/`, `/pdf/` |
-| Invoices | `/invoices/`, `/invoices/new/`, `/invoices/<id>/` |
-| Invoice actions | `/invoices/<id>/post/`, `/void/`, `/pdf/` |
-| Customer payments | `/payments/new/` |
-| Vendors | `/vendors/`, `/vendors/new/`, `/vendors/<id>/`, `/vendors/<id>/edit/` |
-| Purchase orders | `/purchase-orders/`, `/purchase-orders/new/`, `/purchase-orders/<id>/` |
-| Purchase order actions | `/purchase-orders/<id>/issue/`, `/unissue/`, `/receive/`, `/bill/`, `/undo-bill/`, `/pdf/` |
-| Goods receipts | `/goods-receipts/<id>/`, `/goods-receipts/<id>/bill/`, `/goods-receipts/<id>/reverse/` |
-| Bills | `/bills/`, `/bills/new/`, `/bills/<id>/` |
-| Bill actions | `/bills/<id>/post/`, `/void/` |
-| Vendor payments | `/vendor-payments/new/` |
-| Journals | `/journal/`, `/journal/new/`, `/journal/<id>/`, `/journal/<id>/reverse/` |
-| Reports | `/reports/trial-balance/`, `/reports/income-statement/`, `/reports/balance-sheet/`, `/reports/general-ledger/` |
-| BOMs | `/boms/`, `/boms/create/`, `/boms/<id>/`, `/boms/<id>/edit/` |
-| Manufacturing orders | `/manufacturing-orders/`, `/manufacturing-orders/create/`, `/manufacturing-orders/<id>/` |
-| Manufacturing actions | `/manufacturing-orders/<id>/confirm/`, `/complete/`, `/cancel/` |
-| AI Copilot | `/ai/chat/` (POST chat turn), `/ai/confirm/` (POST signed action token) |
+| Public Website Home | `/` on a tenant workspace root |
+| Public Website Subpage | `/p/<slug>/` |
+| Website Editor Dashboard | `/derp/website/` |
+| Website Editor Settings | `/derp/website/settings/` |
+| Website Editor Actions | `/derp/website/add/`, `/derp/website/<id>/edit/`, `/derp/website/<id>/delete/` |
+| Tenant home | `/derp/` on a tenant workspace |
+| Dashboard | `/derp/dashboard/` |
+| Company setup | `/derp/company/` |
+| Data export | `/derp/export/` |
+| Data import | `/derp/import/` |
+| Search | `/derp/search/` |
+| Products | `/derp/products/`, `/derp/products/new/`, `/derp/products/<id>/`, `/derp/products/<id>/edit/` |
+| Inventory ledger | `/derp/products/ledger/` |
+| Customers | `/derp/customers/`, `/derp/customers/new/`, `/derp/customers/<id>/`, `/derp/customers/<id>/edit/` |
+| Sales orders | `/derp/sales-orders/`, `/derp/sales-orders/new/`, `/derp/sales-orders/<id>/` |
+| Sales order actions | `/derp/sales-orders/<id>/confirm/`, `/unconfirm/`, `/invoice/`, `/undo-invoice/`, `/pdf/` |
+| Invoices | `/derp/invoices/`, `/derp/invoices/new/`, `/derp/invoices/<id>/` |
+| Invoice actions | `/derp/invoices/<id>/post/`, `/void/`, `/pdf/` |
+| Customer payments | `/derp/payments/new/` |
+| Vendors | `/derp/vendors/`, `/derp/vendors/new/`, `/derp/vendors/<id>/`, `/derp/vendors/<id>/edit/` |
+| Purchase orders | `/derp/purchase-orders/`, `/derp/purchase-orders/new/`, `/derp/purchase-orders/<id>/` |
+| Purchase order actions | `/derp/purchase-orders/<id>/issue/`, `/unissue/`, `/receive/`, `/bill/`, `/undo-bill/`, `/pdf/` |
+| Goods receipts | `/derp/goods-receipts/<id>/`, `/derp/goods-receipts/<id>/bill/`, `/derp/goods-receipts/<id>/reverse/` |
+| Bills | `/derp/bills/`, `/derp/bills/new/`, `/derp/bills/<id>/` |
+| Bill actions | `/derp/bills/<id>/post/`, `/void/` |
+| Vendor payments | `/derp/vendor-payments/new/` |
+| Journals | `/derp/journal/`, `/derp/journal/new/`, `/derp/journal/<id>/`, `/derp/journal/<id>/reverse/` |
+| Reports | `/derp/reports/trial-balance/`, `/derp/reports/income-statement/`, `/derp/reports/balance-sheet/`, `/derp/reports/general-ledger/` |
+| BOMs | `/derp/boms/`, `/derp/boms/create/`, `/derp/boms/<id>/`, `/derp/boms/<id>/edit/` |
+| Manufacturing orders | `/derp/manufacturing-orders/`, `/derp/manufacturing-orders/create/`, `/derp/manufacturing-orders/<id>/` |
+| Manufacturing actions | `/derp/manufacturing-orders/<id>/confirm/`, `/complete/`, `/cancel/` |
+| AI Copilot | `/derp/ai/chat/` (POST chat turn), `/derp/ai/confirm/` (POST signed action token) |
 
 ## Development Notes
 

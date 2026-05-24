@@ -1,0 +1,117 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}{{ page.title|default:"My Website" }}{% endblock %}</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --bg: #fafbfc;
+      --surface: #ffffff;
+      --fg: #0f172a;
+      --muted: #475569;
+      --line: #e2e8f0;
+      --shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.03);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font: 16px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+    }
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-inner {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      font-weight: 800;
+      font-size: 20px;
+      color: var(--fg);
+      text-decoration: none;
+      letter-spacing: -0.02em;
+    }
+    .nav {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+    .nav a {
+      color: var(--muted);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 14px;
+      transition: color 0.15s;
+    }
+    .nav a:hover {
+      color: var(--primary);
+    }
+    .btn {
+      background: var(--primary);
+      color: #fff !important;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: bold;
+    }
+    .btn:hover {
+      background: var(--primary-dark);
+    }
+    main {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 48px 24px;
+      min-height: calc(100vh - 200px);
+    }
+    footer {
+      background: #0f172a;
+      color: #94a3b8;
+      border-top: 1px solid #1e293b;
+      padding: 32px 24px;
+      text-align: center;
+      font-size: 14px;
+    }
+    /* Simple dynamic classes for HTML content inside pages */
+    h1 { font-size: 42px; font-weight: 800; line-height: 1.1; margin: 0 0 20px; letter-spacing: -0.03em; }
+    h2 { font-size: 28px; font-weight: 700; margin: 32px 0 16px; letter-spacing: -0.02em; }
+    p { margin: 0 0 18px; color: var(--muted); font-size: 18px; }
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <a href="/" class="logo">
+        <span style="color: var(--primary);">🌐</span> Public Website
+      </a>
+      <nav class="nav">
+        <a href="/">Home</a>
+        <a href="/derp/" class="btn">ERP Workspace</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer>
+    <p style="margin: 0; color: inherit; font-size: 14px;">&copy; 2026 Public Tenant Website. Powered by DERP.</p>
+  </footer>
+</body>
+</html>

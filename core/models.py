@@ -146,3 +146,25 @@ class CopilotAuditEvent(models.Model):
             models.Index(fields=["event_type", "created_at"]),
             models.Index(fields=["object_type", "object_id"]),
         ]
+
+
+class PublicPage(models.Model):
+    title = models.CharField(max_length=200)
+    slug = models.SlugField(unique=True, help_text="e.g. 'about', 'contact'. Set to 'home' or leave blank for the homepage.")
+    html_content = models.TextField(blank=True, default="<h1>Welcome!</h1><p>Edit this page from your Website Editor inside the ERP.</p>")
+    is_homepage = models.BooleanField(default=False)
+    is_published = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-is_homepage", "title"]
+
+    def __str__(self):
+        return self.title
+
+    def save(self, *args, **kwargs):
+        if self.is_homepage:
+            # Force other pages to be non-homepage
+            PublicPage.objects.filter(is_homepage=True).exclude(pk=self.pk).update(is_homepage=False)
+        super().save(*args, **kwargs)

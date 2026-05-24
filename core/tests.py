@@ -749,3 +749,147 @@ class UserManagementTests(TestCase):
         self.assertEqual(self.staff_user.role, Role.READONLY)
         self.assertFalse(self.staff_user.is_active)
         self.assertTrue(self.staff_user.check_password("changedpassword987"))
+
+
+from .models import PublicPage
+
+class PublicWebsiteTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.admin_user = User.objects.create_user(
+            username="adminuser",
+            email="admin@example.com",
+            password="password",
+            role=Role.ADMIN,
+        )
+        self.staff_user = User.objects.create_user(
+            username="staffuser",
+            email="staff@example.com",
+            password="password",
+            role=Role.STAFF,
+        )
+        self.manager_user = User.objects.create_user(
+            username="manageruser",
+            email="manager@example.com",
+            password="password",
+            role=Role.MANAGER,
+        )
+        self.company = Company.get()
+        self.page = PublicPage.objects.create(
+            title="Homepage Title",
+            slug="home",
+            html_content="<h1>Custom Homepage</h1>",
+            is_homepage=True,
+            is_published=True,
+        )
+        self.about_page = PublicPage.objects.create(
+            title="About Page",
+            slug="about-us",
+            html_content="<h1>About ERP Company</h1>",
+            is_homepage=False,
+            is_published=True,
+        )
+
+    def test_root_domain_renders_homepage(self):
+        response = self.client.get(reverse("public_home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Custom Homepage")
+
+    def test_fallback_homepage_renders_if_none_exists(self):
+        # Unmark current homepage
+        self.page.is_homepage = False
+        self.page.save()
+
+        response = self.client.get(reverse("public_home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Welcome to your new public website!")
+
+    def test_public_subpage_renders_by_slug(self):
+        response = self.client.get(reverse("public_page", args=["about-us"]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "About ERP Company")
+
+    def test_website_editor_views_require_login(self):
+        response = self.client.get(reverse("website_editor"))
+        self.assertEqual(response.status_code, 302)
+
+        response = self.client.get(reverse("page_create"))
+        self.assertEqual(response.status_code, 302)
+
+        response = self.client.get(reverse("page_edit", args=[self.about_page.pk]))
+        self.assertEqual(response.status_code, 302)
+
+    def test_website_editor_views_deny_staff(self):
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get(reverse("website_editor"))
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.get(reverse("page_create"))
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.get(reverse("page_edit", args=[self.about_page.pk]))
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_and_manager_can_access_website_editor(self):
+        # Test Admin
+        self.client.force_login(self.admin_user)
+        response = self.client.get(reverse("website_editor"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Website Editor")
+        self.assertContains(response, "Homepage Title")
+        self.assertContains(response, "About Page")
+
+        # Test Manager
+        self.client.force_login(self.manager_user)
+        response = self.client.get(reverse("website_editor"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_admin_can_create_public_page(self):
+        self.client.force_login(self.admin_user)
+        
+        response = self.client.post(
+            reverse("page_create"),
+            {
+                "title": "New Public Page",
+                "slug": "new-page",
+                "html_content": "<p>Content goes here.</p>",
+                "is_homepage": False,
+                "is_published": True,
+            }
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(PublicPage.objects.filter(slug="new-page").exists())
+
+    def test_admin_can_edit_public_page(self):
+        self.client.force_login(self.admin_user)
+        
+        response = self.client.post(
+            reverse("page_edit", args=[self.about_page.pk]),
+            {
+                "title": "Updated About Title",
+                "slug": "about-us",
+                "html_content": "<h2>Updated content</h2>",
+                "is_homepage": False,
+                "is_published": True,
+            }
+        )
+        self.assertEqual(response.status_code, 302)
+        self.about_page.refresh_from_db()
+        self.assertEqual(self.about_page.title, "Updated About Title")
+        self.assertEqual(self.about_page.html_content, "<h2>Updated content</h2>")
+
+    def test_homepage_uniqueness_enforcement(self):
+        # We have self.page marked as homepage
+        self.assertTrue(self.page.is_homepage)
+        self.assertFalse(self.about_page.is_homepage)
+
+        # Mark about_page as homepage and save
+        self.about_page.is_homepage = True
+        self.about_page.save()
+
+        # Refresh page instance
+        self.page.refresh_from_db()
+        self.assertFalse(self.page.is_homepage)
+        self.assertTrue(self.about_page.is_homepage)

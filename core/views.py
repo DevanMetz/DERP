@@ -789,3 +789,99 @@ def user_edit(request, pk):
         "target_user": user,
         "company": Company.get(),
     })
+
+
+from .models import PublicPage
+
+class PageForm(forms.ModelForm):
+    class Meta:
+        model = PublicPage
+        fields = ["title", "slug", "html_content", "is_homepage", "is_published"]
+        widgets = {
+            "html_content": forms.Textarea(attrs={"style": "font-family: monospace; font-size: 13px; height: 350px;"}),
+        }
+
+
+# --- Public Site Views ---
+
+def public_home(request):
+    try:
+        page = PublicPage.objects.filter(is_homepage=True, is_published=True).first()
+    except Exception:
+        page = None
+
+    if page:
+        return render(request, "public_page.html", {"page": page})
+    
+    # Fallback default welcome page
+    return render(request, "public_page.html", {
+        "page": {
+            "title": "Welcome to your new public website!",
+            "html_content": "<h1>Welcome!</h1><p>This is your public-facing homepage. You can configure and edit this page by logging into your <a href='/derp/'>ERP Workspace</a> and visiting the <strong>Website Editor</strong>.</p>"
+        }
+    })
+
+
+def public_page(request, slug):
+    from django.shortcuts import get_object_or_404
+    page = get_object_or_404(PublicPage, slug=slug, is_published=True)
+    return render(request, "public_page.html", {"page": page})
+
+
+# --- Administrative Website Editor Views ---
+
+@login_required
+def website_editor(request):
+    if request.user.role not in {Role.ADMIN, Role.MANAGER}:
+        return HttpResponseForbidden("Only administrators and managers can access the Website Editor.")
+
+    pages = PublicPage.objects.all()
+    return render(request, "core/website_editor.html", {
+        "pages": pages,
+        "company": Company.get(),
+    })
+
+
+@login_required
+def page_create(request):
+    if request.user.role not in {Role.ADMIN, Role.MANAGER}:
+        return HttpResponseForbidden("Only administrators and managers can modify public pages.")
+
+    if request.method == "POST":
+        form = PageForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Public page created successfully.")
+            return redirect("website_editor")
+    else:
+        form = PageForm()
+
+    return render(request, "core/page_form.html", {
+        "form": form,
+        "is_create": True,
+        "company": Company.get(),
+    })
+
+
+@login_required
+def page_edit(request, pk):
+    from django.shortcuts import get_object_or_404
+    if request.user.role not in {Role.ADMIN, Role.MANAGER}:
+        return HttpResponseForbidden("Only administrators and managers can modify public pages.")
+
+    page = get_object_or_404(PublicPage, pk=pk)
+    if request.method == "POST":
+        form = PageForm(request.POST, instance=page)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Page '{page.title}' updated successfully.")
+            return redirect("website_editor")
+    else:
+        form = PageForm(instance=page)
+
+    return render(request, "core/page_form.html", {
+        "form": form,
+        "is_create": False,
+        "page_instance": page,
+        "company": Company.get(),
+    })

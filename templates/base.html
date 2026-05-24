@@ -1129,6 +1129,9 @@
     {% if user.role == 'admin' %}
     ALL_APPS["user_management"] = { name: "Users", url: "{% url 'user_list' %}", group: "workspace", icon: ICONS.user };
     {% endif %}
+    {% if user.role == 'admin' or user.role == 'manager' %}
+    ALL_APPS["website_editor"] = { name: "Website Editor", url: "{% url 'website_editor' %}", group: "workspace", icon: ICONS.docs };
+    {% endif %}
     const SIDEBAR_GROUPS = [
       { id: "workspace", name: "Workspace" },
       { id: "operations", name: "Operations" },

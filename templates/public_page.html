@@ -1,0 +1,7 @@
+{% extends "public_base.html" %}
+{% block title %}{{ page.title }}{% endblock %}
+{% block content %}
+  <article>
+    {{ page.html_content|safe }}
+  </article>
+{% endblock %}

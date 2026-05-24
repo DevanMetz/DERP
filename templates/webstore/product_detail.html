@@ -1,0 +1,83 @@
+{% extends "public_base.html" %}
+{% block title %}{{ product.name }} — Shop{% endblock %}
+{% block meta_description %}{{ storefront.seo_description|default:storefront.short_tagline }}{% endblock %}
+{% block og_title %}{{ storefront.seo_title|default:product.name }}{% endblock %}
+{% block content %}
+<nav style="font-size:13px;color:var(--muted);margin-bottom:18px;">
+  <a href="{% url 'shop_index' %}" style="color:var(--muted);">Shop</a>
+  {% if storefront.category %} · <a href="{% url 'shop_category' storefront.category.slug %}" style="color:var(--muted);">{{ storefront.category.name }}</a>{% endif %}
+  · <span style="color:var(--fg);font-weight:600;">{{ product.name }}</span>
+</nav>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start;">
+
+  <div>
+    {% with main=images|first %}
+    <div style="aspect-ratio:1/1;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);border-radius:16px;overflow:hidden;display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
+      {% if main %}
+        <img id="pdp-main-img" src="{{ main.image.url }}" alt="{{ main.alt_text|default:product.name }}" style="width:100%;height:100%;object-fit:cover;">
+      {% elif product.image %}
+        <img id="pdp-main-img" src="{{ product.image.url }}" alt="{{ product.name }}" style="width:100%;height:100%;object-fit:cover;">
+      {% else %}
+        <span style="font-size:96px;opacity:.4;">📦</span>
+      {% endif %}
+    </div>
+    {% endwith %}
+    {% if images|length > 1 %}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:8px;">
+      {% for img in images %}
+        <button type="button" onclick="document.getElementById('pdp-main-img').src='{{ img.image.url }}'" style="aspect-ratio:1/1;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden;cursor:pointer;padding:0;">
+          <img src="{{ img.image.url }}" alt="{{ img.alt_text|default:product.name }}" style="width:100%;height:100%;object-fit:cover;">
+        </button>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div>
+    {% if storefront.category %}
+      <span style="font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.1em;">{{ storefront.category.name }}</span>
+    {% endif %}
+    <h1 style="margin:6px 0 12px;font-size:34px;line-height:1.15;">{{ product.name }}</h1>
+    {% if storefront.short_tagline %}<p style="font-size:16px;color:var(--muted);margin:0 0 18px;">{{ storefront.short_tagline }}</p>{% endif %}
+
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:24px;">
+      <span style="font-size:32px;font-weight:800;">${{ storefront.effective_price }}</span>
+      {% if storefront.is_on_sale %}
+        <span style="font-size:15px;color:var(--muted);text-decoration:line-through;">${{ storefront.compare_at_price }}</span>
+        <span style="background:#dcfce7;color:#15803d;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;">SAVE</span>
+      {% endif %}
+    </div>
+
+    <form method="post" action="{% url 'shop_cart_add' product.id %}" style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap;">
+      {% csrf_token %}
+      <input type="number" name="qty" value="1" min="1" max="99" style="width:80px;padding:12px;border:1px solid var(--line);border-radius:8px;font-size:15px;font-family:inherit;">
+      <button type="submit" class="btn" style="padding:12px 32px;border-radius:8px;font-size:15px;border:0;cursor:pointer;flex:1;min-width:140px;">Add to Cart</button>
+    </form>
+
+    {% if storefront.online_description %}
+      <div style="border-top:1px solid var(--line);padding-top:20px;font-size:15px;line-height:1.7;">
+        {{ storefront.online_description|safe }}
+      </div>
+    {% elif product.description %}
+      <div style="border-top:1px solid var(--line);padding-top:20px;font-size:15px;line-height:1.7;color:var(--muted);">
+        {{ product.description|linebreaks }}
+      </div>
+    {% endif %}
+
+    <div style="border-top:1px solid var(--line);margin-top:20px;padding-top:16px;font-size:12px;color:var(--muted);display:flex;gap:20px;flex-wrap:wrap;">
+      <span><strong style="color:var(--fg);">SKU:</strong> {{ product.sku }}</span>
+      <span><strong style="color:var(--fg);">Unit:</strong> {{ product.uom }}</span>
+    </div>
+  </div>
+</div>
+
+{% if related %}
+<section style="margin-top:64px;border-top:1px solid var(--line);padding-top:40px;">
+  <h2 style="margin:0 0 20px;font-size:22px;">You may also like</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px;">
+    {% for sf in related %}{% include "webstore/_product_card.html" with sf=sf %}{% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

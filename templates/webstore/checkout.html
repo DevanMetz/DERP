@@ -1,0 +1,114 @@
+{% extends "public_base.html" %}
+{% block title %}Checkout — Shop{% endblock %}
+{% block content %}
+<nav style="font-size:13px;color:var(--muted);margin-bottom:18px;">
+  <a href="{% url 'shop_cart' %}" style="color:var(--muted);">Cart</a> · <span style="color:var(--fg);font-weight:600;">Checkout</span>
+</nav>
+
+<h1 style="margin:0 0 24px;">Checkout</h1>
+
+{% if not stripe_configured %}
+<div style="background:#fef3c7;border:1px solid #fde68a;color:#92400e;padding:14px 16px;border-radius:8px;margin-bottom:24px;font-size:13px;line-height:1.5;">
+  <strong>Dev mode:</strong> Stripe keys aren't configured. After submitting, you'll see a manual "Complete Payment" button that exercises the full ERP wiring without charging anything. Set <code>STRIPE_SECRET_KEY</code> in <code>.env</code> to enable real payments.
+</div>
+{% endif %}
+
+<div style="display:grid;grid-template-columns:1fr 360px;gap:32px;align-items:start;">
+
+  <form method="post" novalidate style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:24px;">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div style="background:#fef2f2;border:1px solid #fecaca;color:#b42318;padding:10px;border-radius:6px;margin-bottom:16px;">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <h2 style="margin:0 0 14px;font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Contact</h2>
+    <div style="margin-bottom:20px;">
+      <label for="{{ form.email.id_for_label }}" style="display:block;font-weight:600;font-size:13px;margin-bottom:5px;">Email</label>
+      {{ form.email }}
+      {% if form.email.errors %}<div style="color:#b42318;font-size:12px;margin-top:4px;">{{ form.email.errors|join:", " }}</div>{% endif %}
+    </div>
+
+    <h2 style="margin:0 0 14px;font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Shipping Address</h2>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+      <div>
+        <label for="{{ form.full_name.id_for_label }}" style="display:block;font-weight:600;font-size:13px;margin-bottom:5px;">Full name</label>
+        {{ form.full_name }}
+        {% if form.full_name.errors %}<div style="color:#b42318;font-size:12px;margin-top:4px;">{{ form.full_name.errors|join:", " }}</div>{% endif %}
+      </div>
+      <div>
+        <label for="{{ form.company.id_for_label }}" style="display:block;font-weight:600;font-size:13px;margin-bottom:5px;">Company <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+        {{ form.company }}
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <label for="{{ form.line1.id_for_label }}" style="display:block;font-weight:600;font-size:13px;margin-bottom:5px;">{{ form.line1.label }}</label>
+      {{ form.line1 }}
+      {% if form.line1.errors %}<div style="color:#b42318;font-size:12px;margin-top:4px;">{{ form.line1.errors|join:", " }}</div>{% endif %}
+    </div>
+    <div style="margin-bottom:14px;">
+      <label for="{{ form.line2.id_for_label }}" style="display:block;font-weight:600;font-size:13px;margin-bottom:5px;">{{ form.line2.label }}</label>
+      {{ form.line2 }}
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;">
+      <div>
+        <label for="{{ form.city.id_for_label }}" style="display:block;font-weight:600;font-size:13px;margin-bottom:5px;">City</label>
+        {{ form.city }}
+        {% if form.city.errors %}<div style="color:#b42318;font-size:12px;margin-top:4px;">{{ form.city.errors|join:", " }}</div>{% endif %}
+      </div>
+      <div>
+        <label for="{{ form.region.id_for_label }}" style="display:block;font-weight:600;font-size:13px;margin-bottom:5px;">{{ form.region.label }}</label>
+        {{ form.region }}
+        {% if form.region.errors %}<div style="color:#b42318;font-size:12px;margin-top:4px;">{{ form.region.errors|join:", " }}</div>{% endif %}
+      </div>
+      <div>
+        <label for="{{ form.postal_code.id_for_label }}" style="display:block;font-weight:600;font-size:13px;margin-bottom:5px;">{{ form.postal_code.label }}</label>
+        {{ form.postal_code }}
+        {% if form.postal_code.errors %}<div style="color:#b42318;font-size:12px;margin-top:4px;">{{ form.postal_code.errors|join:", " }}</div>{% endif %}
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;">
+      <div>
+        <label for="{{ form.country.id_for_label }}" style="display:block;font-weight:600;font-size:13px;margin-bottom:5px;">Country</label>
+        {{ form.country }}
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">{{ form.country.help_text }}</div>
+      </div>
+      <div>
+        <label for="{{ form.phone.id_for_label }}" style="display:block;font-weight:600;font-size:13px;margin-bottom:5px;">Phone <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+        {{ form.phone }}
+      </div>
+    </div>
+
+    <button type="submit" class="btn" style="width:100%;padding:14px;border-radius:8px;font-size:15px;font-weight:700;border:0;cursor:pointer;">
+      {% if stripe_configured %}Continue to Payment →{% else %}Continue (Dev) →{% endif %}
+    </button>
+    <a href="{% url 'shop_cart' %}" style="display:block;text-align:center;font-size:13px;color:var(--muted);margin-top:10px;">← Back to cart</a>
+  </form>
+
+  <aside style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;position:sticky;top:96px;">
+    <h3 style="margin:0 0 14px;font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Order Summary</h3>
+    {% for line in cart.lines %}
+      <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:10px;font-size:13px;">
+        <span style="flex:1;min-width:0;">{{ line.storefront.product.name }} <span style="color:var(--muted);">× {{ line.qty }}</span></span>
+        <span style="font-weight:700;">${{ line.line_total }}</span>
+      </div>
+    {% endfor %}
+    <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;display:flex;justify-content:space-between;font-size:15px;">
+      <span style="font-weight:700;">Total</span>
+      <span style="font-weight:800;">${{ cart.subtotal }}</span>
+    </div>
+  </aside>
+</div>
+
+<style>
+  form input[type=text], form input[type=email], form input[type=tel], form input[type=url] {
+    width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:6px;
+    font-size:14px; font-family:inherit; outline:none; transition:border-color .15s;
+  }
+  form input:focus { border-color:var(--primary); }
+</style>
+{% endblock %}

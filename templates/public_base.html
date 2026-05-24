@@ -113,6 +113,7 @@
     /* Global Custom CSS Injection */
     {{ website_settings.custom_css|safe }}
   </style>
+  <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
 </head>
 <body>
   <header class="header">
@@ -127,9 +128,14 @@
       </a>
       <nav class="nav">
         <a href="/">Home</a>
+        <a href="/shop/">Shop</a>
         {% for p in public_pages %}
           <a href="/p/{{ p.slug }}/">{{ p.title }}</a>
         {% endfor %}
+        <a href="/shop/cart/" style="position:relative;display:inline-flex;align-items:center;gap:6px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+          {% if cart_count %}<span style="background:var(--primary);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:1px 7px;min-width:18px;text-align:center;">{{ cart_count }}</span>{% endif %}
+        </a>
         <a href="/derp/" class="btn" style="margin-left: 10px;">ERP Workspace</a>
       </nav>
     </div>

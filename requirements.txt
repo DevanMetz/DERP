@@ -12,3 +12,4 @@ Markdown>=3.6
 gunicorn>=21.0
 whitenoise>=6.6
 fido2>=1.1
+stripe>=8.0

@@ -1,0 +1,23 @@
+{% load static %}
+<a href="{% url 'shop_product' sf.slug %}" style="text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;transition:transform .15s,box-shadow .15s;">
+  <div style="aspect-ratio:1/1;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);display:flex;align-items:center;justify-content:center;overflow:hidden;">
+    {% if sf.images.first %}
+      <img src="{{ sf.images.first.image.url }}" alt="{{ sf.images.first.alt_text|default:sf.product.name }}" style="width:100%;height:100%;object-fit:cover;">
+    {% elif sf.product.image %}
+      <img src="{{ sf.product.image.url }}" alt="{{ sf.product.name }}" style="width:100%;height:100%;object-fit:cover;">
+    {% else %}
+      <span style="font-size:54px;opacity:.5;">📦</span>
+    {% endif %}
+  </div>
+  <div style="padding:14px;">
+    <h4 style="margin:0;font-size:15px;color:var(--fg);">{{ sf.product.name }}</h4>
+    {% if sf.short_tagline %}<p style="margin:4px 0 10px;font-size:12px;color:var(--muted);">{{ sf.short_tagline }}</p>{% else %}<div style="height:10px;"></div>{% endif %}
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+      <div>
+        <span style="font-weight:800;font-size:17px;color:var(--fg);">${{ sf.effective_price }}</span>
+        {% if sf.is_on_sale %}<span style="font-size:12px;color:var(--muted);text-decoration:line-through;margin-left:4px;">${{ sf.compare_at_price }}</span>{% endif %}
+      </div>
+      <span style="background:var(--primary);color:#fff;padding:5px 11px;border-radius:6px;font-size:11px;font-weight:700;">View</span>
+    </div>
+  </div>
+</a>

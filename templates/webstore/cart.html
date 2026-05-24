@@ -1,0 +1,9 @@
+{% extends "public_base.html" %}
+{% block title %}Cart — Shop{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 24px;">Your Cart</h1>
+
+<div id="cart-body">
+  {% include "webstore/_cart_body.html" %}
+</div>
+{% endblock %}

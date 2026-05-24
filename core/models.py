@@ -14,6 +14,8 @@ from django.db import models
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
+from webstore.fields import EncryptedCharField
+
 from .numbering import DocumentCounter  # noqa: F401 — register model with the app
 
 
@@ -185,6 +187,15 @@ class WebsiteSettings(models.Model):
     font_family = models.CharField(max_length=100, default="Inter")
     custom_css = models.TextField(blank=True)
 
+    # --- Stripe Connect ---
+    # Filled by the OAuth callback. acct_… IDs are not secret per se but
+    # encrypted anyway so a DB snapshot reveals neither the IDs nor which
+    # tenant owns which account.
+    stripe_account_id = EncryptedCharField(blank=True, default="")
+    stripe_publishable_key = models.CharField(max_length=200, blank=True, default="")
+    stripe_webhook_secret = EncryptedCharField(blank=True, default="")
+    stripe_connected_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         verbose_name = "Website Settings"
         verbose_name_plural = "Website Settings"
@@ -203,6 +214,10 @@ class WebsiteSettings(models.Model):
     def save(self, *args, **kwargs):
         self.singleton_key = 1
         super().save(*args, **kwargs)
+
+    @property
+    def is_stripe_connected(self) -> bool:
+        return bool(self.stripe_account_id)
 
 
 class PageRevision(models.Model):

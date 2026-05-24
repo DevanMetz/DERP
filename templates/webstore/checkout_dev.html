@@ -1,0 +1,41 @@
+{% extends "public_base.html" %}
+{% block title %}Dev Payment — Shop{% endblock %}
+{% block content %}
+<div style="max-width:520px;margin:40px auto;">
+  <div style="background:#fef3c7;border:1px solid #fde68a;color:#92400e;padding:12px 14px;border-radius:8px;margin-bottom:24px;font-size:12.5px;line-height:1.5;">
+    <strong>Dev mode payment simulator.</strong> Stripe isn't configured, so this page stands in for the hosted checkout. Clicking "Complete Payment" runs the same server-side fulfillment the real Stripe webhook triggers — Sales Order, Invoice, Payment, and journal entries are all created.
+  </div>
+
+  <h1 style="margin:0 0 18px;">Confirm payment</h1>
+
+  <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:20px;">
+    <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:6px;">
+      <span>Email</span><span style="color:var(--fg);">{{ checkout.email }}</span>
+    </div>
+    {% if checkout.shipping_address %}
+    <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:6px;gap:16px;">
+      <span>Ship to</span><span style="color:var(--fg);text-align:right;">{{ checkout.shipping_address.one_line }}</span>
+    </div>
+    {% endif %}
+    <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px;">
+      {% for item in checkout.cart_items %}
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
+          <span>{{ item.name }} <span style="color:var(--muted);">× {{ item.qty }}</span></span>
+          <span style="font-weight:700;">${{ item.line_total }}</span>
+        </div>
+      {% endfor %}
+    </div>
+    <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px;display:flex;justify-content:space-between;font-size:16px;">
+      <span style="font-weight:700;">Total</span>
+      <span style="font-weight:800;">${{ checkout.grand_total }}</span>
+    </div>
+  </div>
+
+  <form method="post" action="{% url 'shop_checkout_dev_complete' %}">
+    {% csrf_token %}
+    <input type="hidden" name="token" value="{{ checkout.token }}">
+    <button type="submit" class="btn" style="width:100%;padding:14px;border-radius:8px;border:0;cursor:pointer;font-size:15px;font-weight:700;">Complete Payment (Dev)</button>
+  </form>
+  <a href="{% url 'shop_checkout_cancel' %}?token={{ checkout.token }}" style="display:block;text-align:center;font-size:13px;color:var(--muted);margin-top:12px;">Cancel</a>
+</div>
+{% endblock %}

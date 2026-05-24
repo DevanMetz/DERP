@@ -1,0 +1,22 @@
+{% extends "public_base.html" %}
+{% block title %}{{ category.name }} — Shop{% endblock %}
+{% block content %}
+<nav style="font-size:13px;color:var(--muted);margin-bottom:18px;">
+  <a href="{% url 'shop_index' %}" style="color:var(--muted);">Shop</a> · <span style="color:var(--fg);font-weight:600;">{{ category.name }}</span>
+</nav>
+
+<section style="margin-bottom:32px;">
+  <h1 style="margin:0 0 8px;">{{ category.name }}</h1>
+  {% if category.description %}<p style="max-width:640px;">{{ category.description }}</p>{% endif %}
+</section>
+
+{% if products %}
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
+    {% for sf in products %}{% include "webstore/_product_card.html" with sf=sf %}{% endfor %}
+  </div>
+{% else %}
+  <div style="text-align:center;padding:60px 20px;background:var(--surface);border:1px dashed var(--line);border-radius:12px;color:var(--muted);">
+    <p style="margin:0;">No products in this category yet.</p>
+  </div>
+{% endif %}
+{% endblock %}

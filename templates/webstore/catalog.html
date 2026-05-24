@@ -1,0 +1,44 @@
+{% extends "public_base.html" %}
+{% block title %}Shop — {{ website_settings.brand_name|default:"Store" }}{% endblock %}
+{% block content %}
+<section style="text-align:center;margin-bottom:48px;">
+  <h1 style="margin:0 0 12px;">Shop</h1>
+  <p style="max-width:560px;margin:0 auto;font-size:17px;">Goods made to last — shipped fast, returns easy.</p>
+</section>
+
+{% if categories %}
+<section style="margin-bottom:48px;">
+  <h2 style="margin:0 0 20px;font-size:22px;">Browse by category</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;">
+    {% for c in categories %}
+      <a href="{% url 'shop_category' c.slug %}" style="text-decoration:none;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);aspect-ratio:4/3;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--fg);font-weight:700;padding:14px;text-align:center;transition:transform .15s;">
+        {% if c.image %}<img src="{{ c.image.url }}" alt="{{ c.name }}" style="width:48px;height:48px;object-fit:contain;margin-bottom:8px;">{% else %}<span style="font-size:32px;margin-bottom:8px;">🗂️</span>{% endif %}
+        <span style="font-size:14px;">{{ c.name }}</span>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if featured %}
+<section style="margin-bottom:48px;">
+  <h2 style="margin:0 0 20px;font-size:22px;">Featured</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
+    {% for sf in featured %}{% include "webstore/_product_card.html" with sf=sf %}{% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section>
+  <h2 style="margin:0 0 20px;font-size:22px;">All products</h2>
+  {% if products %}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;">
+      {% for sf in products %}{% include "webstore/_product_card.html" with sf=sf %}{% endfor %}
+    </div>
+  {% else %}
+    <div style="text-align:center;padding:60px 20px;background:var(--surface);border:1px dashed var(--line);border-radius:12px;color:var(--muted);">
+      <p style="margin:0;font-size:15px;">No products yet. <a href="/admin/webstore/productstorefront/add/" style="color:var(--primary);font-weight:600;">Add one in the admin →</a></p>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

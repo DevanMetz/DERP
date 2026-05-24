@@ -12,6 +12,9 @@ urlpatterns = [
     path("", core_views.public_home, name="public_home"),
     path("p/<slug:slug>/", core_views.public_page, name="public_page"),
 
+    # Public storefront
+    path("", include("webstore.urls")),
+
     # Administrative ERP modules prefixed with /derp/
     path("derp/", include("core.urls")),
     path("derp/", include("accounting.urls")),

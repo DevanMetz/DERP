@@ -92,4 +92,69 @@
       </div>
     </form>
   </div>
+
+  <!-- Stripe Connect -->
+  <div class="card" style="border-radius: 12px; box-shadow: var(--shadow); max-width: 800px; margin: 24px auto 0;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+      <div>
+        <h2 style="margin:0;font-size:18px;display:flex;align-items:center;gap:8px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="#635bff"><path d="M2 8.5C2 5.46 4.46 3 7.5 3h9C19.54 3 22 5.46 22 8.5v7c0 3.04-2.46 5.5-5.5 5.5h-9C4.46 21 2 18.54 2 15.5v-7z" opacity=".15"/><path d="M13.5 9.42c0-.41.34-.74.75-.74.92 0 2.07.27 2.99.78l.71-2.32C16.96 6.59 15.67 6.3 14.27 6.3c-2.27 0-3.85 1.18-3.85 3.1 0 3.04 4.17 2.56 4.17 3.86 0 .49-.42.78-1.01.78-1.07 0-2.43-.43-3.45-1.02l-.7 2.36c1.14.66 2.6.95 4.13.95 2.34 0 4.04-1.16 4.04-3.16-.01-3.31-4.1-2.74-4.1-4.05z"/></svg>
+          Stripe Payments
+        </h2>
+        <p class="text-subtle" style="margin: 4px 0 0; font-size: 12px;">Connect your Stripe account to accept payments through your storefront. Funds go directly to your Stripe balance.</p>
+      </div>
+      {% if website_settings.is_stripe_connected %}
+        <span style="background:#dcfce7;color:#15803d;font-size:11px;font-weight:700;padding:5px 11px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em;">Connected</span>
+      {% else %}
+        <span style="background:#fef3c7;color:#92400e;font-size:11px;font-weight:700;padding:5px 11px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em;">Not Connected</span>
+      {% endif %}
+    </div>
+
+    {% if not website_settings.is_stripe_connected %}
+      <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">Step 1: link your Stripe account through OAuth. Stripe handles signup if you don't have one yet.</p>
+      <a href="{% url 'stripe_connect_start' %}" class="btn" style="background:#635bff;border-color:#635bff;border-radius:8px;font-weight:bold;display:inline-block;">Connect with Stripe</a>
+    {% else %}
+      <div style="background: var(--surface-subtle); border: 1px solid var(--line-soft); border-radius: 8px; padding: 14px; margin-bottom: 16px; font-size: 13px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <span style="color:var(--muted);">Account</span>
+          <span style="font-family:monospace;font-size:12px;">{{ website_settings.stripe_account_id|slice:":8" }}…{{ website_settings.stripe_account_id|slice:"-4:" }}</span>
+        </div>
+        {% if website_settings.stripe_connected_at %}
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <span style="color:var(--muted);">Connected</span>
+          <span>{{ website_settings.stripe_connected_at|date:"M d, Y" }}</span>
+        </div>
+        {% endif %}
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:var(--muted);">Webhook Secret</span>
+          <span>{% if website_settings.stripe_webhook_secret %}<span style="color:#15803d;">✓ Configured</span>{% else %}<span style="color:#b42318;">⚠ Missing</span>{% endif %}</span>
+        </div>
+      </div>
+
+      <details style="margin-bottom: 16px;">
+        <summary style="cursor:pointer;font-weight:700;font-size:13px;color:var(--fg);padding:8px 0;">Step 2: Webhook Signing Secret {% if not website_settings.stripe_webhook_secret %}<span style="color:#b42318;">(required)</span>{% endif %}</summary>
+        <div style="padding: 12px 0 0;">
+          <p style="font-size: 12.5px; color: var(--muted); line-height: 1.5; margin-bottom: 12px;">
+            In your <a href="https://dashboard.stripe.com/webhooks" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600;">Stripe Dashboard → Developers → Webhooks</a>, add an endpoint pointing to:
+          </p>
+          <div style="background: #0f172a; color: #cbd5e1; padding: 10px 12px; border-radius: 6px; font-family: monospace; font-size: 12px; margin-bottom: 12px; word-break: break-all;">
+            {{ request.scheme }}://{{ request.get_host }}{% url 'shop_stripe_webhook' %}
+          </div>
+          <p style="font-size: 12.5px; color: var(--muted); line-height: 1.5; margin-bottom: 12px;">Select the event <code style="background:var(--surface-subtle);padding:2px 6px;border-radius:4px;">checkout.session.completed</code>. After creation, copy the <strong>Signing secret</strong> (starts with <code>whsec_</code>) and paste it below.</p>
+
+          <form method="post" action="{% url 'stripe_save_webhook_secret' %}" style="display: flex; gap: 8px;">
+            {% csrf_token %}
+            <input type="password" name="webhook_secret" placeholder="whsec_..." autocomplete="off" spellcheck="false" style="flex:1; padding: 10px; border: 1px solid var(--line); border-radius: 6px; font-family: monospace; font-size: 13px;" required>
+            <button type="submit" class="btn" style="border-radius: 6px; font-weight: bold; padding: 10px 20px;">Save</button>
+          </form>
+          <p style="font-size: 11px; color: var(--muted); margin-top: 6px;">Stored encrypted at rest. Only the verification logic ever reads it.</p>
+        </div>
+      </details>
+
+      <form method="post" action="{% url 'stripe_disconnect' %}" onsubmit="return confirm('Disconnect Stripe? Customers will no longer be able to check out until reconnected.');" style="border-top: 1px solid var(--line-soft); padding-top: 14px;">
+        {% csrf_token %}
+        <button type="submit" class="btn secondary" style="border-radius: 6px; color: #b42318; border-color: #fecdca; font-weight: 600;">Disconnect Stripe</button>
+      </form>
+    {% endif %}
+  </div>
 {% endblock %}

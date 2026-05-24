@@ -1,0 +1,13 @@
+{% extends "public_base.html" %}
+{% block title %}Checkout Cancelled — Shop{% endblock %}
+{% block content %}
+<div style="max-width:520px;margin:60px auto;text-align:center;">
+  <div style="width:64px;height:64px;border-radius:50%;background:#fef3c7;color:#92400e;display:inline-flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:16px;">↩</div>
+  <h1 style="margin:0 0 8px;">Checkout cancelled</h1>
+  <p style="color:var(--muted);font-size:15px;">No charge was made. Your cart is still here whenever you're ready.</p>
+  <div style="margin-top:24px;display:flex;gap:10px;justify-content:center;">
+    <a href="{% url 'shop_cart' %}" class="btn" style="padding:12px 22px;border-radius:8px;">Return to Cart</a>
+    <a href="{% url 'shop_index' %}" style="padding:12px 22px;border:1px solid var(--line);border-radius:8px;color:var(--fg);">Keep Shopping</a>
+  </div>
+</div>
+{% endblock %}

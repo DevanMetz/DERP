@@ -69,6 +69,7 @@ TENANT_APPS = [
     "purchasing",
     "manufacturing",
     "projects",
+    "webstore",
 ]
 
 INSTALLED_APPS = list(dict.fromkeys(SHARED_APPS + TENANT_APPS))
@@ -109,6 +110,7 @@ TEMPLATES = [{
             "django.contrib.auth.context_processors.auth",
             "django.contrib.messages.context_processors.messages",
             "core.context_processors.website_context",
+            "webstore.context_processors.cart_summary",
         ],
     },
 }]
@@ -196,3 +198,24 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
+# --- Webstore / Stripe Connect (Standard accounts) ---
+# Platform-level keys: used ONLY to mint OAuth tokens. Every charge is
+# routed to a tenant's connected acct_… account, so tenant funds never
+# land in the platform balance.
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
+STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
+STRIPE_CONNECT_CLIENT_ID = os.environ.get("STRIPE_CONNECT_CLIENT_ID", "")
+
+# Per-tenant webhook secrets live on WebsiteSettings (encrypted at rest).
+# Each tenant registers their own webhook in their Stripe dashboard.
+
+# Key used to derive Fernet-encrypted column values. Rotate via a custom
+# command that re-encrypts each row. Falls back to SECRET_KEY if unset,
+# but a dedicated value is strongly preferred so the two can rotate
+# independently.
+FIELD_ENCRYPTION_KEY = os.environ.get("FIELD_ENCRYPTION_KEY", "")
+
+# Chart-of-accounts code for the cash account that receives online sales.
+# Defaults to "1010" (seeded default checking).
+WEBSTORE_CASH_ACCOUNT_CODE = os.environ.get("WEBSTORE_CASH_ACCOUNT_CODE", "1010")

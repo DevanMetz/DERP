@@ -35,6 +35,17 @@
     <form method="post" autocomplete="off">
       {% csrf_token %}
       
+      {% if is_create %}
+      <div style="background: var(--surface-subtle); border: 1px solid var(--line-soft); border-radius: 8px; padding: 12px 16px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+        <span style="font-weight: bold; font-size: 13px; color: var(--muted);">🚀 Pre-populate from Template:</span>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn secondary" onclick="loadTemplate('home')" style="min-height: 30px; font-size: 12px; padding: 4px 10px; border-radius: 6px;">Home Page</button>
+          <button type="button" class="btn secondary" onclick="loadTemplate('about')" style="min-height: 30px; font-size: 12px; padding: 4px 10px; border-radius: 6px;">About Us</button>
+          <button type="button" class="btn secondary" onclick="loadTemplate('contact')" style="min-height: 30px; font-size: 12px; padding: 4px 10px; border-radius: 6px;">Contact Us</button>
+        </div>
+      </div>
+      {% endif %}
+
       {% if form.non_field_errors %}
         <div class="errorlist">
           {{ form.non_field_errors }}
@@ -87,4 +98,109 @@
       </div>
     </form>
   </div>
+
+  {% if is_create %}
+  <script>
+    const TEMPLATES = {
+      home: {
+        title: "Home Landing Page",
+        slug: "home",
+        is_homepage: true,
+        is_published: true,
+        html: `<section style="text-align: center; padding: 40px 0;">
+  <h1>Leading the Future of Modern Business</h1>
+  <p>We provide state-of-the-art enterprise resource planning, logistics management, and financial analytics solutions tailored for your business growth.</p>
+  <div style="margin-top: 30px;">
+    <a href="/p/about-us/" class="btn" style="padding: 12px 24px; font-size: 16px; margin-right: 12px; border-radius: 8px;">Learn About Us</a>
+    <a href="/p/contact/" class="btn secondary" style="padding: 12px 24px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px;">Get in Touch</a>
+  </div>
+</section>
+
+<section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 60px;">
+  <div style="background: var(--surface); padding: 24px; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);">
+    <span style="font-size: 32px;">📊</span>
+    <h3>Financial Intelligence</h3>
+    <p style="font-size: 14px; margin: 10px 0 0;">Gain absolute control over your general ledger, income statements, and balance sheets in real time.</p>
+  </div>
+  <div style="background: var(--surface); padding: 24px; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);">
+    <span style="font-size: 32px;">📦</span>
+    <h3>Inventory & Operations</h3>
+    <p style="font-size: 14px; margin: 10px 0 0;">Automate warehouse logistics, lot tracking, transfers, and real-time stock valuation reporting.</p>
+  </div>
+  <div style="background: var(--surface); padding: 24px; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);">
+    <span style="font-size: 32px;">🚀</span>
+    <h3>Production & Manufacturing</h3>
+    <p style="font-size: 14px; margin: 10px 0 0;">Streamline your bill of materials, schedule production orders, and optimize shop floor execution.</p>
+  </div>
+</section>`
+      },
+      about: {
+        title: "About Us",
+        slug: "about-us",
+        is_homepage: false,
+        is_published: true,
+        html: `<section style="max-width: 800px; margin: 0 auto;">
+  <h1>About Our Company</h1>
+  <p>Founded on a vision of absolute operational efficiency, we have spent the past decade pioneering integrated software solutions that connect every department—from accounting to the manufacturing floor.</p>
+  
+  <h2>Our Mission</h2>
+  <p>To empower businesses around the globe with real-time analytics, automated workflows, and robust financial tracking systems that remove friction and drive sustainable growth.</p>
+  
+  <h2>Our Core Values</h2>
+  <ul>
+    <li><strong>Relational Integrity</strong>: Absolute accuracy in transaction records and relational data.</li>
+    <li><strong>Innovation</strong>: Modern tools and AI-assisted copiloting to accelerate business execution.</li>
+    <li><strong>Operational Excellence</strong>: Seamless coordination between warehouses, suppliers, and buyers.</li>
+  </ul>
+</section>`
+      },
+      contact: {
+        title: "Contact Us",
+        slug: "contact",
+        is_homepage: false,
+        is_published: true,
+        html: `<section style="max-width: 600px; margin: 0 auto;">
+  <h1>Contact Us</h1>
+  <p>Have questions about our enterprise solutions or want to request a custom demonstration? We would love to hear from you!</p>
+  
+  <div style="background: var(--surface); padding: 24px; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); margin-top: 30px;">
+    <h2>Send a Message</h2>
+    <form onsubmit="event.preventDefault(); alert('Thank you! Your message has been submitted. A sales associate will contact you shortly.'); this.reset();" style="display: grid; gap: 16px; margin-top: 20px;">
+      <div>
+        <label style="display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px;">Your Name</label>
+        <input type="text" required style="width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px;">
+      </div>
+      <div>
+        <label style="display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px;">Email Address</label>
+        <input type="email" required style="width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px;">
+      </div>
+      <div>
+        <label style="display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px;">Message</label>
+        <textarea required style="width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px; min-height: 120px;"></textarea>
+      </div>
+      <button type="submit" class="btn" style="width: 100%; padding: 12px; border: 0; cursor: pointer; border-radius: 8px;">Send Message</button>
+    </form>
+  </div>
+</section>`
+      }
+    };
+
+    function loadTemplate(key) {
+      const t = TEMPLATES[key];
+      if (!t) return;
+      
+      const titleInput = document.getElementById("id_title");
+      const slugInput = document.getElementById("id_slug");
+      const htmlInput = document.getElementById("id_html_content");
+      const homepageCheckbox = document.getElementById("id_is_homepage");
+      const publishedCheckbox = document.getElementById("id_is_published");
+      
+      if (titleInput) titleInput.value = t.title;
+      if (slugInput) slugInput.value = t.slug;
+      if (htmlInput) htmlInput.value = t.html;
+      if (homepageCheckbox) homepageCheckbox.checked = t.is_homepage;
+      if (publishedCheckbox) publishedCheckbox.checked = t.is_published;
+    }
+  </script>
+  {% endif %}
 {% endblock %}

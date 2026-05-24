@@ -199,16 +199,19 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
-# --- Webstore / Stripe Connect (Standard accounts) ---
-# Platform-level keys: used ONLY to mint OAuth tokens. Every charge is
-# routed to a tenant's connected acct_… account, so tenant funds never
-# land in the platform balance.
+# --- Webstore / Stripe Connect (V2 Accounts) ---
+# Platform-level credentials. Every charge is routed to a tenant's
+# connected acct_… account via the Stripe-Account header, so tenant
+# funds settle into the tenant's Stripe balance — never the platform's
+# (except for `application_fee_amount`, which is platform revenue).
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
-STRIPE_CONNECT_CLIENT_ID = os.environ.get("STRIPE_CONNECT_CLIENT_ID", "")
 
-# Per-tenant webhook secrets live on WebsiteSettings (encrypted at rest).
-# Each tenant registers their own webhook in their Stripe dashboard.
+# Webhook signing secret for the *single platform-wide* webhook
+# destination that receives thin events for every connected account.
+# Get it from https://dashboard.stripe.com/webhooks after creating the
+# destination — see docs/webstore.md for the exact event selection.
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
 # Key used to derive Fernet-encrypted column values. Rotate via a custom
 # command that re-encrypts each row. Falls back to SECRET_KEY if unset,

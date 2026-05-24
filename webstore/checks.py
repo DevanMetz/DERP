@@ -1,8 +1,9 @@
 """Startup checks for the webstore app.
 
-Registered against Django's `system_check` framework so misconfigured prod
-deploys fail fast (at `manage.py runserver` / `migrate` / `check`) rather
-than silently mis-encrypting secrets or accepting unauthenticated webhooks.
+Registered against Django's `system_check` framework so misconfigured
+prod deploys fail fast (at `manage.py runserver` / `migrate` / `check`)
+rather than silently mis-encrypting secrets or accepting unverified
+webhooks.
 """
 from django.conf import settings
 from django.core.checks import Error, Warning, register
@@ -19,31 +20,34 @@ def stripe_and_encryption_checks(app_configs, **kwargs):
             "FIELD_ENCRYPTION_KEY is not set in production.",
             hint=(
                 "Encrypted columns will fall back to deriving the key from "
-                "SECRET_KEY. That works, but it ties the encryption key to "
-                "Django's session/CSRF secret — rotating one forces rotating "
-                "the other. Set a separate FIELD_ENCRYPTION_KEY env var "
-                "(any high-entropy random string) so they can rotate "
-                "independently."
+                "SECRET_KEY. That works, but ties the encryption key to "
+                "Django's session/CSRF secret — rotating one forces "
+                "rotating the other. Generate a dedicated value:\n"
+                "  python -c \"import secrets; print(secrets.token_urlsafe(48))\"\n"
+                "Then set it as FIELD_ENCRYPTION_KEY in your environment."
             ),
             id="webstore.E001",
         ))
 
-    has_secret = bool(getattr(settings, "STRIPE_SECRET_KEY", ""))
-    has_client_id = bool(getattr(settings, "STRIPE_CONNECT_CLIENT_ID", ""))
+    secret = getattr(settings, "STRIPE_SECRET_KEY", "")
+    webhook_secret = getattr(settings, "STRIPE_WEBHOOK_SECRET", "")
 
-    if not debug and (has_secret ^ has_client_id):
-        # One set but not the other — partial config is worse than none.
-        issues.append(Error(
-            "Stripe Connect is half-configured.",
+    if not debug and secret and not webhook_secret:
+        issues.append(Warning(
+            "STRIPE_SECRET_KEY is set but STRIPE_WEBHOOK_SECRET is missing.",
             hint=(
-                "STRIPE_SECRET_KEY and STRIPE_CONNECT_CLIENT_ID must both "
-                "be set (for OAuth to work) or both unset (to disable "
-                "Connect onboarding). Currently only one is present."
+                "Connected-account status updates rely on Stripe webhooks. "
+                "Without STRIPE_WEBHOOK_SECRET we cannot verify incoming "
+                "events. Create a webhook destination in your Stripe "
+                "Dashboard (Developers → Webhooks → Add destination), "
+                "subscribe to v2.core.account[requirements].updated and "
+                "the v2 capability events, then paste the signing secret "
+                "into STRIPE_WEBHOOK_SECRET."
             ),
-            id="webstore.E002",
+            id="webstore.W002",
         ))
 
-    if debug and has_secret and getattr(settings, "STRIPE_SECRET_KEY", "").startswith("sk_live_"):
+    if debug and secret and secret.startswith("sk_live_"):
         issues.append(Warning(
             "Live Stripe key in use while DEBUG=True.",
             hint=(

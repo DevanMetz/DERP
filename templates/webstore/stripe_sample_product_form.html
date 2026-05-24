@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Add Stripe Product — {{ company.name|default:"DERP" }}{% endblock %}
+{% block content %}
+  <div class="page-header" style="margin-bottom: 24px;">
+    <div>
+      <span class="text-subtle" style="font-weight: bold; text-transform: uppercase; font-size: 11px;">Stripe Sample</span>
+      <h1 style="margin-top: 4px;">Add a Product</h1>
+      <p class="text-subtle">Creates a Product + Price on your connected Stripe account using the <code>Stripe-Account</code> header.</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn secondary" href="{% url 'website_settings' %}">Back to Settings</a>
+      <a class="btn secondary" href="{% url 'stripe_sample_storefront' stripe_account_id %}" target="_blank" rel="noopener">View Storefront ↗</a>
+    </div>
+  </div>
+
+  <div class="card" style="border-radius: 12px; box-shadow: var(--shadow); max-width: 640px; margin: 0 auto;">
+    <form method="post" autocomplete="off">
+      {% csrf_token %}
+
+      <div style="margin-bottom: 18px;">
+        <label for="name" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
+          Product Name <span style="color: var(--err);">*</span>
+        </label>
+        <input type="text" name="name" id="name" required maxlength="200" placeholder="e.g. Studio Hand Soap" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:6px;font-size:14px;font-family:inherit;">
+      </div>
+
+      <div style="margin-bottom: 18px;">
+        <label for="description" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">Description</label>
+        <textarea name="description" id="description" rows="3" maxlength="500" placeholder="Optional — shown on the product page and in the Stripe dashboard." style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:6px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+        <div>
+          <label for="price" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
+            Price <span style="color: var(--err);">*</span>
+          </label>
+          <input type="number" name="price" id="price" required step="0.01" min="0.01" placeholder="19.99" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:6px;font-size:14px;font-family:inherit;">
+          <span class="text-subtle" style="display:block;margin-top:4px;font-size:11px;">Decimal — server converts to cents.</span>
+        </div>
+        <div>
+          <label for="currency" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">Currency</label>
+          <input type="text" name="currency" id="currency" maxlength="3" value="usd" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:6px;font-size:14px;font-family:inherit;text-transform:lowercase;">
+          <span class="text-subtle" style="display:block;margin-top:4px;font-size:11px;">3-letter ISO code (usd, eur, gbp…).</span>
+        </div>
+      </div>
+
+      <div class="action-row" style="border-top: 1px solid var(--line-soft); padding-top: 16px; display: flex; justify-content: flex-end; gap: 12px;">
+        <a class="btn secondary" href="{% url 'website_settings' %}" style="border-radius: 8px;">Cancel</a>
+        <button class="btn" type="submit" style="border-radius: 8px; font-weight: bold; background: var(--accent); border-color: var(--accent);">Create Product</button>
+      </div>
+    </form>
+  </div>
+
+  <div style="max-width: 640px; margin: 18px auto 0; font-size: 12px; color: var(--muted); padding: 12px 16px; background: var(--surface-subtle); border-radius: 8px; line-height: 1.5;">
+    <strong style="color:var(--fg);">What happens when you submit:</strong> the server calls <code>stripeClient.v1.products.create(..., options={"stripe_account": "{{ stripe_account_id|slice:":12" }}…"})</code>. The product lives on your connected account, not the platform.
+  </div>
+{% endblock %}

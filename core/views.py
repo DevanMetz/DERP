@@ -1051,8 +1051,27 @@ def website_settings_view(request):
     else:
         form = WebsiteSettingsForm(instance=settings_instance)
 
+    # Pull live Stripe account status from the API whenever we render
+    # the settings page. Per the V2 spec we never cache this — capability
+    # and requirements state can change at any time.
+    account_status = None
+    if settings_instance.stripe_account_id:
+        try:
+            from webstore import stripe_service
+            if stripe_service.platform_is_configured():
+                account_status = stripe_service.retrieve_account_status(
+                    settings_instance.stripe_account_id
+                )
+        except Exception:
+            # Log-and-continue so a Stripe outage doesn't black out the
+            # settings page; the template degrades to the "Onboarding
+            # incomplete" pill until the next render.
+            import logging
+            logging.getLogger(__name__).exception("Failed to retrieve Stripe account status")
+
     return render(request, "core/website_settings.html", {
         "form": form,
         "company": Company.get(),
+        "account_status": account_status,
     })
 

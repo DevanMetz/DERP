@@ -44,17 +44,19 @@ Most ERP systems are either expensive SaaS products or large enterprise platform
 - **Local Draft Autosave**: 15-second autosave to `localStorage` with a recovery toast on reopen.
 - **Advanced SEO Controls**: Custom keyword tags, meta summaries, Open Graph sharing cards, and character counters.
 
-### Webstore & Stripe Connect Payments
+### Webstore & Stripe Connect Payments (V2 Accounts)
 
 - **Catalog & PDP**: Public storefront under `/shop/` with category listings, product detail pages, image galleries, sale pricing (strike-through compare-at), and a Featured product strip.
 - **Session Cart with HTMX**: Add to cart, change quantities, and remove items without page reloads. Live cart badge in the public header.
-- **Multi-Tenant Stripe Connect (Standard Accounts)**: Each tenant connects their own Stripe account via OAuth — charges land in their balance, never the platform's.
-- **Tenant-Owned Webhooks**: Each tenant registers their own `checkout.session.completed` webhook on their own subdomain.
-- **Column-Level Encryption**: `acct_…` IDs and `whsec_…` signing secrets stored Fernet-encrypted on `WebsiteSettings`.
+- **Multi-Tenant Stripe Connect (V2 Accounts API)**: Platform creates connected accounts on the tenant's behalf via `v2.core.accounts.create()`; Account Links drive Stripe-hosted onboarding. Funds settle into the tenant's Stripe balance via `Stripe-Account` header routing.
+- **Single Platform Webhook**: One destination handles thin events for every connected account (`v2.core.account[requirements].updated`, `v2.core.account[configuration.*].capability_status_updated`, `checkout.session.completed`). Signature verification on every event.
+- **Sample Storefront**: A canonical-Connect example storefront at `/sample/store/<account_id>/` that lists products fetched live from Stripe with full code comments demonstrating the `Stripe-Account` pattern.
+- **Live Status Resolution**: Connected account state (capabilities, requirements) is always retrieved from Stripe on render — never cached. Tenants see authoritative status on every settings-page load.
+- **Column-Level Encryption**: `acct_…` IDs stored Fernet-encrypted on `WebsiteSettings`.
 - **Integrated ERP Posting**: `complete_checkout()` atomically creates a `Customer` (matched by email), `SalesOrder` → `Invoice` (posted with full GL impact) → `Payment` with `PaymentApplication`, reusing the existing service-layer functions.
 - **Idempotent Webhook Handler**: Safe under Stripe's retry behavior; re-running with the same checkout is a no-op.
 - **Dev-Mode Simulator**: Before Stripe is configured, checkout redirects to a manual "Complete Payment (Dev)" button that exercises the full ERP wiring without charging real cards.
-- **Startup Hardening**: Django system checks fail prod deploys if `FIELD_ENCRYPTION_KEY` is unset or Stripe Connect config is partial; warns in dev if a live key is loaded.
+- **Startup Hardening**: Django system checks fail prod deploys if `FIELD_ENCRYPTION_KEY` is unset; warns when `STRIPE_WEBHOOK_SECRET` is missing or when a live key is loaded in dev.
 
 See [docs/webstore.md](docs/webstore.md) for the full onboarding flow, models, and security model.
 
@@ -283,7 +285,7 @@ Go to [inventorymanager.xyz](https://inventorymanager.xyz), create a workspace, 
 | `DEFAULT_FROM_EMAIL` | Outbound email sender | `noreply@inventorymanager.xyz` |
 | `STRIPE_SECRET_KEY` | Platform key for Stripe Connect OAuth (never charges money) | empty |
 | `STRIPE_PUBLISHABLE_KEY` | Platform publishable key (reserved) | empty |
-| `STRIPE_CONNECT_CLIENT_ID` | Connect app `ca_…` for OAuth | empty |
+| `STRIPE_WEBHOOK_SECRET` | Single platform webhook signing secret (`whsec_…`) | empty |
 | `FIELD_ENCRYPTION_KEY` | Fernet key for column-level encryption (per-tenant Stripe secrets) | falls back to `SECRET_KEY` |
 | `WEBSTORE_CASH_ACCOUNT_CODE` | Asset account code that receives online sales | `1010` |
 
@@ -348,8 +350,9 @@ python manage.py test core
 | Storefront | `/shop/`, `/shop/c/<slug>/`, `/shop/p/<slug>/` |
 | Cart | `/shop/cart/`, `/shop/cart/add/<id>/`, `/shop/cart/update/<id>/`, `/shop/cart/remove/<id>/` |
 | Checkout | `/shop/checkout/`, `/shop/checkout/success/`, `/shop/checkout/cancel/`, `/shop/checkout/dev/` |
-| Stripe webhook | `/shop/webhooks/stripe/` (signature-verified, per-tenant) |
-| Stripe Connect (admin) | `/derp/stripe/connect/`, `/derp/stripe/callback/`, `/derp/stripe/disconnect/`, `/derp/stripe/webhook-secret/` |
+| Stripe webhook | `/shop/webhooks/stripe/` (one platform-wide destination, thin events) |
+| Stripe Connect (admin) | `/derp/stripe/onboard/`, `/derp/stripe/return/`, `/derp/stripe/disconnect/`, `/derp/stripe/sample/products/new/` |
+| Stripe sample storefront | `/sample/store/<account_id>/`, `/sample/store/<account_id>/checkout/<product_id>/`, `/sample/store/<account_id>/success/` |
 
 ## Development Notes
 
@@ -371,8 +374,8 @@ python manage.py test core
 - Tenant data is separated by PostgreSQL schema.
 - Per-tenant row caps and per-user write rate limits (100/min) prevent a single tenant from filling shared storage with junk data. See `core/limits.py`.
 - AI copilot writes go through a preview → signed action token (30 min TTL) → confirm flow; nothing is created without an explicit second click. Every chat, preview, and confirm is logged in `core_copilotauditevent` per tenant.
-- Stripe Connect secrets (`acct_…`, `whsec_…`) are stored Fernet-encrypted at the column level via `webstore.fields.EncryptedCharField`; the platform never holds tenant funds because charges route through `stripe_account=…` against each tenant's connected account.
-- Per-tenant webhook signing secrets verify every Stripe webhook before any ERP write; mis-signed payloads are rejected with HTTP 400.
+- Stripe Connect uses the V2 Accounts API. Connected account IDs (`acct_…`) are stored Fernet-encrypted at the column level via `webstore.fields.EncryptedCharField`. Charges route through the `Stripe-Account` header so funds settle in the tenant's Stripe balance, never the platform's (apart from `application_fee_amount`).
+- A single platform webhook destination handles thin events for every connected account. The shared `STRIPE_WEBHOOK_SECRET` verifies every payload; tampered events are rejected with HTTP 400 before any ERP write.
 - Startup checks fail prod deploys if `FIELD_ENCRYPTION_KEY` is unset or Stripe Connect is half-configured.
 
 ## License

@@ -39,9 +39,9 @@ Required only if you want tenants to accept payments through the storefront. See
 
 | Variable | Purpose |
 | --- | --- |
-| `STRIPE_SECRET_KEY` | Platform key for Connect OAuth (never charges money) |
-| `STRIPE_PUBLISHABLE_KEY` | Platform publishable key (reserved) |
-| `STRIPE_CONNECT_CLIENT_ID` | Your Connect app's `ca_…` |
+| `STRIPE_SECRET_KEY` | Platform key — mints V2 connected accounts and signs every API call |
+| `STRIPE_PUBLISHABLE_KEY` | Platform publishable key (reserved for future embedded use) |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret for the single platform-wide webhook destination |
 | `FIELD_ENCRYPTION_KEY` | Fernet key for column-level encryption. Generate once with `python -c "import secrets; print(secrets.token_urlsafe(48))"` and back it up in your password manager — losing it makes every encrypted row unrecoverable |
 | `WEBSTORE_CASH_ACCOUNT_CODE` | Chart-of-accounts code that receives online sales (defaults to `1010`) |
 
@@ -55,8 +55,8 @@ python manage.py check
 
 This guards against:
 - `webstore.E001` — `FIELD_ENCRYPTION_KEY` unset when `DEBUG=False`
-- `webstore.E002` — Stripe Connect half-configured (one of `STRIPE_SECRET_KEY` / `STRIPE_CONNECT_CLIENT_ID` set without the other)
-- `webstore.W001` — live Stripe key in use while `DEBUG=True`
+- `webstore.W001` — live Stripe key (`sk_live_`) loaded while `DEBUG=True`
+- `webstore.W002` — `STRIPE_SECRET_KEY` set but `STRIPE_WEBHOOK_SECRET` missing (status sync and ERP fulfillment can't run)
 
 ## Migrations
 

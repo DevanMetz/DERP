@@ -28,15 +28,35 @@ Most ERP systems are either expensive SaaS products or large enterprise platform
 - Subdomain routing: `django-tenants` maps each request to the correct tenant schema.
 - Public landing/signup routes are separated from tenant workspace routes.
 
-### Public Tenant Website & Drag-and-Drop Page Builder
+### Public Tenant Website & Full-Viewport Page Builder
 
 - **Root Domain Isolation**: The entire ERP lives under the `/derp/` subpath prefix, serving the public website directly on the root domain `/`.
-- **Drag-and-Drop Page Builder**: An interactive visual split-screen workspace to drag block modules (Hero Banner, Features Grid, Pricing Cards, Stats Banner, FAQ List, Simple Text, CTA Section) and assemble landing pages.
+- **Full-Viewport WYSIWYG Editor**: An immersive page builder with a slim top bar, collapsible left tool rail (Blocks · Inspector · Page · SEO · History · Code), and the live preview itself as the editing canvas.
+- **Viewport Switcher**: Desktop / Tablet (820px) / Mobile (390px) with animated transitions to verify responsive behavior in place.
+- **Block Library**: 19 block types covering Hero, Features, Pricing, Stats, FAQ, CTA, Text, Image+Text, Testimonials, Logo Cloud, Team, Contact Form, Newsletter, Gallery, Video, plus a dedicated Webstore group (Product Grid, Featured Product, Shop Benefits, Categories).
 - **Inline Text Editing**: Click directly on headings, paragraphs, buttons, list items, or links on the canvas and start typing copy in-place.
-- **Bi-directional HTML Parser**: Toggle between raw HTML code and the visual block canvas builder seamlessly while keeping the generated code clean.
-- **Global Theme Settings**: CENTRALized customization of Website Brand Name, Logo Image links, Google Fonts selectors (Inter, Roboto, Outfit, Poppins, Playfair Display), HSL Brand Colors via pickers, and a global custom CSS block.
-- **Page Revision History**: Chronological database-backed `PageRevision` log to record backups on save and restore past versions with 1 click.
-- **Advanced SEO Controls**: Custom subpage keyword tags, meta summaries, Open Graph sharing cards, and character counters.
+- **Drag-and-Drop with Live Drop Indicator**: Drag block cards into the iframe canvas; a blue insertion line shows the exact landing position.
+- **Per-Section Inspector**: Click any section to open style controls — padding slider, border radius, background presets, text alignment, move up/down, delete.
+- **Bi-directional HTML Parser**: Toggle between raw HTML code and the visual canvas seamlessly.
+- **Quick-Start Templates**: One-click scaffolds for Home, About, Contact, or a full Webstore Landing page.
+- **Global Theme Settings**: Centralized customization of Website Brand Name, Logo Image, Google Fonts selectors (Inter, Roboto, Outfit, Poppins, Playfair Display), HSL Brand Colors, and a global custom CSS block.
+- **Page Revision History**: Chronological `PageRevision` log to record backups on save and restore past versions with one click.
+- **Local Draft Autosave**: 15-second autosave to `localStorage` with a recovery toast on reopen.
+- **Advanced SEO Controls**: Custom keyword tags, meta summaries, Open Graph sharing cards, and character counters.
+
+### Webstore & Stripe Connect Payments
+
+- **Catalog & PDP**: Public storefront under `/shop/` with category listings, product detail pages, image galleries, sale pricing (strike-through compare-at), and a Featured product strip.
+- **Session Cart with HTMX**: Add to cart, change quantities, and remove items without page reloads. Live cart badge in the public header.
+- **Multi-Tenant Stripe Connect (Standard Accounts)**: Each tenant connects their own Stripe account via OAuth — charges land in their balance, never the platform's.
+- **Tenant-Owned Webhooks**: Each tenant registers their own `checkout.session.completed` webhook on their own subdomain.
+- **Column-Level Encryption**: `acct_…` IDs and `whsec_…` signing secrets stored Fernet-encrypted on `WebsiteSettings`.
+- **Integrated ERP Posting**: `complete_checkout()` atomically creates a `Customer` (matched by email), `SalesOrder` → `Invoice` (posted with full GL impact) → `Payment` with `PaymentApplication`, reusing the existing service-layer functions.
+- **Idempotent Webhook Handler**: Safe under Stripe's retry behavior; re-running with the same checkout is a no-op.
+- **Dev-Mode Simulator**: Before Stripe is configured, checkout redirects to a manual "Complete Payment (Dev)" button that exercises the full ERP wiring without charging real cards.
+- **Startup Hardening**: Django system checks fail prod deploys if `FIELD_ENCRYPTION_KEY` is unset or Stripe Connect config is partial; warns in dev if a live key is loaded.
+
+See [docs/webstore.md](docs/webstore.md) for the full onboarding flow, models, and security model.
 
 ### Workspace and Navigation
 
@@ -138,6 +158,8 @@ See [docs/ai-copilot.md](docs/ai-copilot.md) for the full feature list, examples
 | MFA support | django-allauth MFA, fido2 |
 | Audit history | django-simple-history |
 | HTMX support | django-htmx |
+| Payments | Stripe (Connect Standard accounts) |
+| Encryption | cryptography (Fernet for column-level secrets) |
 | Password hashing | Argon2 |
 | PDF generation | ReportLab |
 | Image handling | Pillow |
@@ -157,6 +179,7 @@ inventory/          Products, stock movements, stock-on-hand, costing logic
 sales/              Customers, sales orders, invoices, customer payments
 purchasing/         Vendors, purchase orders, goods receipts, bills, vendor payments
 manufacturing/      BOMs, BOM components, manufacturing orders
+webstore/           Public storefront, cart, checkout, Stripe Connect integration
 projects/           Project app placeholder
 templates/          Server-rendered Django templates
 media/              Runtime-uploaded media files
@@ -258,6 +281,11 @@ Go to [inventorymanager.xyz](https://inventorymanager.xyz), create a workspace, 
 | `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret key | empty |
 | `RESEND_API_KEY` | Resend SMTP/API key | empty |
 | `DEFAULT_FROM_EMAIL` | Outbound email sender | `noreply@inventorymanager.xyz` |
+| `STRIPE_SECRET_KEY` | Platform key for Stripe Connect OAuth (never charges money) | empty |
+| `STRIPE_PUBLISHABLE_KEY` | Platform publishable key (reserved) | empty |
+| `STRIPE_CONNECT_CLIENT_ID` | Connect app `ca_…` for OAuth | empty |
+| `FIELD_ENCRYPTION_KEY` | Fernet key for column-level encryption (per-tenant Stripe secrets) | falls back to `SECRET_KEY` |
+| `WEBSTORE_CASH_ACCOUNT_CODE` | Asset account code that receives online sales | `1010` |
 
 ## Running Tests
 
@@ -317,6 +345,11 @@ python manage.py test core
 | Manufacturing orders | `/derp/manufacturing-orders/`, `/derp/manufacturing-orders/create/`, `/derp/manufacturing-orders/<id>/` |
 | Manufacturing actions | `/derp/manufacturing-orders/<id>/confirm/`, `/complete/`, `/cancel/` |
 | AI Copilot | `/derp/ai/chat/` (POST chat turn), `/derp/ai/confirm/` (POST signed action token) |
+| Storefront | `/shop/`, `/shop/c/<slug>/`, `/shop/p/<slug>/` |
+| Cart | `/shop/cart/`, `/shop/cart/add/<id>/`, `/shop/cart/update/<id>/`, `/shop/cart/remove/<id>/` |
+| Checkout | `/shop/checkout/`, `/shop/checkout/success/`, `/shop/checkout/cancel/`, `/shop/checkout/dev/` |
+| Stripe webhook | `/shop/webhooks/stripe/` (signature-verified, per-tenant) |
+| Stripe Connect (admin) | `/derp/stripe/connect/`, `/derp/stripe/callback/`, `/derp/stripe/disconnect/`, `/derp/stripe/webhook-secret/` |
 
 ## Development Notes
 
@@ -338,6 +371,9 @@ python manage.py test core
 - Tenant data is separated by PostgreSQL schema.
 - Per-tenant row caps and per-user write rate limits (100/min) prevent a single tenant from filling shared storage with junk data. See `core/limits.py`.
 - AI copilot writes go through a preview → signed action token (30 min TTL) → confirm flow; nothing is created without an explicit second click. Every chat, preview, and confirm is logged in `core_copilotauditevent` per tenant.
+- Stripe Connect secrets (`acct_…`, `whsec_…`) are stored Fernet-encrypted at the column level via `webstore.fields.EncryptedCharField`; the platform never holds tenant funds because charges route through `stripe_account=…` against each tenant's connected account.
+- Per-tenant webhook signing secrets verify every Stripe webhook before any ERP write; mis-signed payloads are rejected with HTTP 400.
+- Startup checks fail prod deploys if `FIELD_ENCRYPTION_KEY` is unset or Stripe Connect is half-configured.
 
 ## License
 

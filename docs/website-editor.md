@@ -23,7 +23,7 @@ To create and modify your public pages:
 
 ## Page Builder Workspaces
 
-When creating (`/derp/website/add/`) or editing (`/derp/website/<id>/edit/`) a page, the editor features three togglable modes:
+When creating (`/derp/website/add/`) or editing (`/derp/website/<id>/edit/`) a page, the editor features two togglable modes:
 
 ### 1. 🧱 Visual Drag-and-Drop Builder (Default)
 A visual page authoring layout featuring a split-screen canvas:
@@ -33,10 +33,7 @@ A visual page authoring layout featuring a split-screen canvas:
   * Move block up (`⬆️`) or down (`⬇️`) in real-time.
   * Delete block (`🗑️`) permanently.
 
-### 2. ✏️ Visual WYSIWYG Editor
-A standard rich-text editor (powered by Quill.js) which provides standard toolbar controls (bold, italics, headers, lists, links) for formatting long-form document text visually without writing code.
-
-### 3. 💻 HTML Code
+### 2. 💻 HTML Code
 A raw, syntax-friendly monospace textarea for developers who want absolute control over layout styles, CSS, and inline HTML structures. A drawer of pre-designed blocks is available to click-insert boilerplate markup instantly.
 
 ---

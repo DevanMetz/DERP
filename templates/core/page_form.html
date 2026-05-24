@@ -1,9 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{% if is_create %}Create New Page{% else %}Edit Page '{{ page_instance.title }}'{% endif %} — Website Editor{% endblock %}
 {% block content %}
-  <!-- Include Quill Stylesheets and CDN -->
-  <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet" />
-  <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
 
   <style>
     .editor-container {
@@ -266,18 +263,17 @@
           <!-- HTML Editor Options Header -->
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 10px;">
             <label for="{{ form.html_content.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin: 0;">
-              Page HTML Markup Content
+              Page Content Builder
             </label>
             
             <div class="editor-mode-toggle">
-              <button type="button" id="toggle-code-btn" class="editor-toggle-btn active" onclick="setEditorMode('code')">💻 HTML Code</button>
-              <button type="button" id="toggle-visual-btn" class="editor-toggle-btn" onclick="setEditorMode('visual')">✏️ Visual Editor</button>
-              <button type="button" id="toggle-builder-btn" class="editor-toggle-btn" onclick="setEditorMode('builder')">🧱 Visual Builder</button>
+              <button type="button" id="toggle-builder-btn" class="editor-toggle-btn active" onclick="setEditorMode('builder')">🧱 Visual Builder</button>
+              <button type="button" id="toggle-code-btn" class="editor-toggle-btn" onclick="setEditorMode('code')">💻 HTML Code</button>
             </div>
           </div>
 
           <!-- Click-to-Insert Sections Drawer -->
-          <div id="section-blocks-drawer" style="background: var(--surface-subtle); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+          <div id="section-blocks-drawer" style="background: var(--surface-subtle); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 12px; display: none;">
             <span style="font-size: 12px; font-weight: bold; color: var(--muted);">📥 Click to Insert Pre-designed HTML Block:</span>
             <div class="block-grid">
               <button type="button" class="block-btn" onclick="insertSectionBlock('hero')">
@@ -304,55 +300,104 @@
           </div>
 
           <!-- Raw HTML Editor Textarea -->
-          <div id="html-raw-editor">
+          <div id="html-raw-editor" style="display: none;">
             {{ form.html_content }}
           </div>
 
-          <!-- Quill Visual WYSIWYG Container -->
-          <div id="visual-wysiwyg-editor" style="display: none; margin-bottom: 16px;">
-            <div id="quill-editor" style="height: 350px; background: #ffffff;"></div>
-          </div>
-
           <!-- DRAG AND DROP VISUAL BUILDER CONTAINER -->
-          <div id="drag-drop-builder-panel" style="display: none; margin-top: 8px;">
-            <div style="display: grid; grid-template-columns: 160px 1fr; gap: 16px; min-height: 480px; align-items: start;">
+          <div id="drag-drop-builder-panel" style="margin-top: 8px;">
+            <div style="display: grid; grid-template-columns: 190px 1fr; gap: 16px; min-height: 480px; align-items: start;">
               
-              <!-- Sidebar List of Draggable Block Types -->
-              <div style="background: var(--surface-subtle); border: 1px solid var(--line); border-radius: 8px; padding: 10px; position: sticky; top: 10px;">
-                <span style="font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; display: block; margin-bottom: 10px; letter-spacing: 0.05em;">🧱 Blocks</span>
+              <!-- Sidebar List of Draggable Block Types & Style Inspector -->
+              <div style="display: flex; flex-direction: column; gap: 16px; position: sticky; top: 10px;">
                 
-                <div style="display: flex; flex-direction: column; gap: 6px;">
-                  <div class="draggable-block" draggable="true" data-block-type="hero">
-                    <span style="font-size: 16px;">⚡</span>
-                    <span style="font-size: 11px; font-weight: bold; color: var(--fg);">Hero Banner</span>
-                  </div>
-                  <div class="draggable-block" draggable="true" data-block-type="features">
-                    <span style="font-size: 16px;">📦</span>
-                    <span style="font-size: 11px; font-weight: bold; color: var(--fg);">Features Grid</span>
-                  </div>
-                  <div class="draggable-block" draggable="true" data-block-type="pricing">
-                    <span style="font-size: 16px;">💳</span>
-                    <span style="font-size: 11px; font-weight: bold; color: var(--fg);">Pricing Cards</span>
-                  </div>
-                  <div class="draggable-block" draggable="true" data-block-type="stats">
-                    <span style="font-size: 16px;">📈</span>
-                    <span style="font-size: 11px; font-weight: bold; color: var(--fg);">Stats Banner</span>
-                  </div>
-                  <div class="draggable-block" draggable="true" data-block-type="faq">
-                    <span style="font-size: 16px;">🙋</span>
-                    <span style="font-size: 11px; font-weight: bold; color: var(--fg);">FAQ List</span>
-                  </div>
-                  <div class="draggable-block" draggable="true" data-block-type="rich_text">
-                    <span style="font-size: 16px;">📝</span>
-                    <span style="font-size: 11px; font-weight: bold; color: var(--fg);">Simple Text</span>
-                  </div>
-                  <div class="draggable-block" draggable="true" data-block-type="cta">
-                    <span style="font-size: 16px;">🔔</span>
-                    <span style="font-size: 11px; font-weight: bold; color: var(--fg);">CTA Section</span>
+                <!-- Draggable Blocks Sidebar -->
+                <div style="background: var(--surface-subtle); border: 1px solid var(--line); border-radius: 8px; padding: 10px;">
+                  <span style="font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; display: block; margin-bottom: 10px; letter-spacing: 0.05em;">🧱 Blocks</span>
+                  
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <div class="draggable-block" draggable="true" data-block-type="hero">
+                      <span style="font-size: 16px;">⚡</span>
+                      <span style="font-size: 11px; font-weight: bold; color: var(--fg);">Hero Banner</span>
+                    </div>
+                    <div class="draggable-block" draggable="true" data-block-type="features">
+                      <span style="font-size: 16px;">📦</span>
+                      <span style="font-size: 11px; font-weight: bold; color: var(--fg);">Features Grid</span>
+                    </div>
+                    <div class="draggable-block" draggable="true" data-block-type="pricing">
+                      <span style="font-size: 16px;">💳</span>
+                      <span style="font-size: 11px; font-weight: bold; color: var(--fg);">Pricing Cards</span>
+                    </div>
+                    <div class="draggable-block" draggable="true" data-block-type="stats">
+                      <span style="font-size: 16px;">📈</span>
+                      <span style="font-size: 11px; font-weight: bold; color: var(--fg);">Stats Banner</span>
+                    </div>
+                    <div class="draggable-block" draggable="true" data-block-type="faq">
+                      <span style="font-size: 16px;">🙋</span>
+                      <span style="font-size: 11px; font-weight: bold; color: var(--fg);">FAQ List</span>
+                    </div>
+                    <div class="draggable-block" draggable="true" data-block-type="rich_text">
+                      <span style="font-size: 16px;">📝</span>
+                      <span style="font-size: 11px; font-weight: bold; color: var(--fg);">Simple Text</span>
+                    </div>
+                    <div class="draggable-block" draggable="true" data-block-type="cta">
+                      <span style="font-size: 16px;">🔔</span>
+                      <span style="font-size: 11px; font-weight: bold; color: var(--fg);">CTA Section</span>
+                    </div>
                   </div>
                 </div>
-                
-                <span style="font-size: 9px; color: var(--muted); margin-top: 10px; display: block; line-height: 1.3;">Drag a block on the right dropzone, or click one to append.</span>
+
+                <!-- Custom Block Style Inspector -->
+                <div id="block-inspector-panel" style="display: none; background: var(--surface); border: 1px solid var(--accent); border-radius: 8px; padding: 10px; box-shadow: var(--shadow);">
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="font-size: 10px; font-weight: 800; color: var(--accent); text-transform: uppercase;">⚙️ Inspector</span>
+                    <button type="button" onclick="closeInspector()" style="background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding:0; font-weight:bold;">&times;</button>
+                  </div>
+                  
+                  <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <!-- Padding range -->
+                    <div>
+                      <label style="font-size: 10px; font-weight: bold; margin-bottom: 2px; color: var(--fg);">Vertical Padding</label>
+                      <div style="display: flex; align-items: center; gap: 6px;">
+                        <input type="range" id="inspect-padding" min="10" max="120" step="5" style="flex:1; height: 4px;" oninput="applyInspectorStyles()">
+                        <span id="inspect-padding-val" style="font-size: 10px; font-family: monospace; min-width: 30px; text-align: right;">40px</span>
+                      </div>
+                    </div>
+                    
+                    <!-- Border Radius range -->
+                    <div>
+                      <label style="font-size: 10px; font-weight: bold; margin-bottom: 2px; color: var(--fg);">Border Radius</label>
+                      <div style="display: flex; align-items: center; gap: 6px;">
+                        <input type="range" id="inspect-radius" min="0" max="32" step="2" style="flex:1; height: 4px;" oninput="applyInspectorStyles()">
+                        <span id="inspect-radius-val" style="font-size: 10px; font-family: monospace; min-width: 30px; text-align: right;">0px</span>
+                      </div>
+                    </div>
+                    
+                    <!-- Background preset dropdown -->
+                    <div>
+                      <label style="font-size: 10px; font-weight: bold; margin-bottom: 2px; color: var(--fg); display:block;">Background Color</label>
+                      <select id="inspect-bg" style="padding: 4px; font-size: 10px; border-radius: 6px; border: 1px solid var(--line); min-height: 28px; width:100%;" onchange="applyInspectorStyles()">
+                        <option value="transparent">Transparent</option>
+                        <option value="var(--primary)">Brand Accent</option>
+                        <option value="var(--primary-dark)">Brand Dark</option>
+                        <option value="linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)">Light Gradient</option>
+                        <option value="#f8fafc">Light Gray</option>
+                        <option value="#ffffff">White</option>
+                      </select>
+                    </div>
+                    
+                    <!-- Text Align triggers -->
+                    <div>
+                      <label style="font-size: 10px; font-weight: bold; margin-bottom: 4px; display: block; color: var(--fg);">Text Alignment</label>
+                      <div style="display: flex; gap: 4px;">
+                        <button type="button" class="btn secondary" onclick="setInspectorAlign('left')" style="padding: 2px; min-height: 24px; font-size: 9px; border-radius: 4px; flex:1; margin:0;">Left</button>
+                        <button type="button" class="btn secondary" onclick="setInspectorAlign('center')" style="padding: 2px; min-height: 24px; font-size: 9px; border-radius: 4px; flex:1; margin:0;">Center</button>
+                        <button type="button" class="btn secondary" onclick="setInspectorAlign('right')" style="padding: 2px; min-height: 24px; font-size: 9px; border-radius: 4px; flex:1; margin:0;">Right</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
               
               <!-- Active Visual Canvas Dropzone -->
@@ -473,6 +518,14 @@
 
   </div>
 
+  <!-- NATIVE SELECTION-BASED INLINE TEXT FORMATTING TOOLBAR -->
+  <div id="text-format-toolbar" style="display: none; background: #1e293b; color: #fff; padding: 4px 6px; border-radius: 8px; gap: 4px; box-shadow: var(--shadow-strong); align-items: center; border: 1px solid #334155; user-select:none;">
+    <button type="button" onclick="formatText('bold')" style="background:none; border:none; color:#fff; font-weight:bold; cursor:pointer; font-size:11px; width:24px; height:22px; display:grid; place-items:center; border-radius:4px; margin:0;" title="Bold">B</button>
+    <button type="button" onclick="formatText('italic')" style="background:none; border:none; color:#fff; font-style:italic; cursor:pointer; font-size:11px; width:24px; height:22px; display:grid; place-items:center; border-radius:4px; margin:0;" title="Italic">I</button>
+    <button type="button" onclick="formatText('createLink')" style="background:none; border:none; color:#fff; cursor:pointer; font-size:11px; width:24px; height:22px; display:grid; place-items:center; border-radius:4px; margin:0;" title="Insert Link">🔗</button>
+    <button type="button" onclick="formatText('unlink')" style="background:none; border:none; color:#ff4d4f; cursor:pointer; font-size:10px; width:24px; height:22px; display:grid; place-items:center; border-radius:4px; margin:0;" title="Remove Link">⌫</button>
+  </div>
+
   <script>
     // Tab switching controller
     function switchTab(tabId, btn) {
@@ -498,61 +551,26 @@
     const charCounter = document.getElementById("char-counter");
     const previewIframe = document.getElementById("live-preview-iframe");
 
-    // Quill WYSIWYG Editor Setup
-    let quillInstance = null;
-    let activeEditorMode = 'code';
-
-    function initQuill() {
-      if (quillInstance) return;
-      quillInstance = new Quill('#quill-editor', {
-        theme: 'snow',
-        modules: {
-          toolbar: [
-            [{ 'header': [1, 2, 3, false] }],
-            ['bold', 'italic', 'underline', 'strike'],
-            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-            ['link', 'clean']
-          ]
-        }
-      });
-
-      // Synchronize visual changes back to the Django textarea
-      quillInstance.on('text-change', function() {
-        if (activeEditorMode === 'visual') {
-          htmlInput.value = quillInstance.root.innerHTML;
-          updatePreview();
-        }
-      });
-    }
+    let activeEditorMode = 'builder';
 
     function setEditorMode(mode) {
       activeEditorMode = mode;
       const rawDiv = document.getElementById("html-raw-editor");
-      const wysiwygDiv = document.getElementById("visual-wysiwyg-editor");
       const builderDiv = document.getElementById("drag-drop-builder-panel");
       const codeBtn = document.getElementById("toggle-code-btn");
-      const visualBtn = document.getElementById("toggle-visual-btn");
       const builderBtn = document.getElementById("toggle-builder-btn");
       const blockDrawer = document.getElementById("section-blocks-drawer");
 
-      // Hide all panels
+      // Hide panels
       rawDiv.style.display = "none";
-      wysiwygDiv.style.display = "none";
       builderDiv.style.display = "none";
       if (blockDrawer) blockDrawer.style.display = "none";
       
-      // Deactivate all buttons
+      // Deactivate buttons
       codeBtn.classList.remove("active");
-      visualBtn.classList.remove("active");
       builderBtn.classList.remove("active");
 
-      if (mode === 'visual') {
-        initQuill();
-        // Load raw HTML text into visual editor
-        quillInstance.root.innerHTML = htmlInput.value;
-        wysiwygDiv.style.display = "block";
-        visualBtn.classList.add("active");
-      } else if (mode === 'builder') {
+      if (mode === 'builder') {
         parseHtmlToCanvas(htmlInput.value);
         builderDiv.style.display = "block";
         builderBtn.classList.add("active");
@@ -807,45 +825,16 @@
       const codeMarkup = SECTION_BLOCKS[blockKey];
       if (!codeMarkup) return;
 
-      if (activeEditorMode === 'visual' && quillInstance) {
-        // Inject block into Quill Visual Editor
-        const range = quillInstance.getSelection();
-        const index = range ? range.index : quillInstance.getLength();
-        quillInstance.clipboard.dangerouslyPasteHTML(index, codeMarkup);
-        htmlInput.value = quillInstance.root.innerHTML;
-      } else {
-        // Inject block into raw HTML Code Editor at cursor position
-        const cursorPosition = htmlInput.selectionStart;
-        const textBefore = htmlInput.value.substring(0, cursorPosition);
-        const textAfter  = htmlInput.value.substring(htmlInput.selectionEnd, htmlInput.value.length);
-        htmlInput.value = textBefore + codeMarkup + textAfter;
-        
-        // Refocus textarea and set selection to end of inserted block
-        htmlInput.focus();
-        htmlInput.selectionStart = htmlInput.selectionEnd = cursorPosition + codeMarkup.length;
-      }
+      // Inject block into raw HTML Code Editor at cursor position
+      const cursorPosition = htmlInput.selectionStart;
+      const textBefore = htmlInput.value.substring(0, cursorPosition);
+      const textAfter  = htmlInput.value.substring(htmlInput.selectionEnd, htmlInput.value.length);
+      htmlInput.value = textBefore + codeMarkup + textAfter;
+      
+      // Refocus textarea and set selection to end of inserted block
+      htmlInput.focus();
+      htmlInput.selectionStart = htmlInput.selectionEnd = cursorPosition + codeMarkup.length;
       updatePreview();
-    }
-
-    // Historical Revisions Loader
-    function loadRevision(revId) {
-      if (!revId) return;
-      const select = document.getElementById("revision-select");
-      const option = select.options[select.selectedIndex];
-      const html = option.getAttribute("data-html");
-      if (html) {
-        if (confirm("Are you sure you want to load this revision? It will overwrite your current unsaved editor content.")) {
-          htmlInput.value = html;
-          if (activeEditorMode === 'visual' && quillInstance) {
-            quillInstance.root.innerHTML = html;
-          } else if (activeEditorMode === 'builder') {
-            parseHtmlToCanvas(html);
-          }
-          updatePreview();
-        }
-      }
-      // Reset dropdown
-      select.value = "";
     }
 
     // --- Drag-and-Drop Visual Canvas Core JS Mechanics ---
@@ -956,6 +945,7 @@
           <span style="color: #94a3b8; font-size: 9px; margin-right: 4px;">Block: ${label}</span>
           <button type="button" class="overlay-move-btn" onclick="moveSectionUp(this)" style="background:none; border:none; color:#fff; cursor:pointer; font-size:9px; padding:0 2px;">⬆️</button>
           <button type="button" class="overlay-move-btn" onclick="moveSectionDown(this)" style="background:none; border:none; color:#fff; cursor:pointer; font-size:9px; padding:0 2px;">⬇️</button>
+          <button type="button" class="overlay-move-btn" onclick="openInspector(this)" style="background:none; border:none; color:#fbbf24; cursor:pointer; font-size:10px; padding:0 2px;" title="Block Settings">⚙️</button>
           <button type="button" class="overlay-move-btn" onclick="deleteSection(this)" style="background:none; border:none; color:#ff4d4f; cursor:pointer; font-size:9px; padding:0 2px; font-weight:bold;">🗑️</button>
         </div>
         <div class="section-content" style="background: transparent; border-radius: 8px;">
@@ -1028,8 +1018,87 @@
         if (sections.length === 0 && placeholder) {
           placeholder.style.display = "flex";
         }
+        if (activeInspectorSection === section) {
+          closeInspector();
+        }
         serializeCanvas();
       }
+    }
+
+    // --- Block style customizer Settings Inspector ---
+    let activeInspectorSection = null;
+
+    function openInspector(btn) {
+      const section = btn.closest(".canvas-section");
+      activeInspectorSection = section;
+      
+      const innerSection = section.querySelector(".section-content > *");
+      if (!innerSection) return;
+      
+      // Open the visual style customizer sidebar drawer
+      document.getElementById("block-inspector-panel").style.display = "block";
+      
+      // 1. Vertical Padding top/bottom
+      let paddingVal = parseInt(innerSection.style.paddingTop || innerSection.style.padding || "40");
+      if (isNaN(paddingVal)) paddingVal = 40;
+      document.getElementById("inspect-padding").value = paddingVal;
+      document.getElementById("inspect-padding-val").textContent = paddingVal + "px";
+      
+      // 2. Border Corners radius
+      let radiusVal = parseInt(innerSection.style.borderRadius || "0");
+      if (isNaN(radiusVal)) radiusVal = 0;
+      document.getElementById("inspect-radius").value = radiusVal;
+      document.getElementById("inspect-radius-val").textContent = radiusVal + "px";
+      
+      // 3. Background presetted color choice
+      const bgVal = innerSection.style.background || innerSection.style.backgroundColor || "transparent";
+      const bgSelect = document.getElementById("inspect-bg");
+      let matched = false;
+      for (let option of bgSelect.options) {
+        if (option.value === bgVal || bgVal.includes(option.value) || option.value.includes(bgVal)) {
+          bgSelect.value = option.value;
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) bgSelect.value = "transparent";
+    }
+
+    function applyInspectorStyles() {
+      if (!activeInspectorSection) return;
+      const innerSection = activeInspectorSection.querySelector(".section-content > *");
+      if (!innerSection) return;
+      
+      // 1. Padding Top/Bottom
+      const paddingVal = document.getElementById("inspect-padding").value;
+      document.getElementById("inspect-padding-val").textContent = paddingVal + "px";
+      innerSection.style.paddingTop = paddingVal + "px";
+      innerSection.style.paddingBottom = paddingVal + "px";
+      
+      // 2. Border corners radius
+      const radiusVal = document.getElementById("inspect-radius").value;
+      document.getElementById("inspect-radius-val").textContent = radiusVal + "px";
+      innerSection.style.borderRadius = radiusVal + "px";
+      
+      // 3. Background value
+      const bgVal = document.getElementById("inspect-bg").value;
+      innerSection.style.background = bgVal;
+      
+      serializeCanvas();
+    }
+
+    function setInspectorAlign(align) {
+      if (!activeInspectorSection) return;
+      const innerSection = activeInspectorSection.querySelector(".section-content > *");
+      if (!innerSection) return;
+      
+      innerSection.style.textAlign = align;
+      serializeCanvas();
+    }
+
+    function closeInspector() {
+      document.getElementById("block-inspector-panel").style.display = "none";
+      activeInspectorSection = null;
     }
 
     // Setup HTML5 Drag and Drop events
@@ -1077,6 +1146,126 @@
         addSectionToCanvas(type, templateHtml);
         serializeCanvas();
       });
+    }
+
+    // --- Floating text formatting toolbar ---
+    function initSelectionToolbar() {
+      document.addEventListener("selectionchange", () => {
+        const selection = window.getSelection();
+        const toolbar = document.getElementById("text-format-toolbar");
+        if (!toolbar) return;
+        
+        if (selection.isCollapsed || selection.rangeCount === 0) {
+          toolbar.style.display = "none";
+          return;
+        }
+        
+        const range = selection.getRangeAt(0);
+        const container = range.commonAncestorContainer;
+        const canvas = document.getElementById("visual-canvas");
+        
+        if (!canvas.contains(container)) {
+          toolbar.style.display = "none";
+          return;
+        }
+        
+        const rect = range.getBoundingClientRect();
+        
+        toolbar.style.display = "flex";
+        toolbar.style.position = "fixed";
+        toolbar.style.top = `${Math.max(10, rect.top - 36)}px`;
+        toolbar.style.left = `${rect.left + (rect.width / 2) - 60}px`;
+        toolbar.style.zIndex = "1000";
+      });
+    }
+
+    function formatText(command) {
+      if (command === 'createLink') {
+        const url = prompt("Enter the link URL:");
+        if (url) {
+          document.execCommand(command, false, url);
+        }
+      } else {
+        document.execCommand(command, false, null);
+      }
+      serializeCanvas();
+    }
+
+    // --- Local draft autosave & toast recovery ---
+    const AUTOSAVE_INTERVAL = 15000;
+    let autosaveTimer = null;
+
+    function startAutosave() {
+      const pageId = "{% if is_create %}create{% else %}{{ page_instance.pk }}{% endif %}";
+      autosaveTimer = setInterval(() => {
+        if (activeEditorMode === 'builder') {
+          serializeCanvas();
+        }
+        const htmlVal = htmlInput.value;
+        if (htmlVal && htmlVal.trim() !== "") {
+          localStorage.setItem(`derp_draft_page_${pageId}`, htmlVal);
+          localStorage.setItem(`derp_draft_timestamp_${pageId}`, Date.now().toString());
+        }
+      }, AUTOSAVE_INTERVAL);
+    }
+
+    function checkAutosaveDraft() {
+      const pageId = "{% if is_create %}create{% else %}{{ page_instance.pk }}{% endif %}";
+      const draft = localStorage.getItem(`derp_draft_page_${pageId}`);
+      const currentDbVal = htmlInput.value;
+      if (draft && draft.trim() !== "" && draft !== currentDbVal) {
+        showRecoveryToast(pageId, draft);
+      }
+    }
+
+    function showRecoveryToast(pageId, draftHtml) {
+      const toast = document.createElement("div");
+      toast.id = "recovery-toast";
+      toast.style.position = "fixed";
+      toast.style.top = "20px";
+      toast.style.right = "20px";
+      toast.style.zIndex = "1001";
+      toast.style.background = "#fffbeb";
+      toast.style.border = "1px solid #fde68a";
+      toast.style.borderRadius = "10px";
+      toast.style.padding = "14px 18px";
+      toast.style.boxShadow = "var(--shadow-strong)";
+      toast.style.maxWidth = "320px";
+      toast.style.display = "flex";
+      toast.style.flexDirection = "column";
+      toast.style.gap = "8px";
+      
+      toast.innerHTML = `
+        <div style="font-weight:bold; color:#b45309; font-size:13px; display:flex; align-items:center; gap:6px; user-select:none;">
+          <span>⚠️</span> Unsaved Draft Recovered
+        </div>
+        <div style="font-size:11px; color:#78350f; line-height:1.4; user-select:none;">
+          We found a local backup with unsaved modifications that are newer than the active database version.
+        </div>
+        <div style="display:flex; gap:8px; margin-top:4px; user-select:none;">
+          <button type="button" onclick="restoreLocalDraft('${pageId}', \`${draftHtml.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)" class="btn" style="min-height:26px; padding:4px 8px; font-size:10px; background:#d97706; border-color:#d97706; border-radius:6px; color:#fff !important; margin:0;">Restore Backup</button>
+          <button type="button" onclick="discardLocalDraft('${pageId}')" class="btn secondary" style="min-height:26px; padding:4px 8px; font-size:10px; border-radius:6px; margin:0;">Discard</button>
+        </div>
+      `;
+      document.body.appendChild(toast);
+    }
+
+    window.restoreLocalDraft = function(pageId, html) {
+      htmlInput.value = html;
+      if (activeEditorMode === 'builder') {
+        parseHtmlToCanvas(html);
+      }
+      updatePreview();
+      const toast = document.getElementById("recovery-toast");
+      if (toast) toast.remove();
+      alert("Draft successfully restored! Remember to save changes to persist to the database.");
+    }
+
+    window.discardLocalDraft = function(pageId) {
+      localStorage.removeItem(`derp_draft_page_${pageId}`);
+      localStorage.removeItem(`derp_draft_timestamp_${pageId}`);
+      const toast = document.getElementById("recovery-toast");
+      if (toast) toast.remove();
     }
 
     // Default template configurations
@@ -1160,7 +1349,7 @@
         <label style="display: block; font-weight: bold; margin-bottom: 6px; font-size: 14px;">Message</label>
         <textarea required style="width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px; min-height: 120px;"></textarea>
       </div>
-      <button type="submit" class="btn" style="width: 100%; padding: 12px; border: 0; cursor: pointer; border-radius: 8px; color:#fff !important;">Send Message</button>
+      <button type="submit" class="btn" style="width: 100%; padding: 12px; border: 0; cursor: pointer; border-radius: 8px; color:#fff !important; margin:0;">Send Message</button>
     </form>
   </div>
 </section>`
@@ -1180,28 +1369,27 @@
       if (homepageCheckbox) homepageCheckbox.checked = t.is_homepage;
       if (publishedCheckbox) publishedCheckbox.checked = t.is_published;
       
-      if (activeEditorMode === 'visual') {
-        initQuill();
-        quillInstance.root.innerHTML = t.html;
-      } else if (activeEditorMode === 'builder') {
+      if (activeEditorMode === 'builder') {
         parseHtmlToCanvas(t.html);
       }
       updatePreview();
     }
 
-    // Sync Quill visual state or builder state into Django form before submission
+    // Sync builder state into Django form before submission
     document.getElementById("page-form").addEventListener("submit", function() {
-      if (activeEditorMode === 'visual' && quillInstance) {
-        htmlInput.value = quillInstance.root.innerHTML;
-      } else if (activeEditorMode === 'builder') {
+      if (activeEditorMode === 'builder') {
         serializeCanvas();
       }
     });
 
     // Auto load preview and init drag events on load
     window.addEventListener("DOMContentLoaded", () => {
-      updatePreview();
+      // Set builder as the default active mode instantly on load
+      setEditorMode('builder');
       initDragAndDrop();
+      initSelectionToolbar();
+      startAutosave();
+      checkAutosaveDraft();
     });
   </script>
 {% endblock %}

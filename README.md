@@ -33,7 +33,7 @@ Most ERP systems are either expensive SaaS products or large enterprise platform
 - **Root Domain Isolation**: The entire ERP lives under the `/derp/` subpath prefix, serving the public website directly on the root domain `/`.
 - **Drag-and-Drop Page Builder**: An interactive visual split-screen workspace to drag block modules (Hero Banner, Features Grid, Pricing Cards, Stats Banner, FAQ List, Simple Text, CTA Section) and assemble landing pages.
 - **Inline Text Editing**: Click directly on headings, paragraphs, buttons, list items, or links on the canvas and start typing copy in-place.
-- **Bi-directional HTML Parser**: Toggle between raw HTML code, a visual WYSIWYG editor (Quill.js), and the visual block canvas builder seamlessly while keeping the generated code clean.
+- **Bi-directional HTML Parser**: Toggle between raw HTML code and the visual block canvas builder seamlessly while keeping the generated code clean.
 - **Global Theme Settings**: CENTRALized customization of Website Brand Name, Logo Image links, Google Fonts selectors (Inter, Roboto, Outfit, Poppins, Playfair Display), HSL Brand Colors via pickers, and a global custom CSS block.
 - **Page Revision History**: Chronological database-backed `PageRevision` log to record backups on save and restore past versions with 1 click.
 - **Advanced SEO Controls**: Custom subpage keyword tags, meta summaries, Open Graph sharing cards, and character counters.

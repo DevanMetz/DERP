@@ -1,7 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
-from core.test_utils import DERPTenantTestCase as TestCase
+from core.test_utils import DERPTestCase as TestCase
 from django.urls import reverse
 
 from accounting.models import Account, AccountType
@@ -323,7 +323,7 @@ class PurchasingPDFViewsTests(TestCase):
             expense_account=self.expense,
         )
         self.client.force_login(self.user)
-        response = self.client.get(f"/purchase-orders/{order.pk}/pdf/")
+        response = self.client.get(reverse("purchase_order_pdf", args=[order.pk]))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/pdf")
         self.assertIn("attachment", response["Content-Disposition"])
@@ -375,7 +375,7 @@ class VendorDetailViewTests(TestCase):
         )
 
         self.client.force_login(self.user)
-        response = self.client.get(f"/vendors/{self.vendor.pk}/")
+        response = self.client.get(reverse("vendor_detail", args=[self.vendor.pk]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Supply Co")
         self.assertContains(response, "Lifetime Posted Purchases")
@@ -426,4 +426,3 @@ class LocalizedGoodsReceiptTests(TestCase):
         # Verify default location is empty
         wh_stock_exists = LocationStock.objects.filter(product=self.product, location__name="Main Warehouse").exists()
         self.assertFalse(wh_stock_exists)
-

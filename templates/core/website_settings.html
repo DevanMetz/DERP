@@ -1,192 +1,39 @@
 {% extends "base.html" %}
-{% block title %}Website Settings — DERP{% endblock %}
+{% block title %}Website Settings - DERP{% endblock %}
 {% block content %}
-  <div class="page-header" style="margin-bottom: 24px;">
+  <div class="page-header">
     <div>
-      <span class="text-subtle" style="font-weight: bold; text-transform: uppercase; font-size: 11px;">Website Editor</span>
-      <h1 style="margin-top: 4px;">Global Website & Theme Settings</h1>
-      <p class="text-subtle">Configure site-wide branding, primary and secondary design colors, typography, logos, and custom global style overrides.</p>
+      <h1>Website settings</h1>
+      <p class="text-subtle">Configure branding for this installation's public website and storefront.</p>
     </div>
     <div class="page-actions">
       <a class="btn secondary" href="{% url 'website_editor' %}">Back to Website Editor</a>
     </div>
   </div>
 
-  <div class="card" style="border-radius: 12px; box-shadow: var(--shadow); max-width: 800px; margin: 0 auto;">
+  <div class="card" style="max-width: 800px; margin: 0 auto;">
     <form method="post" autocomplete="off">
       {% csrf_token %}
-
-      {% if form.non_field_errors %}
-        <div class="errorlist" style="margin-bottom: 16px;">
-          {{ form.non_field_errors }}
-        </div>
-      {% endif %}
-
-      <div style="margin-bottom: 24px;">
-        <label for="{{ form.brand_name.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
-          Website Brand / Site Name
-        </label>
-        {{ form.brand_name }}
-        <span class="text-subtle" style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted);">This is shown in the main header and copyright footers.</span>
-        {% if form.brand_name.errors %}<span class="errorlist">{{ form.brand_name.errors }}</span>{% endif %}
-      </div>
-
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
-        <div>
-          <label for="{{ form.primary_color.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
-            Primary Color (Brand Dark Color)
-          </label>
-          <div style="display: flex; align-items: center; gap: 10px;">
-            {{ form.primary_color }}
-            <span style="font-size: 13px; color: var(--muted); font-family: monospace;">Use color picker</span>
-          </div>
-          {% if form.primary_color.errors %}<span class="errorlist">{{ form.primary_color.errors }}</span>{% endif %}
-        </div>
-
-        <div>
-          <label for="{{ form.secondary_color.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
-            Secondary Accent Color (CTA & Interactive Buttons)
-          </label>
-          <div style="display: flex; align-items: center; gap: 10px;">
-            {{ form.secondary_color }}
-            <span style="font-size: 13px; color: var(--muted); font-family: monospace;">Use color picker</span>
-          </div>
-          {% if form.secondary_color.errors %}<span class="errorlist">{{ form.secondary_color.errors }}</span>{% endif %}
-        </div>
-      </div>
-
-      <div style="margin-bottom: 24px;">
-        <label for="{{ form.logo_url.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
-          Logo Image URL (Optional)
-        </label>
-        {{ form.logo_url }}
-        <span class="text-subtle" style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted);">Direct URL to your brand logo (e.g. an SVG or PNG). If left blank, your brand name will render as text.</span>
-        {% if form.logo_url.errors %}<span class="errorlist">{{ form.logo_url.errors }}</span>{% endif %}
-      </div>
-
-      <div style="margin-bottom: 24px;">
-        <label for="{{ form.font_family.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
-          Google Font Typography Family
-        </label>
-        <div class="custom-select-wrapper">
-          {{ form.font_family }}
-        </div>
-        <span class="text-subtle" style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted);">Select your global typography style sheet context.</span>
-        {% if form.font_family.errors %}<span class="errorlist">{{ form.font_family.errors }}</span>{% endif %}
-      </div>
-
-      <div style="margin-bottom: 24px;">
-        <label for="{{ form.custom_css.id_for_label }}" style="font-weight: 700; font-size: 13px; color: var(--fg); margin-bottom: 6px; display: block;">
-          Custom Global CSS Stylesheet
-        </label>
-        {{ form.custom_css }}
-        <span class="text-subtle" style="display: block; margin-top: 4px; font-size: 11px; color: var(--muted);">Add custom stylesheets, class definitions, animations, or styling overrides for your public site here safely.</span>
-        {% if form.custom_css.errors %}<span class="errorlist">{{ form.custom_css.errors }}</span>{% endif %}
-      </div>
-
-      <div class="action-row" style="margin-top: 24px; border-top: 1px solid var(--line-soft); padding-top: 16px; display: flex; justify-content: flex-end; gap: 12px;">
-        <a class="btn secondary" href="{% url 'website_editor' %}" style="border-radius: 8px;">Cancel</a>
-        <button class="btn" type="submit" style="border-radius: 8px; font-weight: bold; background: var(--accent); border-color: var(--accent);">
-          Save Settings
-        </button>
+      {{ form.as_p }}
+      <div class="action-row">
+        <button class="btn" type="submit">Save settings</button>
+        <a class="btn secondary" href="{% url 'website_editor' %}">Cancel</a>
       </div>
     </form>
   </div>
 
-  <!-- Stripe Connect (V2 Accounts) -->
-  <div class="card" style="border-radius: 12px; box-shadow: var(--shadow); max-width: 800px; margin: 24px auto 0;">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
-      <div>
-        <h2 style="margin:0;font-size:18px;display:flex;align-items:center;gap:8px;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="#635bff"><path d="M13.5 9.42c0-.41.34-.74.75-.74.92 0 2.07.27 2.99.78l.71-2.32C16.96 6.59 15.67 6.3 14.27 6.3c-2.27 0-3.85 1.18-3.85 3.1 0 3.04 4.17 2.56 4.17 3.86 0 .49-.42.78-1.01.78-1.07 0-2.43-.43-3.45-1.02l-.7 2.36c1.14.66 2.6.95 4.13.95 2.34 0 4.04-1.16 4.04-3.16-.01-3.31-4.1-2.74-4.1-4.05z"/></svg>
-          Stripe Payments
-        </h2>
-        <p class="text-subtle" style="margin: 4px 0 0; font-size: 12px;">Accept payments through your storefront. Charges settle into your own Stripe balance; the platform takes a small per-transaction fee.</p>
-      </div>
-      {% if account_status.ready_to_process_payments %}
-        <span style="background:#dcfce7;color:#15803d;font-size:11px;font-weight:700;padding:5px 11px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em;">Ready to charge</span>
-      {% elif website_settings.stripe_account_id %}
-        <span style="background:#fef3c7;color:#92400e;font-size:11px;font-weight:700;padding:5px 11px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em;">Onboarding incomplete</span>
-      {% else %}
-        <span style="background:#f1f5f9;color:#475569;font-size:11px;font-weight:700;padding:5px 11px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em;">Not Started</span>
-      {% endif %}
-    </div>
-
-    {% if not website_settings.stripe_account_id %}
-      <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">
-        Click below to create a Stripe account and complete onboarding. Stripe handles signup, identity verification, and bank-account setup; you'll be redirected back here when done.
-      </p>
-      <a href="{% url 'stripe_onboard' %}" class="btn" style="background:#635bff;border-color:#635bff;border-radius:8px;font-weight:bold;display:inline-block;">Onboard to collect payments</a>
-
-    {% else %}
-      <div style="background: var(--surface-subtle); border: 1px solid var(--line-soft); border-radius: 8px; padding: 14px; margin-bottom: 16px; font-size: 13px;">
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-          <span style="color:var(--muted);">Account</span>
-          <span style="font-family:monospace;font-size:12px;">{{ website_settings.stripe_account_id|slice:":8" }}…{{ website_settings.stripe_account_id|slice:"-4:" }}</span>
-        </div>
-        {% if website_settings.stripe_connected_at %}
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-          <span style="color:var(--muted);">Created</span>
-          <span>{{ website_settings.stripe_connected_at|date:"M d, Y" }}</span>
-        </div>
-        {% endif %}
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-          <span style="color:var(--muted);">Card payments</span>
-          <span>{% if account_status.ready_to_process_payments %}<span style="color:#15803d;">✓ Active</span>{% else %}<span style="color:#b45309;">{{ account_status.card_payments_status|default:"Pending" }}</span>{% endif %}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;">
-          <span style="color:var(--muted);">Outstanding requirements</span>
-          <span>{% if account_status.onboarding_complete %}<span style="color:#15803d;">None due</span>{% else %}<span style="color:#b45309;">{{ account_status.requirements_status|default:"Currently due" }}</span>{% endif %}</span>
-        </div>
-      </div>
-
-      {% if not account_status.onboarding_complete %}
-        <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">
-          Stripe still needs information from you before charges can be processed. Click below to resume onboarding.
-        </p>
-        <a href="{% url 'stripe_onboard' %}" class="btn" style="background:#635bff;border-color:#635bff;border-radius:8px;font-weight:bold;display:inline-block;margin-bottom:14px;">Continue onboarding</a>
-      {% else %}
-        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-          <a href="{% url 'stripe_sample_product_create' %}" class="btn" style="border-radius: 6px; font-weight: bold;">Add a sample product</a>
-          <a href="{% url 'stripe_sample_storefront' website_settings.stripe_account_id %}" class="btn secondary" style="border-radius: 6px; font-weight: 600;" target="_blank" rel="noopener">View public storefront ↗</a>
-        </div>
-      {% endif %}
-
-      <details style="margin-bottom: 16px;">
-        <summary style="cursor:pointer;font-weight:700;font-size:13px;color:var(--fg);padding:8px 0;">Platform webhook destinations</summary>
-        <div style="padding: 12px 0 0;">
-          <p style="font-size: 12.5px; color: var(--muted); line-height: 1.5; margin-bottom: 12px;">
-            Stripe doesn't allow V1 and V2 events on a single webhook destination, so create <strong>two</strong> destinations in your <a href="https://dashboard.stripe.com/webhooks" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600;">Stripe Dashboard → Webhooks</a> — both pointing at the same URL, both listening to <strong>Connected accounts</strong>:
-          </p>
-
-          <div style="background: #0f172a; color: #cbd5e1; padding: 10px 12px; border-radius: 6px; font-family: monospace; font-size: 12px; margin-bottom: 14px; word-break: break-all;">
-            {{ request.scheme }}://{{ request.get_host }}{% url 'shop_stripe_webhook' %}
-          </div>
-
-          <div style="background:var(--surface-subtle);border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin-bottom:10px;">
-            <div style="font-weight:700;font-size:12px;color:var(--fg);margin-bottom:6px;">Destination 1 — Thin payload (V2)</div>
-            <ul style="font-size:12px;color:var(--muted);margin:0 0 8px 18px;line-height:1.6;">
-              <li><code style="background:#fff;padding:1px 5px;border-radius:3px;">v2.core.account[requirements].updated</code></li>
-              <li><code style="background:#fff;padding:1px 5px;border-radius:3px;">v2.core.account[configuration.merchant].capability_status_updated</code></li>
-              <li><code style="background:#fff;padding:1px 5px;border-radius:3px;">v2.core.account[configuration.customer].capability_status_updated</code></li>
-            </ul>
-            <p style="font-size:11px;color:var(--muted);margin:0;">Set its signing secret as <code style="background:#fff;padding:1px 4px;border-radius:3px;">STRIPE_WEBHOOK_SECRET</code> in env.</p>
-          </div>
-
-          <div style="background:var(--surface-subtle);border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin-bottom:10px;">
-            <div style="font-weight:700;font-size:12px;color:var(--fg);margin-bottom:6px;">Destination 2 — Snapshot payload (V1)</div>
-            <ul style="font-size:12px;color:var(--muted);margin:0 0 8px 18px;line-height:1.6;">
-              <li><code style="background:#fff;padding:1px 5px;border-radius:3px;">checkout.session.completed</code></li>
-            </ul>
-            <p style="font-size:11px;color:var(--muted);margin:0;">Set its signing secret as <code style="background:#fff;padding:1px 4px;border-radius:3px;">STRIPE_WEBHOOK_SECRET_V1</code> in env.</p>
-          </div>
-        </div>
-      </details>
-
-      <form method="post" action="{% url 'stripe_disconnect' %}" onsubmit="return confirm('Disconnect this Stripe account from this tenant? The Stripe account itself will still exist — this just unbinds it from DERP.');" style="border-top: 1px solid var(--line-soft); padding-top: 14px;">
-        {% csrf_token %}
-        <button type="submit" class="btn secondary" style="border-radius: 6px; color: #b42318; border-color: #fecdca; font-weight: 600;">Disconnect this account</button>
-      </form>
-    {% endif %}
+  <div class="card" style="max-width: 800px; margin: 24px auto 0;">
+    <h2 style="margin-top: 0;">Stripe Checkout</h2>
+    <p>
+      This self-hosted installation accepts storefront payments directly through the hosting
+      organization's Stripe account. Configure these environment variables on the server:
+    </p>
+    <pre style="background: #0f172a; color: #cbd5e1; padding: 12px; border-radius: 7px; overflow-x: auto;"><code>STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...</code></pre>
+    <p class="text-subtle">
+      Configure one Stripe webhook endpoint for <code>checkout.session.completed</code>:
+      <code>{{ request.scheme }}://{{ request.get_host }}{% url 'shop_stripe_webhook' %}</code>.
+      Leave Stripe variables blank in development to use the manual checkout completion page.
+    </p>
   </div>
 {% endblock %}

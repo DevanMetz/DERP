@@ -1,74 +1,28 @@
-"""Startup checks for the webstore app.
-
-Registered against Django's `system_check` framework so misconfigured
-prod deploys fail fast (at `manage.py runserver` / `migrate` / `check`)
-rather than silently mis-encrypting secrets or accepting unverified
-webhooks.
-"""
+"""Startup checks for direct Stripe Checkout configuration."""
 from django.conf import settings
-from django.core.checks import Error, Warning, register
+from django.core.checks import Warning, register
 
 
 @register()
-def stripe_and_encryption_checks(app_configs, **kwargs):
+def stripe_checks(app_configs, **kwargs):
     issues = []
-    debug = getattr(settings, "DEBUG", False)
-
-    field_key = getattr(settings, "FIELD_ENCRYPTION_KEY", "")
-    if not debug and not field_key:
-        issues.append(Error(
-            "FIELD_ENCRYPTION_KEY is not set in production.",
-            hint=(
-                "Encrypted columns will fall back to deriving the key from "
-                "SECRET_KEY. That works, but ties the encryption key to "
-                "Django's session/CSRF secret — rotating one forces "
-                "rotating the other. Generate a dedicated value:\n"
-                "  python -c \"import secrets; print(secrets.token_urlsafe(48))\"\n"
-                "Then set it as FIELD_ENCRYPTION_KEY in your environment."
-            ),
-            id="webstore.E001",
-        ))
-
     secret = getattr(settings, "STRIPE_SECRET_KEY", "")
-    thin_secret = getattr(settings, "STRIPE_WEBHOOK_SECRET", "")
-    snapshot_secret = getattr(settings, "STRIPE_WEBHOOK_SECRET_V1", "")
+    webhook_secret = getattr(settings, "STRIPE_WEBHOOK_SECRET", "")
 
-    if not debug and secret and not thin_secret:
+    if secret and not webhook_secret:
         issues.append(Warning(
             "STRIPE_SECRET_KEY is set but STRIPE_WEBHOOK_SECRET is missing.",
             hint=(
-                "Connected-account status updates rely on V2 thin webhooks. "
-                "Create a webhook destination in your Stripe Dashboard "
-                "(Developers → Webhooks → Add destination) with payload "
-                "style Thin and Events from Connected accounts; subscribe "
-                "to the v2.core.account[*].* events. Paste the signing "
-                "secret into STRIPE_WEBHOOK_SECRET."
+                "Create a Stripe webhook endpoint for checkout.session.completed "
+                "and set its signing secret as STRIPE_WEBHOOK_SECRET."
             ),
             id="webstore.W002",
         ))
 
-    if not debug and secret and not snapshot_secret:
-        issues.append(Warning(
-            "STRIPE_SECRET_KEY is set but STRIPE_WEBHOOK_SECRET_V1 is missing.",
-            hint=(
-                "Real-store ERP fulfillment depends on the V1 "
-                "checkout.session.completed event. Create a second "
-                "webhook destination with payload style Snapshot, Events "
-                "from Connected accounts, subscribed to "
-                "checkout.session.completed. Paste its signing secret "
-                "into STRIPE_WEBHOOK_SECRET_V1."
-            ),
-            id="webstore.W003",
-        ))
-
-    if debug and secret and secret.startswith("sk_live_"):
+    if getattr(settings, "DEBUG", False) and secret.startswith("sk_live_"):
         issues.append(Warning(
             "Live Stripe key in use while DEBUG=True.",
-            hint=(
-                "STRIPE_SECRET_KEY starts with 'sk_live_' but DEBUG is True. "
-                "Use test-mode keys (sk_test_...) during development to "
-                "avoid accidentally creating real charges."
-            ),
+            hint="Use test-mode Stripe keys during development.",
             id="webstore.W001",
         ))
 

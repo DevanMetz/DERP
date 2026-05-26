@@ -1,0 +1,15 @@
+{% extends "account/base_entrance.html" %}
+
+{% block head_title %}Registration disabled{% endblock %}
+
+{% block content %}
+  <div class="auth-shell">
+    <section class="auth-card" aria-labelledby="signup-closed-title">
+      <h1 id="signup-closed-title">Registration disabled</h1>
+      <p class="text-subtle">
+        This is a self-hosted DERP installation. Ask its administrator to create an account for you.
+      </p>
+      <a class="btn" href="{% url 'account_login' %}">Back to sign in</a>
+    </section>
+  </div>
+{% endblock %}

@@ -185,9 +185,7 @@
             {% if logout_url_ %}<a href="{{ logout_url_ }}">{% trans "Sign Out" %}</a>{% endif %}
           {% else %}
             {% url 'account_login' as login_url_ %}
-            {% url 'account_signup' as signup_url_ %}
             {% if login_url_ %}<a href="{{ login_url_ }}">{% trans "Sign In" %}</a>{% endif %}
-            {% if signup_url_ %}<a href="{{ signup_url_ }}">{% trans "Sign Up" %}</a>{% endif %}
           {% endif %}
         </nav>
         {% block content %}{% endblock content %}

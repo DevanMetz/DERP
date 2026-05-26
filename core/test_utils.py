@@ -1,16 +1,5 @@
-from django_tenants.test.cases import TenantTestCase
-from django_tenants.test.client import TenantClient
+from django.test import TestCase
 
 
-class DERPTenantTestCase(TenantTestCase):
-    @classmethod
-    def setup_tenant(cls, tenant):
-        tenant.name = "Test Tenant"
-
-    @classmethod
-    def setup_domain(cls, domain):
-        domain.is_primary = True
-
-    def _pre_setup(self):
-        super()._pre_setup()
-        self.client = TenantClient(self.tenant)
+class DERPTestCase(TestCase):
+    """Shared base for tests against a single self-hosted installation."""

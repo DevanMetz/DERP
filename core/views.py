@@ -3,15 +3,15 @@ from django.contrib import messages
 import json
 
 from django.core.exceptions import ValidationError
-from django.http import Http404, HttpResponseForbidden, JsonResponse
-from django.shortcuts import redirect, render
+from django.http import Http404, HttpResponseForbidden, HttpResponseNotAllowed, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django import forms
 from django.utils import timezone
 from datetime import date
 from decimal import Decimal
 from django.db.models import Sum, Q
 
-from .models import Company, Role
+from .models import AgentRoutine, Company, Role
 from .permissions import write_required
 from accounting.models import Account, AccountType, JournalEntry, JournalLine
 from inventory.models import Product, ProductType
@@ -119,6 +119,93 @@ def ai_confirm(request):
         message = exc.messages[0] if hasattr(exc, "messages") else str(exc)
         return JsonResponse({"error": message}, status=400)
     return JsonResponse(result)
+
+
+class AgentRoutineForm(forms.ModelForm):
+    class Meta:
+        model = AgentRoutine
+        fields = ["name", "purpose", "prompt", "cadence_note", "is_active"]
+        widgets = {
+            "purpose": forms.Textarea(attrs={"rows": 2, "placeholder": "What this routine should help you accomplish"}),
+            "prompt": forms.Textarea(attrs={"rows": 6, "placeholder": "Instructions that will be loaded into the Copilot"}),
+            "cadence_note": forms.TextInput(attrs={"placeholder": "For example: Weekday mornings"}),
+        }
+        help_texts = {
+            "prompt": "Do not include passwords, API keys, or other secrets.",
+            "cadence_note": "Planning note only. Agent Hub launches routines manually for now.",
+        }
+
+
+@login_required
+def agent_hub(request):
+    routines = AgentRoutine.objects.filter(owner=request.user)
+    return render(request, "core/agent_hub.html", {
+        "routines": routines,
+        "can_edit": request.user.role in {Role.ADMIN, Role.MANAGER, Role.STAFF},
+    })
+
+
+@login_required
+@write_required
+def agent_routine_create(request):
+    if request.method == "POST":
+        form = AgentRoutineForm(request.POST)
+        if form.is_valid():
+            routine = form.save(commit=False)
+            routine.owner = request.user
+            routine.save()
+            messages.success(request, f"Agent routine '{routine.name}' saved.")
+            return redirect("agent_hub")
+    else:
+        form = AgentRoutineForm()
+    return render(request, "core/agent_routine_form.html", {
+        "form": form,
+        "is_create": True,
+    })
+
+
+@login_required
+@write_required
+def agent_routine_edit(request, pk):
+    routine = get_object_or_404(AgentRoutine, pk=pk, owner=request.user)
+    if request.method == "POST":
+        form = AgentRoutineForm(request.POST, instance=routine)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Agent routine '{routine.name}' updated.")
+            return redirect("agent_hub")
+    else:
+        form = AgentRoutineForm(instance=routine)
+    return render(request, "core/agent_routine_form.html", {
+        "form": form,
+        "is_create": False,
+        "routine": routine,
+    })
+
+
+@login_required
+@write_required
+def agent_routine_toggle(request, pk):
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    routine = get_object_or_404(AgentRoutine, pk=pk, owner=request.user)
+    routine.is_active = not routine.is_active
+    routine.save(update_fields=["is_active", "updated_at"])
+    state = "enabled" if routine.is_active else "paused"
+    messages.success(request, f"Agent routine '{routine.name}' {state}.")
+    return redirect("agent_hub")
+
+
+@login_required
+@write_required
+def agent_routine_delete(request, pk):
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    routine = get_object_or_404(AgentRoutine, pk=pk, owner=request.user)
+    name = routine.name
+    routine.delete()
+    messages.success(request, f"Agent routine '{name}' deleted.")
+    return redirect("agent_hub")
 
 
 @login_required
@@ -295,6 +382,7 @@ def export_view(request):
         "core.user",
         "core.writeattempt",
         "core.copilotauditevent",
+        "core.agentroutine",
     }
 
     # Get all local models to export
@@ -1051,27 +1139,7 @@ def website_settings_view(request):
     else:
         form = WebsiteSettingsForm(instance=settings_instance)
 
-    # Pull live Stripe account status from the API whenever we render
-    # the settings page. Per the V2 spec we never cache this — capability
-    # and requirements state can change at any time.
-    account_status = None
-    if settings_instance.stripe_account_id:
-        try:
-            from webstore import stripe_service
-            if stripe_service.platform_is_configured():
-                account_status = stripe_service.retrieve_account_status(
-                    settings_instance.stripe_account_id
-                )
-        except Exception:
-            # Log-and-continue so a Stripe outage doesn't black out the
-            # settings page; the template degrades to the "Onboarding
-            # incomplete" pill until the next render.
-            import logging
-            logging.getLogger(__name__).exception("Failed to retrieve Stripe account status")
-
     return render(request, "core/website_settings.html", {
         "form": form,
         "company": Company.get(),
-        "account_status": account_status,
     })
-

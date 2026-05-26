@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{% if is_create %}New Agent Routine{% else %}Edit Agent Routine{% endif %} - DERP{% endblock %}
+{% block content %}
+  <div class="page-header">
+    <div>
+      <h1>{% if is_create %}New agent routine{% else %}Edit agent routine{% endif %}</h1>
+      <p class="text-subtle">Describe a task you want to return to. It will be prepared in Copilot for you to review and send manually.</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn secondary" href="{% url 'agent_hub' %}">Back to Agent Hub</a>
+    </div>
+  </div>
+
+  <div class="card" style="max-width: 720px;">
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <div class="action-row">
+        <button class="btn" type="submit">{% if is_create %}Save routine{% else %}Save changes{% endif %}</button>
+        <a class="btn secondary" href="{% url 'agent_hub' %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

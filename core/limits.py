@@ -1,14 +1,9 @@
-"""
-Per-tenant row caps to prevent abuse (e.g. someone dumping millions of journal entries).
-
-Limits are enforced via pre_save signals. Since django-tenants scopes queries to the
-active schema, sender.objects.count() returns the current tenant's row count.
-"""
+"""Installation-level row caps and per-user write throttling."""
 from django.core.exceptions import ValidationError
 from django.db.models.signals import pre_save
 
 
-TENANT_ROW_LIMITS = {
+INSTANCE_ROW_LIMITS = {
     "accounting.JournalEntry": 50_000,
     "accounting.JournalLine": 200_000,
     "accounting.Payment": 50_000,
@@ -41,7 +36,7 @@ def _enforce_limit(sender, instance, **kwargs):
         return  # only check on create, not update
 
     key = f"{sender._meta.app_label}.{sender.__name__}"
-    limit = TENANT_ROW_LIMITS.get(key)
+    limit = INSTANCE_ROW_LIMITS.get(key)
     if limit is None:
         return
 
@@ -66,18 +61,17 @@ def _enforce_limit(sender, instance, **kwargs):
         if random.random() < 0.01:
             WriteAttempt.prune()
 
-    # Per-tenant hard cap
+    # Installation-wide hard cap.
     if sender.objects.count() >= limit:
         raise ValidationError(
-            f"This workspace has reached its limit of {limit:,} "
-            f"{sender._meta.verbose_name_plural}. "
-            "Contact support@inventorymanager.xyz to raise the cap."
+            f"This installation has reached its configured limit of {limit:,} "
+            f"{sender._meta.verbose_name_plural}."
         )
 
 
 def install_limits():
     from django.apps import apps
-    for key in TENANT_ROW_LIMITS:
+    for key in INSTANCE_ROW_LIMITS:
         app_label, model_name = key.split(".")
         try:
             model = apps.get_model(app_label, model_name)
@@ -85,5 +79,5 @@ def install_limits():
             continue
         pre_save.connect(
             _enforce_limit, sender=model, weak=False,
-            dispatch_uid=f"tenant_row_limit_{key}",
+            dispatch_uid=f"instance_row_limit_{key}",
         )

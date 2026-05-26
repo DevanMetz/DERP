@@ -1,32 +1,42 @@
 # Getting Started
 
-DERP is a Django ERP application backed by PostgreSQL and `django-tenants`. The app is split into a public landing/signup area and tenant workspaces for company data.
+DERP is a self-hosted Django ERP application backed by PostgreSQL. One
+installation represents one organization and includes its ERP workspace,
+public website, storefront, and users.
 
-## Local setup
-
-Use the same setup flow as the README:
+## Local Setup
 
 ```bash
 python -m venv .venv
 pip install -r requirements.txt
-python manage.py migrate_schemas --shared
-python manage.py create_public_tenant
-python manage.py runserver 8001
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
 ```
 
-Copy `.env.example` to `.env` and configure at least `DATABASE_URL`, `SECRET_KEY`, `DEBUG`, and `BASE_DOMAIN`.
+Copy `.env.example` to `.env` and configure at least `DATABASE_URL`,
+`SECRET_KEY`, `DEBUG`, and `ALLOWED_HOSTS`.
 
-## Tenant workspaces
+The initial superuser is assigned the DERP Admin role automatically. Public
+signup is disabled; an administrator creates additional user accounts from
+within the ERP.
 
-Each company gets its own PostgreSQL schema. The tenant middleware resolves requests by domain or subdomain and switches database schema context before tenant views run.
+## Where To Start
 
-## Where to start in the app
+- `/derp/`: module shortcuts and operational alerts.
+- `/derp/dashboard/`: financial KPIs, valuation, and activity.
+- `/derp/company/`: business profile used on documents.
+- `/derp/website/`: website pages and branding.
+- `/derp/agents/`: reusable AI routines.
+- `/shop/`: the public storefront.
 
-- Home: workspace module grid and low-stock alerts.
-- Dashboard: financial KPIs, inventory valuation, and monthly activity.
-- Company: business profile used by documents and settings.
-- Data Export and Data Import: backup, CSV, and restore flows.
+## Data Model
 
-## Development habit
+`Company` and `WebsiteSettings` are singleton records. Products, orders,
+accounting records, and public pages all belong to this installation's single
+database namespace.
 
-Run focused tests for the area you change, then run the full suite before merging broader workflow changes.
+## Development Habit
+
+Run focused tests for the area you change, then run the full test suite before
+shipping broader workflow changes.

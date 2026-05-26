@@ -1,7 +1,7 @@
 """
 Core models: User and Company.
 
-Company is a singleton — single-tenant deployments means there is exactly
+Company is a singleton — a self-hosted installation represents exactly
 one Company row per database. We enforce that with a unique-on-constant
 trick so the constraint shows up in migrations.
 """
@@ -13,8 +13,6 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
-
-from webstore.fields import EncryptedCharField
 
 from .numbering import DocumentCounter  # noqa: F401 — register model with the app
 
@@ -29,6 +27,11 @@ class Role(models.TextChoices):
 class User(AbstractUser):
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.STAFF)
     history = HistoricalRecords()
+
+    def save(self, *args, **kwargs):
+        if self.is_superuser:
+            self.role = Role.ADMIN
+        super().save(*args, **kwargs)
 
     @property
     def can_post_journal(self) -> bool:
@@ -83,7 +86,7 @@ class Company(models.Model):
 
 
 class WriteAttempt(models.Model):
-    """Per-tenant write rate limit ledger. One row per high-volume create."""
+    """Write rate limit ledger for this installation."""
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True
     )
@@ -150,6 +153,36 @@ class CopilotAuditEvent(models.Model):
         ]
 
 
+class AgentRoutine(models.Model):
+    """A reusable prompt owned by one user and launched through the Copilot UI."""
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="agent_routines",
+    )
+    name = models.CharField(max_length=120)
+    purpose = models.TextField(blank=True)
+    prompt = models.TextField()
+    cadence_note = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text="Planning note only, for example: Weekday mornings. Routines run manually for now.",
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-is_active", "name", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["owner", "name"], name="unique_agent_routine_name_per_owner"),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
 class PublicPage(models.Model):
     title = models.CharField(max_length=200)
     slug = models.SlugField(unique=True, help_text="e.g. 'about', 'contact'. Set to 'home' or leave blank for the homepage.")
@@ -187,15 +220,6 @@ class WebsiteSettings(models.Model):
     font_family = models.CharField(max_length=100, default="Inter")
     custom_css = models.TextField(blank=True)
 
-    # --- Stripe Connect ---
-    # Filled by the OAuth callback. acct_… IDs are not secret per se but
-    # encrypted anyway so a DB snapshot reveals neither the IDs nor which
-    # tenant owns which account.
-    stripe_account_id = EncryptedCharField(blank=True, default="")
-    stripe_publishable_key = models.CharField(max_length=200, blank=True, default="")
-    stripe_webhook_secret = EncryptedCharField(blank=True, default="")
-    stripe_connected_at = models.DateTimeField(null=True, blank=True)
-
     class Meta:
         verbose_name = "Website Settings"
         verbose_name_plural = "Website Settings"
@@ -215,11 +239,6 @@ class WebsiteSettings(models.Model):
         self.singleton_key = 1
         super().save(*args, **kwargs)
 
-    @property
-    def is_stripe_connected(self) -> bool:
-        return bool(self.stripe_account_id)
-
-
 class PageRevision(models.Model):
     page = models.ForeignKey(PublicPage, on_delete=models.CASCADE, related_name="revisions")
     html_content = models.TextField()
@@ -228,4 +247,3 @@ class PageRevision(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
-

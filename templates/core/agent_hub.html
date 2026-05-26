@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Agent Hub - DERP{% endblock %}
+{% block content %}
+  <style>
+    .agent-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 14px;
+    }
+    .agent-card {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .agent-card h2 {
+      margin: 0;
+      font-size: 16px;
+    }
+    .agent-prompt {
+      min-height: 76px;
+      padding: 10px;
+      border: 1px solid var(--line-soft);
+      border-radius: 7px;
+      background: var(--surface-subtle);
+      color: #344054;
+      white-space: pre-wrap;
+    }
+    .agent-note {
+      margin-bottom: 18px;
+      border-color: #b2ddff;
+      background: #f5faff;
+    }
+    .agent-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: auto;
+    }
+    .agent-actions form {
+      display: inline-flex;
+      margin: 0;
+    }
+  </style>
+
+  <div class="page-header">
+    <div>
+      <h1>Agent Hub</h1>
+      <p class="text-subtle">Save repeatable instructions for your Copilot and launch them deliberately when you need them.</p>
+    </div>
+    {% if can_edit %}
+      <div class="page-actions">
+        <a class="btn" href="{% url 'agent_routine_create' %}">New routine</a>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="card agent-note">
+    <strong>Manual and approval-first.</strong>
+    <p class="text-subtle" style="margin: 6px 0 0;">
+      Routines do not start in the background. Opening one loads its prompt into Copilot for review, and any database write still requires the existing confirmation step.
+      Do not store passwords or API keys in routine prompts.
+    </p>
+  </div>
+
+  <div class="agent-grid">
+    {% for routine in routines %}
+      <article class="card agent-card">
+        <div>
+          {% if routine.is_active %}
+            <span class="badge success">Ready</span>
+          {% else %}
+            <span class="badge secondary">Paused</span>
+          {% endif %}
+          {% if routine.cadence_note %}
+            <span class="badge secondary">{{ routine.cadence_note }}</span>
+          {% endif %}
+        </div>
+        <div>
+          <h2>{{ routine.name }}</h2>
+          {% if routine.purpose %}<p class="text-subtle" style="margin: 6px 0 0;">{{ routine.purpose }}</p>{% endif %}
+        </div>
+        <div class="agent-prompt">{{ routine.prompt }}</div>
+        <div class="agent-actions">
+          {% if routine.is_active %}
+            <button
+              class="btn js-open-agent-prompt"
+              type="button"
+              data-agent-prompt="{{ routine.prompt|escape }}"
+            >Open in Copilot</button>
+          {% endif %}
+          {% if can_edit %}
+            <a class="btn secondary" href="{% url 'agent_routine_edit' routine.pk %}">Edit</a>
+            <form method="post" action="{% url 'agent_routine_toggle' routine.pk %}">
+              {% csrf_token %}
+              <button class="btn secondary" type="submit">{% if routine.is_active %}Pause{% else %}Enable{% endif %}</button>
+            </form>
+            <form method="post" action="{% url 'agent_routine_delete' routine.pk %}" onsubmit="return confirm('Delete this routine?');">
+              {% csrf_token %}
+              <button class="btn secondary" type="submit">Delete</button>
+            </form>
+          {% endif %}
+        </div>
+      </article>
+    {% empty %}
+      <div class="card">
+        <h2 style="margin-top: 0;">No routines yet</h2>
+        <p class="text-subtle">A routine is a reusable prompt such as a daily purchasing review, a customer follow-up checklist, or a stock investigation.</p>
+        {% if can_edit %}
+          <a class="btn" href="{% url 'agent_routine_create' %}">Create your first routine</a>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      document.querySelectorAll(".js-open-agent-prompt").forEach(function(button) {
+        button.addEventListener("click", function() {
+          if (window.DerpCopilot) {
+            window.DerpCopilot.preparePrompt(button.dataset.agentPrompt || "");
+          }
+        });
+      });
+    });
+  </script>
+{% endblock %}

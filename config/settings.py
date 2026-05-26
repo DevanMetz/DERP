@@ -14,18 +14,23 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-do-not-use-in-prod")
 DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
 
-BASE_DOMAIN = os.environ.get("BASE_DOMAIN", "localhost")
-
-# Accept any subdomain of BASE_DOMAIN plus localhost helpers
-_static_hosts = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
-ALLOWED_HOSTS = _static_hosts + [BASE_DOMAIN, f".{BASE_DOMAIN}"]
+# One installation serves one organization. Hosts are configured directly.
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if host.strip()
+]
 if railway_domain := os.environ.get("RAILWAY_PUBLIC_DOMAIN"):
-    ALLOWED_HOSTS.append(railway_domain)
+    if railway_domain not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(railway_domain)
 
 CSRF_TRUSTED_ORIGINS = [
-    f"https://{h}" for h in ALLOWED_HOSTS
-    if h not in ("localhost", "127.0.0.1") and not h.startswith(".")
-] + ([f"https://*.{BASE_DOMAIN}"] if BASE_DOMAIN != "localhost" else [])
+    origin.strip()
+    for origin in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+if railway_domain and f"https://{railway_domain}" not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{railway_domain}")
 
 # HTTPS security — only active when not in debug mode
 if not DEBUG:
@@ -34,21 +39,13 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = 31536000
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
 
 
-SHARED_APPS = [
-    # django-tenants must be first
-    "django_tenants",
-    "tenants",
-
-    # Django core shared apps
+INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.staticfiles",
     "django.contrib.sites",
-]
-
-TENANT_APPS = [
     "django.contrib.auth",
     "django.contrib.admin",
     "django.contrib.sessions",
@@ -72,15 +69,7 @@ TENANT_APPS = [
     "webstore",
 ]
 
-INSTALLED_APPS = list(dict.fromkeys(SHARED_APPS + TENANT_APPS))
-
-TENANT_MODEL = "tenants.TenantCompany"
-TENANT_DOMAIN_MODEL = "tenants.Domain"
-PUBLIC_SCHEMA_URLCONF = "config.public_urls"
-DEFAULT_NOT_FOUND_TENANT_VIEW = "tenants.views.tenant_not_found"
-
 MIDDLEWARE = [
-    "django_tenants.middleware.main.TenantMainMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -121,7 +110,7 @@ def _parse_db_url(url: str) -> dict:
     from urllib.parse import urlparse
     u = urlparse(url)
     return {
-        "ENGINE": "django_tenants.postgresql_backend",
+        "ENGINE": "django.db.backends.postgresql",
         "NAME": u.path.lstrip("/"),
         "USER": u.username or "",
         "PASSWORD": u.password or "",
@@ -132,8 +121,6 @@ def _parse_db_url(url: str) -> dict:
 DATABASES = {
     "default": _parse_db_url(os.environ.get("DATABASE_URL", "postgres://erp:erp@localhost:5432/erp")),
 }
-DATABASE_ROUTERS = ["django_tenants.routers.TenantSyncRouter"]
-
 AUTH_USER_MODEL = "core.User"
 
 AUTHENTICATION_BACKENDS = [
@@ -144,9 +131,9 @@ AUTHENTICATION_BACKENDS = [
 ACCOUNT_EMAIL_VERIFICATION = "none"
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
-ACCOUNT_ALLOW_REGISTRATION = False  # tenant users created at signup or via admin
+ACCOUNT_ADAPTER = "core.account_adapter.ClosedSignupAccountAdapter"
 ACCOUNT_RATE_LIMITS = {"login_failed": "5/5m"}
-LOGIN_REDIRECT_URL = "/"
+LOGIN_REDIRECT_URL = "/derp/"
 LOGOUT_REDIRECT_URL = "/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -159,11 +146,7 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# Cloudflare Turnstile CAPTCHA
-TURNSTILE_SITE_KEY = os.environ.get("TURNSTILE_SITE_KEY", "")
-TURNSTILE_SECRET_KEY = os.environ.get("TURNSTILE_SECRET_KEY", "")
-
-# Email (Resend SMTP relay)
+# Email (optional, used for password reset email)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.resend.com"
 EMAIL_PORT = 465
@@ -199,32 +182,12 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
-# --- Webstore / Stripe Connect (V2 Accounts) ---
-# Platform-level credentials. Every charge is routed to a tenant's
-# connected acct_… account via the Stripe-Account header, so tenant
-# funds settle into the tenant's Stripe balance — never the platform's
-# (except for `application_fee_amount`, which is platform revenue).
+# --- Webstore / Stripe Checkout ---
+# Credentials belong to the organization hosting this DERP installation.
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
-STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
 
-# Webhook signing secrets. Stripe forbids mixing V1 (snapshot) and V2
-# (thin) events on a single destination, so the platform needs two:
-#
-#   STRIPE_WEBHOOK_SECRET      = the THIN destination (V2 account events)
-#   STRIPE_WEBHOOK_SECRET_V1   = the SNAPSHOT destination (checkout.session.completed
-#                                and any other V1 events you subscribe to)
-#
-# Both can be set to the same value during local dev with the Stripe CLI;
-# in production they will differ since each destination has its own
-# `whsec_…`.
+# Signing secret for the checkout.session.completed webhook destination.
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
-STRIPE_WEBHOOK_SECRET_V1 = os.environ.get("STRIPE_WEBHOOK_SECRET_V1", "")
-
-# Key used to derive Fernet-encrypted column values. Rotate via a custom
-# command that re-encrypts each row. Falls back to SECRET_KEY if unset,
-# but a dedicated value is strongly preferred so the two can rotate
-# independently.
-FIELD_ENCRYPTION_KEY = os.environ.get("FIELD_ENCRYPTION_KEY", "")
 
 # Chart-of-accounts code for the cash account that receives online sales.
 # Defaults to "1010" (seeded default checking).

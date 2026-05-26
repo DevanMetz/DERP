@@ -8,7 +8,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("allauth.urls")),
 
-    # Public tenant website on the root domain
+    # Public website for this DERP installation
     path("", core_views.public_home, name="public_home"),
     path("p/<slug:slug>/", core_views.public_page, name="public_page"),
 

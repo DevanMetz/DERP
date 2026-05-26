@@ -1,7 +1,9 @@
-"""Column-level encryption for sensitive secrets.
+"""Historical encrypted field retained for migration compatibility.
 
-Backed by `cryptography.fernet` (AES-128-CBC + HMAC-SHA256). The encryption
-key is derived once at process start from settings.FIELD_ENCRYPTION_KEY
+No current runtime model uses this field. Older `core` migrations still
+import it while applying or reversing schema history. It is backed by
+`cryptography.fernet` (AES-128-CBC + HMAC-SHA256); the encryption key is
+derived once at process start from settings.FIELD_ENCRYPTION_KEY
 (or settings.SECRET_KEY as a fallback) by SHA-256-hashing into Fernet's
 required 32-byte form.
 

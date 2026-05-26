@@ -1,9 +1,9 @@
 import json
 from decimal import Decimal
-from core.test_utils import DERPTenantTestCase as TestCase
+from core.test_utils import DERPTestCase as TestCase
 from django.urls import reverse
 from django.utils import timezone
-from core.models import CopilotAuditEvent, User, Company, Role
+from core.models import AgentRoutine, CopilotAuditEvent, User, Company, Role
 from inventory.models import Product, ProductType, StockOnHand
 from accounting.models import Account, AccountType, JournalEntry, JournalLine
 from purchasing.models import PurchaseOrder, PurchaseOrderLine, Vendor
@@ -65,6 +65,16 @@ class RoleAccessTests(TestCase):
         response = self.client.get(reverse("company_setup"))
 
         self.assertEqual(response.status_code, 403)
+
+    def test_superuser_is_always_an_application_admin(self):
+        admin = User.objects.create_superuser(
+            username="owner",
+            email="owner@example.com",
+            password="secure-password",
+            role=Role.READONLY,
+        )
+
+        self.assertEqual(admin.role, Role.ADMIN)
 
 
 class DashboardViewTests(TestCase):
@@ -202,6 +212,18 @@ class AuthViewTests(TestCase):
         self.assertContains(response, 'class="app-header"')
         self.assertContains(response, 'class="auth-card"')
         self.assertContains(response, "Access your DERP workspace.")
+        self.assertNotContains(response, "Create account")
+
+    def test_public_signup_is_closed_for_self_hosted_installation(self):
+        response = self.client.post(reverse("account_signup"), {
+            "email": "public@example.com",
+            "password1": "Strong-and-long-password1",
+            "password2": "Strong-and-long-password1",
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Registration disabled")
+        self.assertFalse(User.objects.filter(email="public@example.com").exists())
 
 
 class AiCopilotTests(TestCase):
@@ -352,6 +374,95 @@ class AiCopilotTests(TestCase):
         self.assertIn("45.0000", payload["reply"])
 
 
+class AgentHubTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="routineowner",
+            email="owner@example.com",
+            password="password",
+            role=Role.ADMIN,
+        )
+        self.other_user = User.objects.create_user(
+            username="otheruser",
+            email="other@example.com",
+            password="password",
+            role=Role.ADMIN,
+        )
+
+    def test_agent_hub_requires_login(self):
+        response = self.client.get(reverse("agent_hub"))
+        self.assertEqual(response.status_code, 302)
+
+    def test_user_can_create_and_open_own_routine(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("agent_routine_create"),
+            {
+                "name": "Morning purchasing review",
+                "purpose": "Prepare for ordering decisions.",
+                "prompt": "Review open purchase orders and highlight next actions.",
+                "cadence_note": "Weekday mornings",
+                "is_active": "on",
+            },
+        )
+
+        self.assertRedirects(response, reverse("agent_hub"))
+        routine = AgentRoutine.objects.get(owner=self.user)
+        self.assertEqual(routine.name, "Morning purchasing review")
+
+        page = self.client.get(reverse("agent_hub"))
+        self.assertContains(page, "Morning purchasing review")
+        self.assertContains(page, "Open in Copilot")
+        self.assertContains(page, "Review open purchase orders and highlight next actions.")
+        self.assertContains(page, "window.DerpCopilot.preparePrompt")
+
+    def test_hub_hides_other_users_routines(self):
+        AgentRoutine.objects.create(
+            owner=self.other_user,
+            name="Other private routine",
+            prompt="This prompt belongs to someone else.",
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("agent_hub"))
+
+        self.assertNotContains(response, "Other private routine")
+        self.assertNotContains(response, "This prompt belongs to someone else.")
+
+    def test_user_cannot_edit_or_toggle_another_users_routine(self):
+        routine = AgentRoutine.objects.create(
+            owner=self.other_user,
+            name="Other private routine",
+            prompt="Keep this private.",
+        )
+        self.client.force_login(self.user)
+
+        edit_response = self.client.get(reverse("agent_routine_edit", args=[routine.pk]))
+        toggle_response = self.client.post(reverse("agent_routine_toggle", args=[routine.pk]))
+
+        self.assertEqual(edit_response.status_code, 404)
+        self.assertEqual(toggle_response.status_code, 404)
+        routine.refresh_from_db()
+        self.assertTrue(routine.is_active)
+
+    def test_readonly_user_cannot_create_a_routine(self):
+        readonly = User.objects.create_user(
+            username="readroutine",
+            email="readroutine@example.com",
+            password="password",
+            role=Role.READONLY,
+        )
+        self.client.force_login(readonly)
+
+        response = self.client.post(
+            reverse("agent_routine_create"),
+            {"name": "Blocked", "prompt": "Should not save."},
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(AgentRoutine.objects.filter(owner=readonly).exists())
+
+
 
 class DataExportTests(TestCase):
     def setUp(self):
@@ -452,6 +563,7 @@ class DataExportTests(TestCase):
         self.assertNotIn("core.user", exportable_keys)
         self.assertNotIn("core.writeattempt", exportable_keys)
         self.assertNotIn("core.copilotauditevent", exportable_keys)
+        self.assertNotIn("core.agentroutine", exportable_keys)
 
     def test_export_view_includes_sensitive_models_when_requested(self):
         self.client.login(username="testuser", password="password")
@@ -461,6 +573,7 @@ class DataExportTests(TestCase):
         self.assertIn("core.user", exportable_keys)
         self.assertIn("core.writeattempt", exportable_keys)
         self.assertIn("core.copilotauditevent", exportable_keys)
+        self.assertIn("core.agentroutine", exportable_keys)
 
     def test_export_view_ignores_sensitive_models_on_post_without_include_sensitive(self):
         self.client.login(username="testuser", password="password")
@@ -930,7 +1043,8 @@ class PublicWebsiteTests(TestCase):
         # Check settings page GET
         response = self.client.get(reverse("website_settings"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Global Website & Theme Settings")
+        self.assertContains(response, "Website settings")
+        self.assertContains(response, "Stripe Checkout")
 
         # Save settings POST
         response = self.client.post(reverse("website_settings"), {
@@ -1010,11 +1124,10 @@ class PublicWebsiteTests(TestCase):
         # Verify page create loads successfully
         response = self.client.get(reverse("page_create"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Visual Builder")
+        self.assertContains(response, 'id="pb-shell"')
         
         # Verify page edit loads successfully
         response = self.client.get(reverse("page_edit", args=[self.about_page.pk]))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Visual Builder")
-        self.assertContains(response, "draggable-block")
-
+        self.assertContains(response, 'id="pb-shell"')
+        self.assertContains(response, 'class="block-card"')

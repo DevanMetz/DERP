@@ -6,5 +6,5 @@ class WebstoreConfig(AppConfig):
     name = "webstore"
 
     def ready(self):
-        # Register startup checks (FIELD_ENCRYPTION_KEY, Stripe Connect)
+        # Register direct Stripe Checkout configuration checks.
         from . import checks  # noqa: F401

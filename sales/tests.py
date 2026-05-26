@@ -1,6 +1,6 @@
 from datetime import date
 from decimal import Decimal
-from core.test_utils import DERPTenantTestCase as TestCase
+from core.test_utils import DERPTestCase as TestCase
 from django.urls import reverse
 
 from accounting.models import Account, AccountType
@@ -271,7 +271,7 @@ class SalesPDFViewsTests(TestCase):
             revenue_account=self.revenue,
         )
         self.client.force_login(self.user)
-        response = self.client.get(f"/sales-orders/{order.pk}/pdf/")
+        response = self.client.get(reverse("sales_order_pdf", args=[order.pk]))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/pdf")
         self.assertIn("attachment", response["Content-Disposition"])
@@ -294,7 +294,7 @@ class SalesPDFViewsTests(TestCase):
             revenue_account=self.revenue,
         )
         self.client.force_login(self.user)
-        response = self.client.get(f"/invoices/{invoice.pk}/pdf/")
+        response = self.client.get(reverse("invoice_pdf", args=[invoice.pk]))
         self.assertEqual(response.status_code, 200)
         self.assertIn("application/pdf", response["Content-Type"])
         self.assertIn("attachment", response["Content-Disposition"])
@@ -347,7 +347,7 @@ class CustomerDetailViewTests(TestCase):
         )
 
         self.client.force_login(self.user)
-        response = self.client.get(f"/customers/{self.customer.pk}/")
+        response = self.client.get(reverse("customer_detail", args=[self.customer.pk]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Acme")
         self.assertContains(response, "Lifetime Posted Revenue")

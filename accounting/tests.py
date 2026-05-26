@@ -14,7 +14,7 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.urls import reverse
-from core.test_utils import DERPTenantTestCase as TestCase
+from core.test_utils import DERPTestCase as TestCase
 
 from core.models import Role, User
 from accounting.models import Account, AccountType, JournalEntry, JournalLine

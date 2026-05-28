@@ -269,6 +269,60 @@ class DefaultAdminCommandTests(TestCase):
         self.assertIn("Default admin skipped", out.getvalue())
 
 
+class DemoDataCommandTests(TestCase):
+    def test_command_seeds_demo_data_when_business_tables_are_empty(self):
+        User.objects.create_superuser(
+            username="owner",
+            email="owner@example.com",
+            password="SecurePassword123",
+            role=Role.ADMIN,
+        )
+        out = StringIO()
+
+        with patch.dict(os.environ, {"DERP_SEED_DEMO_DATA": "true"}):
+            call_command("ensure_demo_data", stdout=out)
+
+        from accounting.models import Account, Payment
+        from manufacturing.models import BillOfMaterials, ManufacturingOrder
+        from purchasing.models import Bill
+        from sales.models import Customer, Invoice, SalesOrder
+
+        self.assertEqual(Account.objects.count(), 39)
+        self.assertEqual(Product.objects.count(), 4)
+        self.assertEqual(Customer.objects.count(), 2)
+        self.assertEqual(Vendor.objects.count(), 2)
+        self.assertEqual(PurchaseOrder.objects.count(), 1)
+        self.assertEqual(Bill.objects.count(), 2)
+        self.assertEqual(BillOfMaterials.objects.count(), 1)
+        self.assertEqual(ManufacturingOrder.objects.count(), 1)
+        self.assertEqual(SalesOrder.objects.count(), 1)
+        self.assertEqual(Invoice.objects.count(), 2)
+        self.assertEqual(Payment.objects.count(), 1)
+        self.assertTrue(Invoice.objects.filter(status=Invoice.Status.SENT).exists())
+        self.assertTrue(Invoice.objects.filter(status=Invoice.Status.DRAFT).exists())
+        self.assertIn("Seeded demo ERP data", out.getvalue())
+
+    def test_command_skips_when_business_data_exists(self):
+        Product.objects.create(sku="EXISTING", name="Existing Product")
+        out = StringIO()
+
+        with patch.dict(os.environ, {"DERP_SEED_DEMO_DATA": "true"}):
+            call_command("ensure_demo_data", stdout=out)
+
+        self.assertEqual(Product.objects.count(), 1)
+        self.assertFalse(Vendor.objects.exists())
+        self.assertIn("Demo data skipped", out.getvalue())
+
+    def test_command_can_be_disabled(self):
+        out = StringIO()
+
+        with patch.dict(os.environ, {"DERP_SEED_DEMO_DATA": "false"}):
+            call_command("ensure_demo_data", stdout=out)
+
+        self.assertFalse(Product.objects.exists())
+        self.assertIn("Demo data seeding is disabled", out.getvalue())
+
+
 class AiCopilotTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(

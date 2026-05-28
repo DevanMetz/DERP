@@ -92,6 +92,10 @@ migrations. Set `DERP_DEFAULT_ADMIN_EMAIL`, `DERP_DEFAULT_ADMIN_USERNAME`, and
 password is configured, DERP generates one and prints it once in the deploy
 logs.
 
+Startup also seeds demo ERP data when the business tables are empty, including
+sample products, vendors, customers, purchases, manufacturing, sales, invoices,
+and payments. Set `DERP_SEED_DEMO_DATA=False` to disable this behavior.
+
 See [docs/deployment.md](docs/deployment.md) for deployment details.
 
 ## Storefront Payments

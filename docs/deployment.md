@@ -28,6 +28,7 @@ Set production values through your host's secret/environment manager.
 | `DERP_DEFAULT_ADMIN_EMAIL` | Optional bootstrap admin email for an empty database; defaults to `admin@example.com` |
 | `DERP_DEFAULT_ADMIN_USERNAME` | Optional bootstrap admin username for an empty database; defaults to `admin` |
 | `DERP_DEFAULT_ADMIN_PASSWORD` | Optional bootstrap admin password. If omitted, a password is generated and printed once in deploy logs |
+| `DERP_SEED_DEMO_DATA` | Seed demo ERP data when business tables are empty; defaults to `True`. Set to `False` to disable |
 
 ### Stripe Storefront Payments
 
@@ -55,6 +56,7 @@ Fresh install:
 ```bash
 python manage.py migrate
 python manage.py ensure_default_admin
+python manage.py ensure_demo_data
 python manage.py collectstatic --noinput
 gunicorn config.wsgi
 ```
@@ -64,6 +66,7 @@ The repository `start.sh` performs the deploy-time sequence:
 ```bash
 python manage.py migrate --noinput
 python manage.py ensure_default_admin
+python manage.py ensure_demo_data
 python manage.py collectstatic --noinput
 exec gunicorn config.wsgi --bind "0.0.0.0:${PORT:-8000}" --log-file -
 ```

@@ -25,6 +25,9 @@ Set production values through your host's secret/environment manager.
 | `RAILWAY_PUBLIC_DOMAIN` | Railway-provided domain, accepted automatically when present |
 | `RESEND_API_KEY` | Optional outbound password-reset email configuration |
 | `DEFAULT_FROM_EMAIL` | Optional sender address |
+| `DERP_DEFAULT_ADMIN_EMAIL` | Optional bootstrap admin email for an empty database; defaults to `admin@example.com` |
+| `DERP_DEFAULT_ADMIN_USERNAME` | Optional bootstrap admin username for an empty database; defaults to `admin` |
+| `DERP_DEFAULT_ADMIN_PASSWORD` | Optional bootstrap admin password. If omitted, a password is generated and printed once in deploy logs |
 
 ### Stripe Storefront Payments
 
@@ -51,7 +54,7 @@ Fresh install:
 
 ```bash
 python manage.py migrate
-python manage.py createsuperuser
+python manage.py ensure_default_admin
 python manage.py collectstatic --noinput
 gunicorn config.wsgi
 ```
@@ -60,6 +63,7 @@ The repository `start.sh` performs the deploy-time sequence:
 
 ```bash
 python manage.py migrate --noinput
+python manage.py ensure_default_admin
 python manage.py collectstatic --noinput
 exec gunicorn config.wsgi --bind "0.0.0.0:${PORT:-8000}" --log-file -
 ```

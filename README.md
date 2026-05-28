@@ -57,12 +57,14 @@ Prepare the database and create the first administrator:
 
 ```bash
 python manage.py migrate
-python manage.py createsuperuser
+python manage.py ensure_default_admin
 python manage.py runserver
 ```
 
-The superuser receives the DERP Admin role automatically. After signing in,
-the administrator can create additional users inside the ERP.
+The bootstrap admin receives the DERP Admin role automatically. You can control
+the credentials with `DERP_DEFAULT_ADMIN_EMAIL`, `DERP_DEFAULT_ADMIN_USERNAME`,
+and `DERP_DEFAULT_ADMIN_PASSWORD`. After signing in, the administrator can
+create additional users inside the ERP.
 
 Open:
 
@@ -83,6 +85,12 @@ the repository startup script:
 `start.sh` applies migrations, collects static files, and starts Gunicorn.
 At minimum, production should configure `SECRET_KEY`, `DEBUG=False`,
 `DATABASE_URL`, `ALLOWED_HOSTS`, and `CSRF_TRUSTED_ORIGINS` when needed.
+
+On an empty database, startup creates one bootstrap admin account after
+migrations. Set `DERP_DEFAULT_ADMIN_EMAIL`, `DERP_DEFAULT_ADMIN_USERNAME`, and
+`DERP_DEFAULT_ADMIN_PASSWORD` in Railway to control that first login. If no
+password is configured, DERP generates one and prints it once in the deploy
+logs.
 
 See [docs/deployment.md](docs/deployment.md) for deployment details.
 

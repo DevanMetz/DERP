@@ -1,12 +1,16 @@
 import json
+import os
 from decimal import Decimal
 from core.test_utils import DERPTestCase as TestCase
+from django.core.management import call_command
 from django.urls import reverse
 from django.utils import timezone
 from core.models import AgentRoutine, CopilotAuditEvent, User, Company, Role
 from inventory.models import Product, ProductType, StockOnHand
 from accounting.models import Account, AccountType, JournalEntry, JournalLine
 from purchasing.models import PurchaseOrder, PurchaseOrderLine, Vendor
+from io import StringIO
+from unittest.mock import patch
 
 
 class HomeViewTests(TestCase):
@@ -224,6 +228,45 @@ class AuthViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Registration disabled")
         self.assertFalse(User.objects.filter(email="public@example.com").exists())
+
+
+class DefaultAdminCommandTests(TestCase):
+    def test_command_creates_admin_when_no_users_exist(self):
+        out = StringIO()
+
+        with patch.dict(os.environ, {
+            "DERP_DEFAULT_ADMIN_EMAIL": "owner@example.com",
+            "DERP_DEFAULT_ADMIN_USERNAME": "owner",
+            "DERP_DEFAULT_ADMIN_PASSWORD": "SecurePassword123",
+        }):
+            call_command("ensure_default_admin", stdout=out)
+
+        user = User.objects.get(email="owner@example.com")
+        self.assertEqual(user.username, "owner")
+        self.assertTrue(user.is_superuser)
+        self.assertTrue(user.is_staff)
+        self.assertEqual(user.role, Role.ADMIN)
+        self.assertTrue(user.check_password("SecurePassword123"))
+        self.assertIn("Created default admin login.", out.getvalue())
+
+    def test_command_skips_when_any_user_exists(self):
+        User.objects.create_user(
+            username="existing",
+            email="existing@example.com",
+            password="password",
+            role=Role.STAFF,
+        )
+        out = StringIO()
+
+        with patch.dict(os.environ, {
+            "DERP_DEFAULT_ADMIN_EMAIL": "owner@example.com",
+            "DERP_DEFAULT_ADMIN_PASSWORD": "SecurePassword123",
+        }):
+            call_command("ensure_default_admin", stdout=out)
+
+        self.assertEqual(User.objects.count(), 1)
+        self.assertFalse(User.objects.filter(email="owner@example.com").exists())
+        self.assertIn("Default admin skipped", out.getvalue())
 
 
 class AiCopilotTests(TestCase):

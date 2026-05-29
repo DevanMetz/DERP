@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     "manufacturing",
     "projects",
     "webstore",
+    "qms",
 ]
 
 MIDDLEWARE = [

@@ -971,7 +971,16 @@
     <nav class="nav" aria-label="Primary navigation">
     <span id="fav-nav-links" style="display: inline-flex; align-items: center; gap: 4px; margin-right: 8px;"></span>
     
-    {% if '/products/' in request.path or '/boms/' in request.path or '/manufacturing-orders/' in request.path %}
+    {% if '/qms/' in request.path %}
+      <!-- Quality Management System Module -->
+      <a href="{% url 'qms_dashboard' %}">Dashboard</a>
+      <a href="{% url 'qms_template_list' %}">Templates</a>
+      <a href="{% url 'qms_inspection_list' %}">Inspections</a>
+      <a href="{% url 'qms_ncr_list' %}">NCRs</a>
+      <a href="{% url 'qms_capa_list' %}">CAPAs</a>
+      <a href="{% url 'docs_index' %}">Docs</a>
+      
+    {% elif '/products/' in request.path or '/boms/' in request.path or '/manufacturing-orders/' in request.path %}
       <!-- Operations & Inventory Module -->
       <a href="{% url 'dashboard' %}">Dashboard</a>
       <a href="{% url 'product_list' %}">Products</a>
@@ -1127,7 +1136,12 @@
       "balance_sheet": { name: "Balance Sheet", url: "{% url 'balance_sheet' %}", group: "accounting", icon: ICONS.chart },
       "general_ledger": { name: "GL", url: "{% url 'general_ledger' %}", group: "accounting", icon: ICONS.list },
       "data_export": { name: "Data Export", url: "{% url 'data_export' %}", group: "data", icon: ICONS.data },
-      "data_import": { name: "Data Import", url: "{% url 'data_import' %}", group: "data", icon: ICONS.data }
+      "data_import": { name: "Data Import", url: "{% url 'data_import' %}", group: "data", icon: ICONS.data },
+      "qms_dashboard": { name: "Quality Analytics", url: "{% url 'qms_dashboard' %}", group: "quality", icon: ICONS.chart },
+      "qms_templates": { name: "Inspection Templates", url: "{% url 'qms_template_list' %}", group: "quality", icon: ICONS.docs },
+      "qms_inspections": { name: "Quality Inspections", url: "{% url 'qms_inspection_list' %}", group: "quality", icon: ICONS.list },
+      "qms_ncrs": { name: "Non-Conformances", url: "{% url 'qms_ncr_list' %}", group: "quality", icon: ICONS.file },
+      "qms_capas": { name: "CAPA Actions", url: "{% url 'qms_capa_list' %}", group: "quality", icon: ICONS.agent }
     };
     {% if user.role == 'admin' %}
     ALL_APPS["user_management"] = { name: "Users", url: "{% url 'user_list' %}", group: "workspace", icon: ICONS.user };
@@ -1138,6 +1152,7 @@
     const SIDEBAR_GROUPS = [
       { id: "workspace", name: "Workspace" },
       { id: "operations", name: "Operations" },
+      { id: "quality", name: "Quality Control" },
       { id: "sales", name: "Sales" },
       { id: "purchasing", name: "Purchasing" },
       { id: "accounting", name: "Accounting" },

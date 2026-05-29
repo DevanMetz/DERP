@@ -22,6 +22,7 @@ urlpatterns = [
     path("derp/", include("inventory.urls")),
     path("derp/", include("purchasing.urls")),
     path("derp/", include("manufacturing.urls")),
+    path("derp/", include("qms.urls")),
 ]
 
 if settings.DEBUG:

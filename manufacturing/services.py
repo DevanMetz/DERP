@@ -150,6 +150,13 @@ def complete_manufacturing_order(mo: ManufacturingOrder, user) -> ManufacturingO
     mo.journal_entry = je
     mo.save()
 
+    # Trigger Quality Inspections
+    try:
+        from qms.services import create_pending_inspections_for_mo
+        create_pending_inspections_for_mo(mo, user)
+    except ImportError:
+        pass
+
     return mo
 
 

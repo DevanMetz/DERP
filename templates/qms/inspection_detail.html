@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 24px;">
+  <div>
+    <a href="{% url 'qms_inspection_list' %}" style="color: #2563eb; text-decoration: none; font-size: 13px; font-weight: 600;">&larr; Back to Quality Inspections</a>
+    <h1 style="font-size: 26px; font-weight: 800; color: #0f172a; margin: 8px 0 0;">
+      Inspection Run: {{ inspection.number|default:"Pending Run" }}
+    </h1>
+    <p class="muted" style="margin-top: 4px; font-size: 14px;">Protocol: {{ inspection.template.name }}</p>
+  </div>
+  <div class="page-actions">
+    {% if inspection.status == 'draft' %}
+      <a href="{% url 'qms_inspection_complete' inspection.pk %}" class="btn" style="background: #2563eb;">Execute Inspection Checklist</a>
+    {% endif %}
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
+  <!-- Left Column: Test Checklist Values -->
+  <div class="card" style="padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; background: #ffffff;">
+    <h2 style="font-size: 18px; font-weight: 750; color: #0f172a; margin-top: 0; margin-bottom: 16px;">Checklist Results</h2>
+
+    <div class="table-wrap" style="overflow-x: auto; border: 1px solid #f1f5f9; border-radius: 8px;">
+      <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+        <thead>
+          <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 600;">
+            <th style="padding: 12px 16px;">Test Parameter</th>
+            <th style="padding: 12px 16px;">Input Type</th>
+            <th style="padding: 12px 16px;">Target/Limits</th>
+            <th style="padding: 12px 16px;">Recorded Value</th>
+            <th style="padding: 12px 16px; text-align: right;">Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for val in inspection.values.all %}
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+              <td style="padding: 12px 16px; font-weight: 650; color: #0f172a;">{{ val.field_template.name }}</td>
+              <td style="padding: 12px 16px; color: #475569;">{{ val.field_template.get_field_type_display }}</td>
+              <td style="padding: 12px 16px; color: #475569;">
+                {% if val.field_template.field_type == 'numeric' %}
+                  {% if val.field_template.min_value is not None or val.field_template.max_value is not None %}
+                    Min: {{ val.field_template.min_value|default:"-" }} / Max: {{ val.field_template.max_value|default:"-" }}
+                  {% else %}
+                    -
+                  {% endif %}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td style="padding: 12px 16px; font-weight: 700; color: #334155;">
+                {% if inspection.status == 'draft' %}
+                  <span class="muted" style="color: #94a3b8; font-weight: normal;">Not checked</span>
+                {% else %}
+                  {% if val.field_template.field_type == 'boolean' %}
+                    {% if val.value_boolean %}
+                      <span style="color: #059669;">Pass</span>
+                    {% else %}
+                      <span style="color: #dc2626;">Fail</span>
+                    {% endif %}
+                  {% elif val.field_template.field_type == 'numeric' %}
+                    {{ val.value_numeric|default:"-" }}
+                  {% else %}
+                    {{ val.value_text|default:"-" }}
+                  {% endif %}
+                {% endif %}
+              </td>
+              <td style="padding: 12px 16px; text-align: right;">
+                {% if inspection.status != 'draft' %}
+                  {% if val.is_passing %}
+                    <span style="color: #10b981; font-weight: bold;">✔ OK</span>
+                  {% else %}
+                    <span style="color: #ef4444; font-weight: bold;">✘ FAIL</span>
+                  {% endif %}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Notes -->
+    <div style="margin-top: 24px;">
+      <h3 style="font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 8px;">Inspection Notes</h3>
+      <div style="padding: 12px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; color: #334155; min-height: 48px;">
+        {{ inspection.notes|default:"No notes added." }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: Meta Information & Traceability -->
+  <div style="display: flex; flex-direction: column; gap: 24px;">
+    <!-- Meta Info Card -->
+    <div class="card" style="padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; background: #ffffff;">
+      <h3 style="font-size: 15px; font-weight: 750; color: #0f172a; margin-top: 0; margin-bottom: 12px;">Inspection Details</h3>
+      
+      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
+        <div style="display: flex; justify-content: space-between;">
+          <span class="muted">Overall Status:</span>
+          <span>
+            {% if inspection.status == 'pass' %}
+              <span class="badge" style="background: #d1fae5; color: #065f46; font-weight: 600; padding: 2px 8px; border-radius: 999px;">Passed</span>
+            {% elif inspection.status == 'fail' %}
+              <span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 600; padding: 2px 8px; border-radius: 999px;">Failed</span>
+            {% else %}
+              <span class="badge" style="background: #dbeafe; color: #1e40af; font-weight: 600; padding: 2px 8px; border-radius: 999px;">Pending Run</span>
+            {% endif %}
+          </span>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between;">
+          <span class="muted">Inspected By:</span>
+          <span style="font-weight: 600; color: #334155;">
+            {{ inspection.inspected_by.username|default:"-" }}
+          </span>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between;">
+          <span class="muted">Completed At:</span>
+          <span style="font-weight: 600; color: #334155;">
+            {{ inspection.inspected_at|date:"Y-m-d H:i"|default:"-" }}
+          </span>
+        </div>
+
+        <div style="display: flex; justify-content: space-between;">
+          <span class="muted">Date Created:</span>
+          <span style="font-weight: 600; color: #334155;">
+            {{ inspection.created_at|date:"Y-m-d" }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Traceability Links Card -->
+    <div class="card" style="padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; background: #ffffff;">
+      <h3 style="font-size: 15px; font-weight: 750; color: #0f172a; margin-top: 0; margin-bottom: 12px;">Traceability</h3>
+      
+      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
+        <!-- Lot -->
+        <div style="display: flex; justify-content: space-between;">
+          <span class="muted">Inspection Lot:</span>
+          {% if inspection.lot %}
+            <span style="font-weight: 700; color: #0f172a;">{{ inspection.lot.lot_number }}</span>
+          {% else %}
+            <span class="muted">-</span>
+          {% endif %}
+        </div>
+
+        <!-- Goods Receipt -->
+        <div style="display: flex; justify-content: space-between;">
+          <span class="muted">Goods Receipt:</span>
+          {% if inspection.goods_receipt %}
+            <a href="{% url 'goods_receipt_detail' inspection.goods_receipt.pk %}" style="color: #2563eb; font-weight: 600; text-decoration: none;">
+              {{ inspection.goods_receipt.number }}
+            </a>
+          {% else %}
+            <span class="muted">-</span>
+          {% endif %}
+        </div>
+
+        <!-- Manufacturing Order -->
+        <div style="display: flex; justify-content: space-between;">
+          <span class="muted">Manufacturing Order:</span>
+          {% if inspection.manufacturing_order %}
+            <a href="{% url 'mo_detail' inspection.manufacturing_order.pk %}" style="color: #2563eb; font-weight: 600; text-decoration: none;">
+              {{ inspection.manufacturing_order.number }}
+            </a>
+          {% else %}
+            <span class="muted">-</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Related non-conformance reports -->
+    {% if non_conformances %}
+      <div class="card" style="padding: 20px; border-radius: 12px; border: 1px solid #fecaca; background: #fff5f5;">
+        <h3 style="font-size: 15px; font-weight: 750; color: #991b1b; margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+          <span style="display: inline-block; width: 8px; height: 8px; background: #dc2626; border-radius: 999px;"></span>
+          Auto-Raised Issues
+        </h3>
+        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px;">
+          {% for ncr in non_conformances %}
+            <a href="{% url 'qms_ncr_detail' ncr.pk %}" style="font-weight: 700; color: #dc2626; text-decoration: none;">
+              {{ ncr.number }} &rarr;
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -161,6 +161,7 @@ class Lot(models.Model):
     lot_number = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
     expiry_date = models.DateField(null=True, blank=True)
+    is_quarantined = models.BooleanField(default=False)
     history = HistoricalRecords()
 
     class Meta:

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 24px;">
+  <div>
+    <a href="{% url 'qms_capa_list' %}" style="color: #2563eb; text-decoration: none; font-size: 13px; font-weight: 600;">&larr; Back to CAPA Tracker</a>
+    <h1 style="font-size: 26px; font-weight: 800; color: #0f172a; margin: 8px 0 0;">
+      CAPA: {{ capa.number|default:"Pending CAPA" }}
+    </h1>
+    <p class="muted" style="margin-top: 4px; font-size: 14px;">Title: {{ capa.title }}</p>
+  </div>
+  <div class="page-actions">
+    {% if capa.status != 'closed' %}
+      <a href="{% url 'qms_capa_edit' capa.pk %}" class="btn">Update Actions / Close Case</a>
+    {% endif %}
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
+  <!-- Left Column: Investigations, Actions -->
+  <div style="display: flex; flex-direction: column; gap: 24px;">
+    <!-- RCA -->
+    <div class="card" style="padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; background: #ffffff;">
+      <h2 style="font-size: 16px; font-weight: 750; color: #92400e; margin-top: 0; margin-bottom: 12px;">1. Root Cause Analysis (RCA)</h2>
+      <div style="padding: 16px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; font-size: 13px; color: #78350f; line-height: 1.6; white-space: pre-wrap;">{{ capa.root_cause_analysis }}</div>
+    </div>
+
+    <!-- Corrective Action -->
+    <div class="card" style="padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; background: #ffffff;">
+      <h2 style="font-size: 16px; font-weight: 750; color: #1e40af; margin-top: 0; margin-bottom: 12px;">2. Immediate Corrective Action Taken</h2>
+      <div style="padding: 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; font-size: 13px; color: #1e3a8a; line-height: 1.6; white-space: pre-wrap;">{{ capa.corrective_action }}</div>
+    </div>
+
+    <!-- Preventive Action -->
+    <div class="card" style="padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; background: #ffffff;">
+      <h2 style="font-size: 16px; font-weight: 750; color: #065f46; margin-top: 0; margin-bottom: 12px;">3. Long-term Preventive Action Plan</h2>
+      <div style="padding: 16px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; font-size: 13px; color: #064e3b; line-height: 1.6; white-space: pre-wrap;">{{ capa.preventive_action }}</div>
+    </div>
+  </div>
+
+  <!-- Right Column: Meta contexts & Assignee info -->
+  <div style="display: flex; flex-direction: column; gap: 24px;">
+    <!-- Meta info -->
+    <div class="card" style="padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; background: #ffffff;">
+      <h3 style="font-size: 15px; font-weight: 750; color: #0f172a; margin-top: 0; margin-bottom: 12px;">CAPA Status</h3>
+      
+      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
+        <div style="display: flex; justify-content: space-between;">
+          <span class="muted">Status:</span>
+          <span>
+            {% if capa.status == 'closed' %}
+              <span class="badge" style="background: #d1fae5; color: #065f46; font-weight: 600; padding: 2px 8px; border-radius: 999px;">Closed</span>
+            {% elif capa.status == 'verification' %}
+              <span class="badge" style="background: #fffbeb; color: #92400e; font-weight: 600; padding: 2px 8px; border-radius: 999px;">Verification</span>
+            {% elif capa.status == 'active' %}
+              <span class="badge" style="background: #dbeafe; color: #1e40af; font-weight: 600; padding: 2px 8px; border-radius: 999px;">Active</span>
+            {% else %}
+              <span class="badge" style="background: #f1f5f9; color: #64748b; font-weight: 600; padding: 2px 8px; border-radius: 999px;">Draft</span>
+            {% endif %}
+          </span>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between;">
+          <span class="muted">Assigned To:</span>
+          <span style="font-weight: 600; color: #334155;">{{ capa.assigned_to.username|default:"Unassigned" }}</span>
+        </div>
+
+        <div style="display: flex; justify-content: space-between;">
+          <span class="muted">Target Completion:</span>
+          <span style="font-weight: 700; color: #eab308;">{{ capa.target_date|default:"-" }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Related NCR -->
+    <div class="card" style="padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; background: #ffffff;">
+      <h3 style="font-size: 15px; font-weight: 750; color: #0f172a; margin-top: 0; margin-bottom: 12px;">Triggering NCR</h3>
+      
+      <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px;">
+        <a href="{% url 'qms_ncr_detail' capa.non_conformance.pk %}" style="color: #2563eb; font-weight: 700; text-decoration: none;">
+          {{ capa.non_conformance.number }} &rarr;
+        </a>
+        <p class="muted" style="margin: 0; font-size: 12px;">{{ capa.non_conformance.title }}</p>
+      </div>
+    </div>
+
+    <!-- Case Closure details -->
+    {% if capa.status == 'closed' %}
+      <div class="card" style="padding: 20px; border-radius: 12px; border: 1px solid #bbf7d0; background: #f0fdf4;">
+        <h3 style="font-size: 15px; font-weight: 750; color: #166534; margin-top: 0; margin-bottom: 12px;">Case Closure</h3>
+        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: #166534;">
+          <div><strong>Closed By:</strong> {{ capa.closed_by.username }}</div>
+          <div><strong>Closed Date:</strong> {{ capa.closed_at|date:"Y-m-d H:i" }}</div>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

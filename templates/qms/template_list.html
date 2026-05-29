@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 24px;">
+  <div>
+    <h1 style="font-size: 26px; font-weight: 800; color: #0f172a; margin: 0;">Inspection Templates</h1>
+    <p class="muted" style="margin-top: 4px; font-size: 14px;">Establish inspection parameters for incoming materials or finished assemblies.</p>
+  </div>
+  <div class="page-actions">
+    <a href="{% url 'qms_template_create' %}" class="btn">+ Create Template</a>
+  </div>
+</div>
+
+<div class="card" style="padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; background: #ffffff;">
+  {% if templates %}
+    <div class="table-wrap" style="overflow-x: auto; border: 1px solid #f1f5f9; border-radius: 8px;">
+      <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+        <thead>
+          <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 600;">
+            <th style="padding: 12px 16px;">Template Name</th>
+            <th style="padding: 12px 16px;">Target Product</th>
+            <th style="padding: 12px 16px;">Trigger Type</th>
+            <th style="padding: 12px 16px;">Status</th>
+            <th style="padding: 12px 16px; text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for template in templates %}
+            <tr style="border-bottom: 1px solid #f1f5f9; hover:background-color: #f8fafc;">
+              <td style="padding: 12px 16px; font-weight: 650; color: #0f172a;">
+                <a href="{% url 'qms_template_detail' template.pk %}" style="color: #2563eb; text-decoration: none;">
+                  {{ template.name }}
+                </a>
+              </td>
+              <td style="padding: 12px 16px; color: #334155;">
+                {% if template.product %}
+                  <span style="font-weight: 600; color: #0f172a;">{{ template.product.sku }}</span> - {{ template.product.name }}
+                {% else %}
+                  <span class="badge secondary" style="background: #f1f5f9; color: #475569;">All Products (Global)</span>
+                {% endif %}
+              </td>
+              <td style="padding: 12px 16px; color: #475569;">
+                <span class="badge" style="background: #eff6ff; color: #1e40af; font-weight: 600; padding: 2px 8px; border-radius: 6px;">
+                  {{ template.get_trigger_type_display }}
+                </span>
+              </td>
+              <td style="padding: 12px 16px;">
+                {% if template.is_active %}
+                  <span class="badge" style="background: #d1fae5; color: #065f46; font-weight: 600; padding: 2px 8px; border-radius: 999px;">Active</span>
+                {% else %}
+                  <span class="badge" style="background: #f1f5f9; color: #64748b; font-weight: 600; padding: 2px 8px; border-radius: 999px;">Inactive</span>
+                {% endif %}
+              </td>
+              <td style="padding: 12px 16px; text-align: right; display: flex; justify-content: flex-end; gap: 8px;">
+                <a href="{% url 'qms_template_detail' template.pk %}" class="btn secondary" style="padding: 4px 10px; font-size: 12px;">Configure Fields</a>
+                <a href="{% url 'qms_template_edit' template.pk %}" class="btn secondary" style="padding: 4px 10px; font-size: 12px;">Edit Settings</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="padding: 48px; text-align: center;">
+      <p class="muted" style="font-size: 16px; margin-bottom: 16px;">No inspection templates have been created yet.</p>
+      <a href="{% url 'qms_template_create' %}" class="btn">+ Create First Template</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

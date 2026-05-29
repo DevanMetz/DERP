@@ -13,7 +13,6 @@ from accounting.models import Account
 from sales.models import Customer, Invoice, SalesOrder
 from sales.services import (
     confirm_sales_order,
-    create_invoice_from_sales_order,
     create_sales_order_lines,
     post_invoice,
     receive_payment,
@@ -119,7 +118,10 @@ def complete_checkout(checkout: Checkout, *, stripe_payment_intent: str = "") ->
     )
     create_sales_order_lines(order, cleaned_lines)
     confirm_sales_order(order)
-    invoice = create_invoice_from_sales_order(order)
+
+    invoice = order.invoices.first()
+    if invoice is None:
+        raise RuntimeError(f"Checkout {checkout.token} did not create an invoice.")
     post_invoice(invoice)
 
     receive_payment(

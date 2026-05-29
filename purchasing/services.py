@@ -306,6 +306,14 @@ def receive_purchase_order(
         raise ValidationError("Receipt did not include any stock items.")
 
     _set_purchase_order_receipt_status(order)
+
+    # Trigger Quality Inspections
+    try:
+        from qms.services import create_pending_inspections_for_receipt
+        create_pending_inspections_for_receipt(receipt, user)
+    except ImportError:
+        pass
+
     return receipt
 
 

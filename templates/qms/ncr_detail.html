@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 24px;">
+  <div>
+    <a href="{% url 'qms_ncr_list' %}" style="color: #2563eb; text-decoration: none; font-size: 13px; font-weight: 600;">&larr; Back to NCR List</a>
+    <h1 style="font-size: 26px; font-weight: 800; color: #0f172a; margin: 8px 0 0;">
+      NCR: {{ ncr.number|default:"Pending Issue" }}
+    </h1>
+    <p class="muted" style="margin-top: 4px; font-size: 14px;">Title: {{ ncr.title }}</p>
+  </div>
+  <div class="page-actions">
+    {% if ncr.status != 'closed' %}
+      <a href="{% url 'qms_capa_create' %}?ncr={{ ncr.pk }}" class="btn">+ Initiate CAPA Action</a>
+      <a href="{% url 'qms_ncr_edit' ncr.pk %}" class="btn secondary">Record Disposition &amp; Close</a>
+    {% endif %}
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
+  
+  <!-- Left Side: Description, Notes & CAPAs -->
+  <div style="display: flex; flex-direction: column; gap: 24px;">
+    <!-- Core Details -->
+    <div class="card" style="padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; background: #ffffff;">
+      <h2 style="font-size: 18px; font-weight: 750; color: #0f172a; margin-top: 0; margin-bottom: 16px;">Issue Description</h2>
+      
+      <div style="padding: 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; color: #334155; line-height: 1.6; white-space: pre-wrap; margin-bottom: 24px;">{{ ncr.description }}</div>
+      
+      <h2 style="font-size: 18px; font-weight: 750; color: #0f172a; margin-top: 0; margin-bottom: 16px;">Disposition Analysis</h2>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+        <div style="padding: 12px; border-radius: 8px; background: #f1f5f9; border: 1px solid #e2e8f0;">
+          <div class="muted" style="font-size: 11px; font-weight: 600; text-transform: uppercase;">Selected Disposition</div>
+          <div style="font-weight: 750; font-size: 14px; color: #0f172a; margin-top: 4px;">{{ ncr.get_disposition_display }}</div>
+        </div>
+        <div style="padding: 12px; border-radius: 8px; background: #f1f5f9; border: 1px solid #e2e8f0;">
+          <div class="muted" style="font-size: 11px; font-weight: 600; text-transform: uppercase;">Disposition Handled By</div>
+          <div style="font-weight: 750; font-size: 14px; color: #0f172a; margin-top: 4px;">
+            {{ ncr.disposition_by.username|default:"Pending Decision" }}
+            {% if ncr.disposition_at %} on {{ ncr.disposition_at|date:"Y-m-d" }}{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <h3 style="font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 8px;">Disposition Notes / Justification</h3>
+      <div style="padding: 12px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; color: #334155; min-height: 48px;">
+        {{ ncr.disposition_notes|default:"No disposition notes added." }}
+      </div>
+    </div>
+
+    <!-- Active CAPA Actions -->
+    <div class="card" style="padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; background: #ffffff;">
+      <h2 style="font-size: 18px; font-weight: 750; color: #0f172a; margin-top: 0; margin-bottom: 16px;">Linked Corrective &amp; Preventive Actions (CAPA)</h2>
+      
+      {% if capas %}
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          {% for capa in capas %}
+            <div style="padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <a href="{% url 'qms_capa_detail' capa.pk %}" style="font-weight: 700; color: #2563eb; text-decoration: none; font-size: 13px;">
+                  {{ capa.number }} - {{ capa.title }}
+                </a>
+                <p class="muted" style="margin: 4px 0 0; font-size: 12px;">
+                  Owner: {{ capa.assigned_to.username|default:"Unassigned" }} | Target: {{ capa.target_date }}
+                </p>
+              </div>
+              <span class="badge" style="background: #eff6ff; color: #1e40af; font-weight: 600; font-size: 12px; padding: 2px 8px; border-radius: 6px;">{{ capa.get_status_display }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="muted" style="text-align: center; padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1;">
+          No CAPAs linked to this non-conformance. Initiate a CAPA above to prevent this defect from recurring.
+        </p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Right Side: Metadata, Severity, Lot details -->
+  <div style="display: flex; flex-direction: column; gap: 24px;">
+    <!-- Meta info -->
+    <div class="card" style="padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; background: #ffffff;">
+      <h3 style="font-size: 15px; font-weight: 750; color: #0f172a; margin-top: 0; margin-bottom: 12px;">NCR Context</h3>
+      
+      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
+        <div style="display: flex; justify-content: space-between;">
+          <span class="muted">Status:</span>
+          <span>
+            {% if ncr.status == 'open' %}
+              <span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 600; padding: 2px 8px; border-radius: 999px;">Open</span>
+            {% elif ncr.status == 'investigating' %}
+              <span class="badge" style="background: #fffbeb; color: #92400e; font-weight: 600; padding: 2px 8px; border-radius: 999px;">Investigating</span>
+            {% else %}
+              <span class="badge" style="background: #d1fae5; color: #065f46; font-weight: 600; padding: 2px 8px; border-radius: 999px;">Closed</span>
+            {% endif %}
+          </span>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between;">
+          <span class="muted">Severity:</span>
+          <span>
+            {% if ncr.severity == 'critical' %}
+              <span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 700; font-size: 11px; padding: 2px 6px; border-radius: 4px;">CRITICAL</span>
+            {% elif ncr.severity == 'major' %}
+              <span class="badge" style="background: #fffbeb; color: #92400e; font-weight: 700; font-size: 11px; padding: 2px 6px; border-radius: 4px;">MAJOR</span>
+            {% else %}
+              <span class="badge" style="background: #f8fafc; color: #475569; font-weight: 700; font-size: 11px; padding: 2px 6px; border-radius: 4px;">MINOR</span>
+            {% endif %}
+          </span>
+        </div>
+
+        <div style="display: flex; justify-content: space-between;">
+          <span class="muted">Reported By:</span>
+          <span style="font-weight: 600; color: #334155;">{{ ncr.reported_by.username }}</span>
+        </div>
+
+        <div style="display: flex; justify-content: space-between;">
+          <span class="muted">Reported Date:</span>
+          <span style="font-weight: 600; color: #334155;">{{ ncr.reported_at|date:"Y-m-d H:i" }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Traceability context -->
+    <div class="card" style="padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; background: #ffffff;">
+      <h3 style="font-size: 15px; font-weight: 750; color: #0f172a; margin-top: 0; margin-bottom: 12px;">Traceability</h3>
+      
+      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
+        <div style="display: flex; justify-content: space-between;">
+          <span class="muted">Target Lot:</span>
+          {% if ncr.lot %}
+            <span style="font-weight: 700; color: #0f172a; {% if ncr.lot.is_quarantined %}color: #dc2626;{% endif %}">
+              {{ ncr.lot.lot_number }}
+              {% if ncr.lot.is_quarantined %}(QUARANTINED){% endif %}
+            </span>
+          {% else %}
+            <span class="muted">-</span>
+          {% endif %}
+        </div>
+
+        <div style="display: flex; justify-content: space-between;">
+          <span class="muted">Quality Inspection:</span>
+          {% if ncr.inspection %}
+            <a href="{% url 'qms_inspection_detail' ncr.inspection.pk %}" style="color: #2563eb; font-weight: 600; text-decoration: none;">
+              {{ ncr.inspection.number }}
+            </a>
+          {% else %}
+            <span class="muted">Manual entry</span>
+          {% endif %}
+        </div>
+
+        <div style="display: flex; justify-content: space-between;">
+          <span class="muted">Hold Warehouse:</span>
+          {% if ncr.location %}
+            <span style="font-weight: 600; color: #334155;">{{ ncr.location.name }}</span>
+          {% else %}
+            <span class="muted">-</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

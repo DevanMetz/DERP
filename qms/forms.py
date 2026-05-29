@@ -58,6 +58,7 @@ class NonConformanceForm(forms.ModelForm):
         self.fields["lot"].required = False
         self.fields["location"].queryset = Location.objects.filter(is_active=True).order_by("name")
         self.fields["location"].required = False
+        self.fields["disposition"].required = False
 
 
 class CAPAForm(forms.ModelForm):
